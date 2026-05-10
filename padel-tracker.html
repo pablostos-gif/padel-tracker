@@ -448,7 +448,13 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <div class="form-section">
       <div class="section-label">Opciones</div>
       <div class="form-row">
-        <div class="input-group"><label>Formato</label><select id="inp-best-of"><option value="3">Mejor de 3 sets</option><option value="1">1 set único</option></select></div>
+        <div class="input-group"><label>Formato</label><select id="inp-best-of">
+          <option value="3">Mejor de 3 sets</option>
+          <option value="1">1 set único (0-0)</option>
+          <option value="1-1">1 set (1-1)</option>
+          <option value="tb-7">Tiebreak a 7</option>
+          <option value="tb-10">Super Tiebreak a 10</option>
+        </select></div>
         <div class="input-group"><label>Torneo / Liga</label><input id="inp-tournament" type="text" placeholder="Amistoso" maxlength="30"></div>
       </div>
       <div class="input-group"><label>Fecha</label><input id="inp-date" type="date"></div>
@@ -914,10 +920,17 @@ function startMatch(){
   const myPartner=document.getElementById('inp-partner').value.trim();
   const rival1=document.getElementById('inp-rival1').value.trim()||'Rival';
   const rival2=document.getElementById('inp-rival2').value.trim();
-  const bestOf=parseInt(document.getElementById('inp-best-of').value);
+  const format=document.getElementById('inp-best-of').value;
   const tournament=document.getElementById('inp-tournament').value.trim();
   const date=document.getElementById('inp-date').value||new Date().toISOString().split('T')[0];
-  app.match={myName,myPartner,rival1,rival2,bestOf,tournament,date,sets:[],currentSet:{my:0,ri:0},currentGame:{my:0,ri:0},tiebreak:false,winner:null,notes:'',shots:emptyShots()};
+
+  let bestOf=3,isTiebreak=false,tiebreakMax=0,startGame={my:0,ri:0};
+  if(format==='1'){bestOf=1;startGame={my:0,ri:0};}
+  else if(format==='1-1'){bestOf=1;startGame={my:1,ri:1};}
+  else if(format==='tb-7'){isTiebreak=true;tiebreakMax=7;}
+  else if(format==='tb-10'){isTiebreak=true;tiebreakMax=10;}
+
+  app.match={myName,myPartner,rival1,rival2,bestOf,tournament,date,format,isTiebreak,tiebreakMax,sets:[],currentSet:startGame,currentGame:{my:0,ri:0},tiebreak:false,winner:null,notes:'',shots:emptyShots()};
   stateStack=[];showScreen('match');renderMatch();
 }
 function emptyShots(){
@@ -933,18 +946,36 @@ function scorePoint(team){
   if(!app.match)return;
   stateStack.push(JSON.stringify({sets:JSON.parse(JSON.stringify(app.match.sets)),currentSet:{...app.match.currentSet},currentGame:{...app.match.currentGame},tiebreak:app.match.tiebreak,winner:app.match.winner,shots:JSON.parse(JSON.stringify(app.match.shots))}));
   const m=app.match,g=m.currentGame;
-  if(m.tiebreak){if(team==='my')g.my++;else g.ri++;if((g.my>=7||g.ri>=7)&&Math.abs(g.my-g.ri)>=2){winGame(g.my>g.ri?'my':'ri');openShotSheet(team);return;}}
+  if(m.tiebreak){if(team==='my')g.my++;else g.ri++;const tbMax=m.tiebreakMax||7;if((g.my>=tbMax||g.ri>=tbMax)&&Math.abs(g.my-g.ri)>=2){winGame(g.my>g.ri?'my':'ri');openShotSheet(team);return;}}
   else{if(team==='my')g.my++;else g.ri++;const w=gameWinner(g);if(w){winGame(w);openShotSheet(team);return;}}
   renderMatch();popAnim(team==='my'?'pt-my':'pt-ri');openShotSheet(team);
 }
 function gameWinner(g){if(g.my>=4&&g.my-g.ri>=2)return'my';if(g.ri>=4&&g.ri-g.my>=2)return'ri';return null;}
-function winGame(w){const m=app.match;m.currentGame={my:0,ri:0};m.tiebreak=false;if(w==='my')m.currentSet.my++;else m.currentSet.ri++;checkSetWin();}
+function winGame(w){
+  const m=app.match;
+  m.currentGame={my:0,ri:0};
+  m.tiebreak=false;
+  if(w==='my')m.currentSet.my++;else m.currentSet.ri++;
+  checkSetWin();
+}
 function checkSetWin(){
   const m=app.match,s=m.currentSet;
+
+  // Si es tiebreak único, finalizamos cuando alguien gana
+  if(m.isTiebreak){
+    m.sets.push({...s});
+    m.winner=s.my>s.ri?'my':'ri';
+    setTimeout(goToEndScreen,400);
+    return;
+  }
+
   if(s.my===6&&s.ri===6){m.tiebreak=true;renderMatch();return;}
   const myW=s.my>=6&&s.my-s.ri>=2,rivW=s.ri>=6&&s.ri-s.my>=2;
   if(!myW&&!rivW){renderMatch();return;}
-  m.sets.push({...s});m.currentSet={my:0,ri:0};m.tiebreak=false;
+  m.sets.push({...s});
+  const nextStart=m.format==='1-1'?{my:1,ri:1}:{my:0,ri:0};
+  m.currentSet=nextStart;
+  m.tiebreak=false;
   const need=Math.ceil(m.bestOf/2);
   const mySets=m.sets.filter(x=>x.my>x.ri).length,rivSets=m.sets.filter(x=>x.ri>x.my).length;
   if(mySets>=need||rivSets>=need){m.winner=mySets>=need?'my':'ri';setTimeout(goToEndScreen,400);}
