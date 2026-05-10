@@ -1,0 +1,8 @@
+[build]
+  command = "echo 'Static site'"
+  publish = "."
+
+[[redirects]]
+  from = "/*"
+  to = "/padel-tracker.html"
+  status = 200
