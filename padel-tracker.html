@@ -452,8 +452,6 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
           <option value="3">Mejor de 3 sets</option>
           <option value="1">1 set único (0-0)</option>
           <option value="1-1">1 set (1-1)</option>
-          <option value="tb-7">Tiebreak a 7</option>
-          <option value="tb-10">Super Tiebreak a 10</option>
         </select></div>
         <div class="input-group"><label>Torneo / Liga</label><input id="inp-tournament" type="text" placeholder="Amistoso" maxlength="30"></div>
       </div>
@@ -924,13 +922,11 @@ function startMatch(){
   const tournament=document.getElementById('inp-tournament').value.trim();
   const date=document.getElementById('inp-date').value||new Date().toISOString().split('T')[0];
 
-  let bestOf=3,isTiebreak=false,tiebreakMax=0,startGame={my:0,ri:0};
+  let bestOf=3,startGame={my:0,ri:0};
   if(format==='1'){bestOf=1;startGame={my:0,ri:0};}
   else if(format==='1-1'){bestOf=1;startGame={my:1,ri:1};}
-  else if(format==='tb-7'){isTiebreak=true;tiebreakMax=7;}
-  else if(format==='tb-10'){isTiebreak=true;tiebreakMax=10;}
 
-  app.match={myName,myPartner,rival1,rival2,bestOf,tournament,date,format,isTiebreak,tiebreakMax,sets:[],currentSet:startGame,currentGame:{my:0,ri:0},tiebreak:false,winner:null,notes:'',shots:emptyShots()};
+  app.match={myName,myPartner,rival1,rival2,bestOf,tournament,date,format,tiebreakMax:0,sets:[],currentSet:startGame,currentGame:{my:0,ri:0},tiebreak:false,winner:null,notes:'',shots:emptyShots()};
   stateStack=[];showScreen('match');renderMatch();
 }
 function emptyShots(){
@@ -961,15 +957,11 @@ function winGame(w){
 function checkSetWin(){
   const m=app.match,s=m.currentSet;
 
-  // Si es tiebreak único, finalizamos cuando alguien gana
-  if(m.isTiebreak){
-    m.sets.push({...s});
-    m.winner=s.my>s.ri?'my':'ri';
-    setTimeout(goToEndScreen,400);
+  if(s.my===6&&s.ri===6){
+    askTiebreakType();
     return;
   }
 
-  if(s.my===6&&s.ri===6){m.tiebreak=true;renderMatch();return;}
   const myW=s.my>=6&&s.my-s.ri>=2,rivW=s.ri>=6&&s.ri-s.my>=2;
   if(!myW&&!rivW){renderMatch();return;}
   m.sets.push({...s});
@@ -980,6 +972,21 @@ function checkSetWin(){
   const mySets=m.sets.filter(x=>x.my>x.ri).length,rivSets=m.sets.filter(x=>x.ri>x.my).length;
   if(mySets>=need||rivSets>=need){m.winner=mySets>=need?'my':'ri';setTimeout(goToEndScreen,400);}
   else renderMatch();
+}
+
+function askTiebreakType(){
+  const box=document.querySelector('.confirm-box');
+  if(!box)return;
+  document.querySelector('.confirm-overlay').classList.remove('hidden');
+  box.innerHTML='<h3>¿Qué tipo de tiebreak?</h3><div class="confirm-btns" style="gap:10px;margin-top:20px"><button class="btn btn-primary" onclick="setTiebreakType(7)" style="flex:1">Tiebreak<br>(7 puntos)</button><button class="btn btn-primary" onclick="setTiebreakType(10)" style="flex:1">Super Tiebreak<br>(10 puntos)</button></div>';
+}
+
+function setTiebreakType(max){
+  app.match.tiebreak=true;
+  app.match.tiebreakMax=max;
+  app.match.currentGame={my:0,ri:0};
+  document.querySelector('.confirm-overlay').classList.add('hidden');
+  renderMatch();
 }
 function undoPoint(){if(!stateStack.length)return;closeShot();Object.assign(app.match,JSON.parse(stateStack.pop()));renderMatch();}
 function renderMatch(){
