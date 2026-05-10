@@ -942,7 +942,17 @@ function scorePoint(team){
   if(!app.match)return;
   stateStack.push(JSON.stringify({sets:JSON.parse(JSON.stringify(app.match.sets)),currentSet:{...app.match.currentSet},currentGame:{...app.match.currentGame},tiebreak:app.match.tiebreak,winner:app.match.winner,shots:JSON.parse(JSON.stringify(app.match.shots))}));
   const m=app.match,g=m.currentGame;
-  if(m.tiebreak){if(team==='my')g.my++;else g.ri++;const tbMax=m.tiebreakMax||7;if((g.my>=tbMax||g.ri>=tbMax)&&Math.abs(g.my-g.ri)>=2){winGame(g.my>g.ri?'my':'ri');openShotSheet(team);return;}}
+  if(m.tiebreak){
+    if(team==='my')g.my++;else g.ri++;
+    const tbMax=m.tiebreakMax||7;
+    if((g.my>=tbMax||g.ri>=tbMax)&&Math.abs(g.my-g.ri)>=2){
+      const winner=g.my>g.ri?'my':'ri';
+      m.currentSet[winner]++;
+      winTiebreak(winner);
+      openShotSheet(team);
+      return;
+    }
+  }
   else{if(team==='my')g.my++;else g.ri++;const w=gameWinner(g);if(w){winGame(w);openShotSheet(team);return;}}
   renderMatch();popAnim(team==='my'?'pt-my':'pt-ri');openShotSheet(team);
 }
@@ -987,6 +997,18 @@ function setTiebreakType(max){
   app.match.currentGame={my:0,ri:0};
   document.querySelector('.confirm-overlay').classList.add('hidden');
   renderMatch();
+}
+
+function winTiebreak(winner){
+  const m=app.match;
+  m.tiebreak=false;
+  m.sets.push({...m.currentSet});
+  const nextStart=m.format==='1-1'?{my:1,ri:1}:{my:0,ri:0};
+  m.currentSet=nextStart;
+  const need=Math.ceil(m.bestOf/2);
+  const mySets=m.sets.filter(x=>x.my>x.ri).length,rivSets=m.sets.filter(x=>x.ri>x.my).length;
+  if(mySets>=need||rivSets>=need){m.winner=mySets>=need?'my':'ri';setTimeout(goToEndScreen,400);}
+  else renderMatch();
 }
 function undoPoint(){if(!stateStack.length)return;closeShot();Object.assign(app.match,JSON.parse(stateStack.pop()));renderMatch();}
 function renderMatch(){
