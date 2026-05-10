@@ -634,6 +634,15 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   </div>
 </div>
 
+<!-- MATCH DETAIL -->
+<div id="match-detail-screen" class="screen">
+  <div class="screen-header">
+    <button class="back-btn" onclick="showScreen('history-screen')">←</button>
+    <h2>Detalle del Partido</h2>
+  </div>
+  <div class="scrollable" id="match-detail-content" style="padding-bottom:20px"></div>
+</div>
+
 <!-- TRAINING HISTORY -->
 <div id="train-history-screen" class="screen">
   <div class="screen-header">
@@ -1135,6 +1144,54 @@ function discardMatch(){app.match=null;stateStack=[];document.getElementById('ma
 // ═══════════════════════════════════════════════════════════════
 // MATCH HISTORY
 // ═══════════════════════════════════════════════════════════════
+function viewMatchDetail(idx){
+  const m=app.history[idx];
+  if(!m)return;
+  const content=document.getElementById('match-detail-content');
+  const mn=[m.myName,m.myPartner].filter(Boolean).join(' / '),rn=[m.rival1,m.rival2].filter(Boolean).join(' / ');
+  const sh=m.sets.map((s,i)=>`<div style="display:flex;gap:8px;font-weight:600"><span style="color:var(--my)">${s.my}</span><span style="color:var(--muted)">–</span><span style="color:var(--rival)">${s.ri}</span></div>`).join('');
+  const shots=m.shots?m.shots:null;
+  let shotHtml='';
+  if(shots){
+    shotHtml=`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Estadísticas de golpes</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <div style="font-size:10px;color:var(--my);margin-bottom:6px;font-weight:600">Mi equipo</div>
+          <div style="font-size:12px;color:var(--text);margin-bottom:4px">Winners: ${Object.values(shots.my.winners).reduce((a,b)=>a+b,0)}</div>
+          <div style="font-size:12px;color:var(--text);margin-bottom:4px">Error No-Fuerza: ${Object.values(shots.my.enf).reduce((a,b)=>a+b,0)}</div>
+          <div style="font-size:12px;color:var(--text)">Error Fuerza: ${shots.my.ef}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--rival);margin-bottom:6px;font-weight:600">Rivales</div>
+          <div style="font-size:12px;color:var(--text);margin-bottom:4px">Winners: ${Object.values(shots.ri.winners).reduce((a,b)=>a+b,0)}</div>
+          <div style="font-size:12px;color:var(--text);margin-bottom:4px">Error No-Fuerza: ${Object.values(shots.ri.enf).reduce((a,b)=>a+b,0)}</div>
+          <div style="font-size:12px;color:var(--text)">Error Fuerza: ${shots.ri.ef}</div>
+        </div>
+      </div>
+    </div>`;
+  }
+  content.innerHTML=`
+    <div style="background:var(--card);border-radius:18px;padding:16px;border:1px solid var(--border);margin:12px 16px 12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div>
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">${m.tournament||'Amistoso'}</div>
+          <div style="font-size:12px;color:var(--muted)">${fmtDate(m.date)}</div>
+        </div>
+        <span class="hist-badge ${m.isWin?'badge-win':'badge-loss'}">${m.isWin?'VICTORIA':'DERROTA'}</span>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:12px">
+        <div style="font-size:14px;font-weight:600;margin-bottom:8px">${esc(mn)}</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:12px">vs ${esc(rn)}</div>
+        <div style="display:flex;gap:8px">${sh}</div>
+      </div>
+    </div>
+    ${shotHtml}
+    ${m.notes?`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);margin:0 16px"><div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Notas</div><div style="font-size:13px;color:var(--text);line-height:1.6">${esc(m.notes)}</div></div>`:''}
+  `;
+  showScreen('match-detail-screen');
+}
+
 function renderHistory(){
   const list=document.getElementById('history-list');
   document.getElementById('hist-count').textContent=app.history.length?`${app.history.length} partidos`:'';
@@ -1144,7 +1201,7 @@ function renderHistory(){
     const sh=m.sets.map((s,i)=>{const w=s.my>s.ri,sep=i<m.sets.length-1?'<span class="set-dot">·</span>':'';return`<span class="set-score"><span class="${w?'w':'l'}">${s.my}</span>-<span class="${w?'l':'w'}">${s.ri}</span></span>${sep}`;}).join('');
     const shots=m.shots?m.shots.my:null;
     const sb=shots?`<div class="hist-shot-bar"><div class="hsb-item"><div class="hsb-dot" style="background:var(--my)"></div>${Object.values(shots.winners).reduce((a,b)=>a+b,0)}W</div><div class="hsb-item"><div class="hsb-dot" style="background:var(--rival)"></div>${Object.values(shots.enf).reduce((a,b)=>a+b,0)}ENF</div><div class="hsb-item"><div class="hsb-dot" style="background:var(--yellow)"></div>${shots.ef}EF</div></div>`:'';
-    return`<div class="hist-card"><div class="hist-top"><div><div class="hist-date">${m.tournament?esc(m.tournament)+' · ':''}${fmtDate(m.date)}</div></div><span class="hist-badge ${m.isWin?'badge-win':'badge-loss'}">${m.isWin?'VICTORIA':'DERROTA'}</span></div><div class="hist-players">${esc(mn)}<span class="vs">vs</span>${esc(rn)}</div><div class="hist-score">${sh}</div>${sb}${m.notes?`<div class="hist-notes">${esc(m.notes)}</div>`:''}</div>`;
+    return`<div class="hist-card" onclick="viewMatchDetail(${app.history.indexOf(m)})"><div class="hist-top"><div><div class="hist-date">${m.tournament?esc(m.tournament)+' · ':''}${fmtDate(m.date)}</div></div><span class="hist-badge ${m.isWin?'badge-win':'badge-loss'}">${m.isWin?'VICTORIA':'DERROTA'}</span></div><div class="hist-players">${esc(mn)}<span class="vs">vs</span>${esc(rn)}</div><div class="hist-score">${sh}</div>${sb}${m.notes?`<div class="hist-notes">${esc(m.notes)}</div>`:''}</div>`;
   }).join('');
 }
 
