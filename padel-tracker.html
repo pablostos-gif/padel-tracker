@@ -614,7 +614,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     </div>
   </div>
   <div class="form-footer">
-    <button class="btn btn-purple" onclick="saveTraining()" style="font-size:17px;padding:18px">✓ &nbsp;Guardar y descargar archivo</button>
+    <button class="btn btn-primary" onclick="saveTraining()" style="font-size:17px;padding:18px">✓ &nbsp;Guardar</button>
     <button class="btn btn-ghost" onclick="showScreen('home')">Cancelar</button>
   </div>
 </div>
@@ -634,9 +634,33 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <button class="back-btn" onclick="showScreen('home')">←</button>
     <h2>Entrenamientos</h2>
     <div id="train-hist-count" style="font-size:13px;color:var(--muted)"></div>
-    <button class="back-btn" style="background:transparent;border:none;cursor:pointer;font-size:18px" onclick="downloadTrainingData()" title="Descargar datos">💾</button>
+    <button class="back-btn" style="background:transparent;border:none;cursor:pointer;font-size:18px" onclick="showExportScreen()" title="Exportar entrenamientos">💾</button>
   </div>
   <div id="train-history-list" class="history-list"></div>
+</div>
+
+<!-- TRAINING EXPORT -->
+<div id="train-export-screen" class="screen">
+  <div class="screen-header">
+    <button class="back-btn" onclick="showScreen('train-history-screen')">←</button>
+    <h2>Exportar Entrenamientos</h2>
+  </div>
+  <div class="scrollable">
+    <div class="form-body">
+      <div class="f-section">
+        <div class="f-label">Período</div>
+        <div class="form-row">
+          <div class="f-group"><label>Desde</label><input id="exp-date-from" type="date"></div>
+          <div class="f-group"><label>Hasta</label><input id="exp-date-to" type="date"></div>
+        </div>
+      </div>
+      <div class="f-section" id="export-preview" style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:12px;padding:12px;"></div>
+    </div>
+  </div>
+  <div class="form-footer">
+    <button class="btn btn-primary" onclick="exportTrainingData()" style="font-size:17px;padding:18px">💾 &nbsp;Descargar seleccionados</button>
+    <button class="btn btn-ghost" onclick="showScreen('train-history-screen')">Cancelar</button>
+  </div>
 </div>
 
 <!-- STATS -->
@@ -870,6 +894,62 @@ function downloadTrainingData(){
     const a=document.createElement('a');
     a.href=url;
     a.download=`entrenamientos-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),2000);
+  }catch(e){
+    alert('Error al descargar los datos');
+  }
+}
+function showExportScreen(){
+  const today=new Date().toISOString().split('T')[0];
+  const oneMonthAgo=new Date(new Date().setMonth(new Date().getMonth()-1)).toISOString().split('T')[0];
+  document.getElementById('exp-date-from').value=oneMonthAgo;
+  document.getElementById('exp-date-to').value=today;
+  document.getElementById('exp-date-from').addEventListener('change',updateExportPreview);
+  document.getElementById('exp-date-to').addEventListener('change',updateExportPreview);
+  showScreen('train-export-screen');
+  updateExportPreview();
+}
+function updateExportPreview(){
+  const from=document.getElementById('exp-date-from').value;
+  const to=document.getElementById('exp-date-to').value;
+  const filtered=app.trainings.filter(t=>{
+    if(!from||!to)return true;
+    const td=t.date||'';
+    return td>=from&&td<=to;
+  });
+  const preview=document.getElementById('export-preview');
+  if(!filtered.length){preview.innerHTML='<div style="font-size:13px;color:var(--muted);padding:8px">Sin entrenamientos en este período</div>';return;}
+  preview.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px">${filtered.length} entrenamientos</div>`+filtered.map(t=>{
+    const dur=t.duration?`${t.duration}min · `:'';
+    return`<div style="padding:8px;border-bottom:1px solid var(--border);font-size:12px"><strong>${fmtDate(t.date)}</strong> ${dur}${t.type==='both'?'Técnico+Físico':t.type==='tec'?'Técnico':'Físico'}</div>`;
+  }).join('');
+}
+function exportTrainingData(){
+  const from=document.getElementById('exp-date-from').value;
+  const to=document.getElementById('exp-date-to').value;
+  const filtered=app.trainings.filter(t=>{
+    if(!from||!to)return true;
+    const td=t.date||'';
+    return td>=from&&td<=to;
+  });
+  if(!filtered.length){alert('No hay entrenamientos en este período');return;}
+  const data={
+    date:new Date().toISOString(),
+    period:{from,to},
+    count:filtered.length,
+    trainings:filtered
+  };
+  const json=JSON.stringify(data,null,2);
+  try{
+    const blob=new Blob([json],{type:'application/json;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    const fname=from===to?`entrenamientos-${from}.json`:`entrenamientos-${from}-a-${to}.json`;
+    a.download=fname;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
