@@ -1645,7 +1645,7 @@ function closeSimulator(){
 
 function resetSimulator(){
   if(simState.ball){simState.ball.position.set(0,1,0);simState.ball.velocity={x:0,y:0,z:0};}
-  const startPos=[[−7,0,−3],[7,0,−3],[−7,0,3],[7,0,3]];
+  const startPos=[[-7,0,-3],[7,0,-3],[-7,0,3],[7,0,3]];
   simState.players.forEach((p,i)=>{p.userData.pos={x:startPos[i][0],y:0,z:startPos[i][2]};p.userData.vel={x:0,z:0};p.position.set(...startPos[i]);});
 }
 </script>
