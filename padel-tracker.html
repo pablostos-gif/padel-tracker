@@ -1481,7 +1481,7 @@ function renderFisStats(){
   const topEx=Object.entries(exFreqMap).sort((a,b)=>b[1]-a[1])[0];
   document.getElementById('f-kpi-freq-exercise').textContent=topEx?topEx[0].charAt(0).toUpperCase()+topEx[0].slice(1):'—';
   const sorted=[...fis].sort((a,b)=>new Date(b.date)-new Date(a.date));
-  let curStreak=0,tmpT=new Date();sorted.forEach(t=>{const td=new Date(t.date+'T12:00:00');if((tmpT-td)/(1000*60*60*24)<=2){curStreak++;}else return;tmpT=td;});
+  let curStreak=0,tmpT=null;for(let t of sorted){const td=new Date(t.date+'T12:00:00');if(tmpT===null||((tmpT-td)/(1000*60*60*24))<=2){curStreak++;tmpT=td;}else break;}
   document.getElementById('f-kpi-streak').textContent=curStreak?curStreak+'🔥':'—';
   if(!fis.length){['chart-fis-intensity','chart-fis-state','chart-fis-load','chart-shots-pie'].forEach(destroyChart);document.getElementById('exercise-freq-list').innerHTML='<span style="font-size:13px;color:var(--muted)">Sin sesiones físicas aún</span>';return;}
   const labels=fis.map(t=>fmtDateShort(t.date));
