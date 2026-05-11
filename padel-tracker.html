@@ -1235,7 +1235,7 @@ function editTraining(id){
   document.getElementById('sl-humor').value=t.humor||3;document.getElementById('sl-humor-val').textContent=t.humor||3;
   document.getElementById('sl-intensidad').value=t.intensidad||3;document.getElementById('sl-intensidad-val').textContent=t.intensidad||3;
   buildShotsQualityGrid();
-  Object.keys(t.shotQuality||{}).forEach(k=>{const v=t.shotQuality[k];if(v){for(let i=1;i<=v;i++){const el=document.getElementById(`sqs-${k}-${i}`);if(el)el.classList.add('active');}}});
+  Object.keys(t.shotQuality||{}).forEach(k=>{const v=t.shotQuality[k];if(v){const row=document.getElementById('sqr-'+k);if(row)row.classList.add('active');for(let i=1;i<=v;i++){const el=document.getElementById(`sqs-${k}-${i}`);if(el)el.classList.add('lit');}}});
   renderExerciseList();
   showScreen('train-setup');
 }
@@ -1290,12 +1290,12 @@ function renderTrainHistory(){
   document.getElementById('train-hist-count').textContent=app.trainings.length?`${app.trainings.length} sesiones`:'';
   if(!app.trainings.length){list.innerHTML=`<div class="empty-state"><div class="empty-icon">💪</div><p>Aún no hay entrenamientos.<br>¡Registra la primera sesión!</p></div>`;return;}
   list.innerHTML=app.trainings.map(t=>{
-    const isTec=t.type==='tec';
-    const shots=isTec&&t.shotQuality?Object.entries(t.shotQuality).filter(([,v])=>v>0):[];
+    const isTec=t.type==='tec'||t.type==='both';
+    const shots=t.shotQuality?Object.entries(t.shotQuality).filter(([,v])=>v>0):[];
     const sc=shots.slice(0,5).map(([k,v])=>`<div class="ts-chip">${ALL_SHOT_LABELS[k]||k}<span class="stars">${'★'.repeat(v)}</span></div>`).join('');
     const dur=t.duration?`${t.duration}min · `:'';
     const sr=`<div class="train-state-row"><div>⚡${'●'.repeat(t.energia||0)}</div><div>😊${'●'.repeat(t.humor||0)}</div><div>🔥${'●'.repeat(t.intensidad||0)}</div></div>`;
-    return`<div class="hist-card ${isTec?'train-card':'train-card fis'}" style="cursor:pointer" onclick="editTraining(${t.id})"><div class="hist-top"><div><div class="hist-date">${dur}${fmtDate(t.date)}</div></div><span class="hist-badge ${isTec?'badge-train':'badge-train-fis'}">${isTec?'TÉCNICO':'FÍSICO'}</span><div onclick="event.stopPropagation();deleteTraining(${t.id})" style="cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--rival);font-size:18px;opacity:0.6;hover:opacity:1">✕</div></div>${shots.length?`<div class="train-shots-row">${sc}${shots.length>5?`<span style="font-size:11px;color:var(--muted)">+${shots.length-5} más</span>`:''}</div>`:''}${!isTec&&t.exercises&&t.exercises.length?`<div style="font-size:12px;color:var(--muted);margin-top:6px">${t.exercises.slice(0,3).map(e=>esc(e)).join(' · ')}</div>`:''}${sr}${t.notes?`<div class="hist-notes">${esc(t.notes)}</div>`:''}</div>`;
+    return`<div class="hist-card ${isTec?'train-card':'train-card fis'}" style="cursor:pointer" onclick="editTraining(${t.id})"><div class="hist-top"><div><div class="hist-date">${dur}${fmtDate(t.date)}</div></div><span class="hist-badge ${isTec?'badge-train':'badge-train-fis'}">${t.type==='both'?'TÉCNICO + FÍSICO':isTec?'TÉCNICO':'FÍSICO'}</span><div onclick="event.stopPropagation();deleteTraining(${t.id})" style="cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--rival);font-size:18px;opacity:0.6;hover:opacity:1">✕</div></div>${shots.length?`<div class="train-shots-row">${sc}${shots.length>5?`<span style="font-size:11px;color:var(--muted)">+${shots.length-5} más</span>`:''}</div>`:''}${t.exercises&&t.exercises.length?`<div style="font-size:12px;color:var(--muted);margin-top:6px">${t.exercises.slice(0,3).map(e=>esc(e)).join(' · ')}</div>`:''}${sr}${t.notes?`<div class="hist-notes">${esc(t.notes)}</div>`:''}</div>`;
   }).join('');
 }
 
