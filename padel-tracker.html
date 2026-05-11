@@ -686,11 +686,13 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
       <div class="kpi-card"><div class="kpi-val kpi-green" id="kpi-wins">0</div><div class="kpi-label">Victorias</div></div>
       <div class="kpi-card"><div class="kpi-val kpi-red"   id="kpi-losses">0</div><div class="kpi-label">Derrotas</div></div>
       <div class="kpi-card"><div class="kpi-val kpi-yellow" id="kpi-pct">—</div><div class="kpi-label">% victorias</div></div>
+      <div class="kpi-card"><div class="kpi-val kpi-muted" id="kpi-total">0</div><div class="kpi-label">Partidos</div></div>
     </div>
     <div class="kpi-grid">
-      <div class="kpi-card"><div class="kpi-val kpi-muted" id="kpi-total">0</div><div class="kpi-label">Partidos</div></div>
       <div class="kpi-card"><div class="kpi-val kpi-green" id="kpi-streak">—</div><div class="kpi-label">Racha actual</div></div>
       <div class="kpi-card"><div class="kpi-val kpi-yellow" id="kpi-best">—</div><div class="kpi-label">Mejor racha</div></div>
+      <div class="kpi-card"><div class="kpi-val kpi-blue" id="kpi-avg-sets">—</div><div class="kpi-label">Sets/partid</div></div>
+      <div class="kpi-card"><div class="kpi-val kpi-purple" id="kpi-rivals-count">—</div><div class="kpi-label">Rivales</div></div>
     </div>
     <div class="chart-card">
       <div class="chart-title">Coeficiente PadelStat</div>
@@ -717,24 +719,35 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <div class="chart-card"><div class="chart-title">Detalle de golpes</div><div id="shot-detail-table"></div></div>
   </div>
   <div id="panel-tecnica" class="stats-panel">
-    <div class="kpi-grid" style="grid-template-columns:1fr 1fr">
-      <div class="kpi-card"><div class="kpi-val kpi-purple" id="t-kpi-sessions">0</div><div class="kpi-label">Sesiones técnicas</div></div>
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-val kpi-purple" id="t-kpi-sessions">0</div><div class="kpi-label">Sesiones</div></div>
       <div class="kpi-card"><div class="kpi-val kpi-yellow" id="t-kpi-avg-q">—</div><div class="kpi-label">Calidad media</div></div>
+      <div class="kpi-card"><div class="kpi-val kpi-green" id="t-kpi-best-shot">—</div><div class="kpi-label">Mejor golpe</div></div>
+      <div class="kpi-card"><div class="kpi-val kpi-muted" id="t-kpi-total-shots">0</div><div class="kpi-label">Golpes entrenados</div></div>
     </div>
-    <div class="chart-card"><div class="chart-title">Progresión por golpe</div><div id="shot-progression-table"></div></div>
-    <div class="chart-card"><div class="chart-title">Calidad media por sesión</div><div class="chart-wrap" style="height:170px"><canvas id="chart-train-quality"></canvas></div></div>
-    <div class="chart-card"><div class="chart-title">Golpes más trabajados</div><div class="chart-wrap" style="height:190px"><canvas id="chart-shots-freq"></canvas></div></div>
-    <div class="chart-card"><div class="chart-title">Estado — energía y humor</div><div class="chart-wrap" style="height:160px"><canvas id="chart-estado"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Evolución de calidad por golpe</div><div id="shot-progression-table"></div></div>
+    <div class="chart-card"><div class="chart-title">Calidad promedio por sesión</div><div class="chart-wrap" style="height:170px"><canvas id="chart-train-quality"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Frecuencia de entrenamientos (golpes más trabajados)</div><div class="chart-wrap" style="height:200px"><canvas id="chart-shots-freq"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Distribución de golpes entrenados</div><div class="chart-wrap" style="height:180px"><canvas id="chart-shots-pie"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Estado físico y mental</div><div class="chart-wrap" style="height:160px"><canvas id="chart-estado"></canvas></div></div>
   </div>
   <div id="panel-fisico" class="stats-panel">
-    <div class="kpi-grid" style="grid-template-columns:1fr 1fr">
-      <div class="kpi-card"><div class="kpi-val kpi-blue" id="f-kpi-sessions">0</div><div class="kpi-label">Sesiones físicas</div></div>
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-val kpi-blue" id="f-kpi-sessions">0</div><div class="kpi-label">Sesiones</div></div>
       <div class="kpi-card"><div class="kpi-val kpi-yellow" id="f-kpi-intensity">—</div><div class="kpi-label">Intensidad media</div></div>
+      <div class="kpi-card"><div class="kpi-val kpi-green" id="f-kpi-energy">—</div><div class="kpi-label">Energía media</div></div>
+      <div class="kpi-card"><div class="kpi-val kpi-purple" id="f-kpi-mood">—</div><div class="kpi-label">Humor medio</div></div>
     </div>
-    <div class="chart-card"><div class="chart-title">Intensidad por sesión</div><div class="chart-wrap" style="height:165px"><canvas id="chart-fis-intensity"></canvas></div></div>
-    <div class="chart-card"><div class="chart-title">Energía y humor</div><div class="chart-wrap" style="height:165px"><canvas id="chart-fis-state"></canvas></div></div>
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-val kpi-muted" id="f-kpi-total-mins">0</div><div class="kpi-label">Minutos totales</div></div>
+      <div class="kpi-card"><div class="kpi-val kpi-blue" id="f-kpi-avg-mins">—</div><div class="kpi-label">Mins/sesión</div></div>
+      <div class="kpi-card"><div class="kpi-val kpi-yellow" id="f-kpi-freq-exercise">—</div><div class="kpi-label">Ejercicio TOP</div></div>
+      <div class="kpi-card"><div class="kpi-val kpi-green" id="f-kpi-streak">—</div><div class="kpi-label">Racha entrenos</div></div>
+    </div>
+    <div class="chart-card"><div class="chart-title">Evolución de intensidad y energía</div><div class="chart-wrap" style="height:170px"><canvas id="chart-fis-intensity"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Estado físico (energía, humor, intensidad)</div><div class="chart-wrap" style="height:180px"><canvas id="chart-fis-state"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Carga de entrenamiento (minutos por mes)</div><div class="chart-wrap" style="height:150px"><canvas id="chart-fis-load"></canvas></div></div>
     <div class="chart-card"><div class="chart-title">Ejercicios más frecuentes</div><div id="exercise-freq-list"></div></div>
-    <div class="chart-card"><div class="chart-title">Carga mensual (minutos)</div><div class="chart-wrap" style="height:150px"><canvas id="chart-fis-load"></canvas></div></div>
   </div>
 </div>
 
@@ -1391,6 +1404,10 @@ function renderMatchStats(){
   const data=filterHistory();
   const wins=data.filter(m=>m.isWin).length,losses=data.length-wins,pct=data.length?Math.round(wins/data.length*100):null;
   document.getElementById('kpi-wins').textContent=wins;document.getElementById('kpi-losses').textContent=losses;document.getElementById('kpi-pct').textContent=pct!==null?pct+'%':'—';document.getElementById('kpi-total').textContent=data.length;
+  const avgSets=data.length?Math.round(data.reduce((a,m)=>{const s=(m.sets1||0)+(m.sets2||0);return a+s;},0)/data.length*10)/10:null;
+  document.getElementById('kpi-avg-sets').textContent=avgSets?avgSets:'—';
+  const rivals=new Set(data.map(m=>m.rival1||''));
+  document.getElementById('kpi-rivals-count').textContent=rivals.size;
   const sorted=[...data].sort((a,b)=>new Date(b.date)-new Date(a.date));
   let curLen=0,curType=null,bestLen=0,tmp=0,tmpT=null;
   sorted.forEach(m=>{if(tmpT===null||tmpT!==m.isWin){tmpT=m.isWin;tmp=1;}else tmp++;if(tmp>bestLen)bestLen=tmp;});
@@ -1421,11 +1438,15 @@ function renderRivals(data){const map={};data.forEach(m=>{const r=m.rival1||'Riv
 function renderShotDetailTable(agg,tw,te){const el=document.getElementById('shot-detail-table');if(!agg||(!tw&&!te)){el.innerHTML='<span style="font-size:13px;color:var(--muted)">Sin datos de golpes aún</span>';return;}const rows=SHOT_KEYS.filter(k=>agg.winners[k]>0||agg.enf[k]>0).sort((a,b)=>(agg.winners[b]+agg.enf[b])-(agg.winners[a]+agg.enf[a]));const r=k=>{const w=agg.winners[k],e=agg.enf[k],t=w+e;return t?Math.round(w/t*100):0;};el.innerHTML=`<table class="shot-stat-table"><thead><tr><th>Golpe</th><th class="td-win">W</th><th class="td-enf">ENF</th><th>W/(W+E)</th></tr></thead><tbody>${rows.map(k=>`<tr><td>${SHOT_LABELS[k]}</td><td class="td-win">${agg.winners[k]}</td><td class="td-enf">${agg.enf[k]}</td><td style="color:${r(k)>=50?'#3DDB82':'#FF5E3A'}">${r(k)}%</td></tr>`).join('')}</tbody></table>`;}
 
 function renderTechStats(){
-  const tec=app.trainings.filter(t=>t.type==='tec').sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const tec=app.trainings.filter(t=>t.type==='tec'||t.type==='both').sort((a,b)=>new Date(a.date)-new Date(b.date));
   document.getElementById('t-kpi-sessions').textContent=tec.length;
   const allQ=tec.flatMap(t=>Object.values(t.shotQuality||{}));
   const avgQ=allQ.length?Math.round(allQ.reduce((a,b)=>a+b,0)/allQ.length*10)/10:null;
   document.getElementById('t-kpi-avg-q').textContent=avgQ?avgQ+'⭐':'—';
+  const shotCounts={};tec.forEach(t=>{Object.keys(t.shotQuality||{}).forEach(k=>{if((t.shotQuality[k]||0)>0)shotCounts[k]=(shotCounts[k]||0)+(t.shotQuality[k]||0);});});
+  const bestShot=Object.entries(shotCounts).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById('t-kpi-best-shot').textContent=bestShot?ALL_SHOT_LABELS[bestShot[0]]||bestShot[0]:'—';
+  document.getElementById('t-kpi-total-shots').textContent=Object.keys(shotCounts).length;
   if(!tec.length){['chart-train-quality','chart-shots-freq','chart-estado'].forEach(destroyChart);document.getElementById('shot-progression-table').innerHTML='<span style="font-size:13px;color:var(--muted)">Sin sesiones técnicas aún</span>';return;}
   const shotAvgs={};ALL_SHOT_KEYS.forEach(k=>{const vals=tec.map(t=>(t.shotQuality||{})[k]).filter(v=>v>0);if(vals.length)shotAvgs[k]={avg:vals.reduce((a,b)=>a+b,0)/vals.length,last:vals[vals.length-1],prev:vals.length>1?vals[vals.length-2]:null,count:vals.length};});
   const spSorted=Object.entries(shotAvgs).sort((a,b)=>b[1].avg-a[1].avg);
@@ -1438,14 +1459,31 @@ function renderTechStats(){
   const fs=Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,8);
   mkChart('chart-shots-freq','bar',{labels:fs.map(([k])=>ALL_SHOT_LABELS[k]||k),datasets:[{data:fs.map(([,v])=>v),backgroundColor:'rgba(181,123,255,0.7)',borderRadius:4}]},{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{...CD.tooltip}},scales:{x:{ticks:{color:CD.tick,font:{size:11},stepSize:1},grid:{color:CD.grid},border:{display:false}},y:{ticks:{color:CD.tick,font:{size:11}},grid:{display:false},border:{display:false}}}});
   mkChart('chart-estado','line',{labels:sl,datasets:[{label:'E',data:tec.map(t=>t.energia||null),borderColor:'#3DDB82',backgroundColor:'transparent',pointRadius:3,tension:0.35,borderWidth:2},{label:'H',data:tec.map(t=>t.humor||null),borderColor:'#B57BFF',backgroundColor:'transparent',pointRadius:3,tension:0.35,borderWidth:2,borderDash:[4,3]}]},{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{...CD.tooltip}},scales:{y:{min:1,max:5,ticks:{color:CD.tick,font:{size:11},stepSize:1},grid:{color:CD.grid},border:{display:false}},x:{ticks:{color:CD.tick,font:{size:11},maxRotation:45},grid:{display:false},border:{display:false}}}});
+  const colors=['#3DDB82','#B57BFF','#F0DC50','#3B82F6','#EF4444','#06B6D4','#EC4899','#10B981','#8B5CF6','#F59E0B'];
+  const fData=Object.entries(freq).sort((a,b)=>b[1]-a[1]);
+  mkChart('chart-shots-pie','doughnut',{labels:fData.map(([k])=>ALL_SHOT_LABELS[k]||k),datasets:[{data:fData.map(([,v])=>v),backgroundColor:fData.map((,i)=>colors[i%colors.length]),borderWidth:0}]},{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{display:false},tooltip:{...CD.tooltip}}});
 }
 
 function renderFisStats(){
-  const fis=app.trainings.filter(t=>t.type==='fis').sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const fis=app.trainings.filter(t=>t.type==='fis'||t.type==='both').sort((a,b)=>new Date(a.date)-new Date(b.date));
   document.getElementById('f-kpi-sessions').textContent=fis.length;
   const avgI=fis.length?Math.round(fis.reduce((a,t)=>a+(t.intensidad||3),0)/fis.length*10)/10:null;
   document.getElementById('f-kpi-intensity').textContent=avgI?avgI+'🔥':'—';
-  if(!fis.length){['chart-fis-intensity','chart-fis-state','chart-fis-load'].forEach(destroyChart);document.getElementById('exercise-freq-list').innerHTML='<span style="font-size:13px;color:var(--muted)">Sin sesiones físicas aún</span>';return;}
+  const avgE=fis.length?Math.round(fis.reduce((a,t)=>a+(t.energia||3),0)/fis.length*10)/10:null;
+  document.getElementById('f-kpi-energy').textContent=avgE?avgE+'⚡':'—';
+  const avgH=fis.length?Math.round(fis.reduce((a,t)=>a+(t.humor||3),0)/fis.length*10)/10:null;
+  document.getElementById('f-kpi-mood').textContent=avgH?avgH+'😊':'—';
+  const totalMins=fis.reduce((a,t)=>a+(t.duration||0),0);
+  document.getElementById('f-kpi-total-mins').textContent=totalMins;
+  const avgMins=fis.length?Math.round(totalMins/fis.length)+'min':'—';
+  document.getElementById('f-kpi-avg-mins').textContent=avgMins;
+  const exFreqMap={};fis.forEach(t=>(t.exercises||[]).forEach(e=>{const k=e.split('·')[0].trim().toLowerCase();exFreqMap[k]=(exFreqMap[k]||0)+1;}));
+  const topEx=Object.entries(exFreqMap).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById('f-kpi-freq-exercise').textContent=topEx?topEx[0].charAt(0).toUpperCase()+topEx[0].slice(1):'—';
+  const sorted=[...fis].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  let curStreak=0,tmpT=new Date();sorted.forEach(t=>{const td=new Date(t.date+'T12:00:00');if((tmpT-td)/(1000*60*60*24)<=2){curStreak++;}else return;tmpT=td;});
+  document.getElementById('f-kpi-streak').textContent=curStreak?curStreak+'🔥':'—';
+  if(!fis.length){['chart-fis-intensity','chart-fis-state','chart-fis-load','chart-shots-pie'].forEach(destroyChart);document.getElementById('exercise-freq-list').innerHTML='<span style="font-size:13px;color:var(--muted)">Sin sesiones físicas aún</span>';return;}
   const labels=fis.map(t=>fmtDateShort(t.date));
   mkChart('chart-fis-intensity','line',{labels,datasets:[{data:fis.map(t=>t.intensidad||null),borderColor:'#F0DC50',backgroundColor:'rgba(240,220,80,0.07)',pointBackgroundColor:'#F0DC50',pointRadius:4,tension:0.35,fill:true,borderWidth:2}]},{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{...CD.tooltip,callbacks:{label:c=>`Intensidad: ${c.raw||'-'}/5`}}},scales:{y:{min:1,max:5,ticks:{color:CD.tick,font:{size:11},stepSize:1},grid:{color:CD.grid},border:{display:false}},x:{ticks:{color:CD.tick,font:{size:11},maxRotation:45},grid:{display:false},border:{display:false}}}});
   mkChart('chart-fis-state','line',{labels,datasets:[{label:'E',data:fis.map(t=>t.energia||null),borderColor:'#3DDB82',backgroundColor:'transparent',pointRadius:3,tension:0.35,borderWidth:2},{label:'H',data:fis.map(t=>t.humor||null),borderColor:'#B57BFF',backgroundColor:'transparent',pointRadius:3,tension:0.35,borderWidth:2,borderDash:[4,3]}]},{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{...CD.tooltip}},scales:{y:{min:1,max:5,ticks:{color:CD.tick,font:{size:11},stepSize:1},grid:{color:CD.grid},border:{display:false}},x:{ticks:{color:CD.tick,font:{size:11},maxRotation:45},grid:{display:false},border:{display:false}}}});
