@@ -568,21 +568,6 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   <div class="scrollable">
     <div class="form-body">
       <div class="f-section">
-        <div class="f-label">Tipo de entrenamiento</div>
-        <div class="train-type-grid">
-          <div class="train-type-card sel-tec" id="ttype-tec" onclick="selTrainType('tec')">
-            <div class="train-type-icon">🎾</div>
-            <div class="train-type-label">Técnico</div>
-            <div class="train-type-sub">Con entrenador</div>
-          </div>
-          <div class="train-type-card" id="ttype-fis" onclick="selTrainType('fis')">
-            <div class="train-type-icon">💪</div>
-            <div class="train-type-label">Físico</div>
-            <div class="train-type-sub">Gym / carrera</div>
-          </div>
-        </div>
-      </div>
-      <div class="f-section">
         <div class="form-row">
           <div class="f-group"><label>Fecha</label><input id="t-date" type="date"></div>
           <div class="f-group"><label>Duración (min)</label><input id="t-duration" type="number" min="15" max="300" placeholder="90"></div>
@@ -590,12 +575,12 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
       </div>
       <div id="t-technical-section" class="f-section">
         <div class="color-bar purple-bar"></div>
-        <div class="f-label">Golpes trabajados — puntúa del 1 al 5 ⭐</div>
+        <div class="f-label">🎾 Golpes técnicos — puntúa del 1 al 5 ⭐</div>
         <div class="shots-quality-grid" id="shots-quality-grid"></div>
       </div>
-      <div id="t-physical-section" class="f-section" style="display:none">
+      <div id="t-physical-section" class="f-section">
         <div class="color-bar" style="background:linear-gradient(90deg,var(--blue),#7EC8FF)"></div>
-        <div class="f-label">Ejercicios realizados</div>
+        <div class="f-label">💪 Ejercicios realizados</div>
         <div class="exercise-list" id="exercise-list"></div>
         <div class="add-ex-row">
           <input id="ex-name-inp" type="text" placeholder="Ej: Sprints 30m · 6 series" maxlength="50">
@@ -1209,21 +1194,14 @@ function renderHistory(){
 // TRAINING MODULE
 // ═══════════════════════════════════════════════════════════════
 function goToTraining(){
-  currentTrainType='tec';exercises=[];
+  exercises=[];
   document.getElementById('t-date').value=new Date().toISOString().split('T')[0];
   document.getElementById('t-duration').value='';
   document.getElementById('t-notes').value='';
   document.getElementById('sl-energia').value=3;document.getElementById('sl-energia-val').textContent=3;
   document.getElementById('sl-humor').value=3;document.getElementById('sl-humor-val').textContent=3;
   document.getElementById('sl-intensidad').value=3;document.getElementById('sl-intensidad-val').textContent=3;
-  selTrainType('tec');buildShotsQualityGrid();renderExerciseList();showScreen('train-setup');
-}
-function selTrainType(t){
-  currentTrainType=t;
-  document.getElementById('ttype-tec').className='train-type-card'+(t==='tec'?' sel-tec':'');
-  document.getElementById('ttype-fis').className='train-type-card'+(t==='fis'?' sel-fis':'');
-  document.getElementById('t-technical-section').style.display=t==='tec'?'flex':'none';
-  document.getElementById('t-physical-section').style.display=t==='fis'?'flex':'none';
+  buildShotsQualityGrid();renderExerciseList();showScreen('train-setup');
 }
 function buildShotsQualityGrid(){
   document.getElementById('shots-quality-grid').innerHTML=ALL_SHOT_KEYS.map(k=>`
@@ -1244,7 +1222,18 @@ function renderExerciseList(){const el=document.getElementById('exercise-list');
 function updSlider(el,valId,colors){const v=parseInt(el.value);const ve=document.getElementById(valId);ve.textContent=v;ve.style.color=colors[v-1]||'var(--muted)';}
 function saveTraining(){
   const sq={};ALL_SHOT_KEYS.forEach(k=>{const r=getShotRating(k);if(r!==null)sq[k]=r;});
-  const t={id:Date.now(),date:document.getElementById('t-date').value||new Date().toISOString().split('T')[0],type:currentTrainType,duration:parseInt(document.getElementById('t-duration').value)||null,shotQuality:currentTrainType==='tec'?sq:{},exercises:currentTrainType==='fis'?[...exercises]:[],energia:parseInt(document.getElementById('sl-energia').value),humor:parseInt(document.getElementById('sl-humor').value),intensidad:parseInt(document.getElementById('sl-intensidad').value),notes:document.getElementById('t-notes').value.trim()};
+  const t={
+    id:Date.now(),
+    date:document.getElementById('t-date').value||new Date().toISOString().split('T')[0],
+    type:'both',
+    duration:parseInt(document.getElementById('t-duration').value)||null,
+    shotQuality:sq,
+    exercises:[...exercises],
+    energia:parseInt(document.getElementById('sl-energia').value),
+    humor:parseInt(document.getElementById('sl-humor').value),
+    intensidad:parseInt(document.getElementById('sl-intensidad').value),
+    notes:document.getElementById('t-notes').value.trim()
+  };
   app.trainings.unshift(t);saveApp();
   generateAndDownload();
   showScreen('train-history-screen');
