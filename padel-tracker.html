@@ -414,6 +414,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <div class="home-section-label">Entrenamientos</div>
     <button class="btn btn-purple"     onclick="goToTraining()">⊕ &nbsp;Nuevo Entrenamiento</button>
     <button class="btn btn-secondary"  onclick="showScreen('train-history-screen')">⊞ &nbsp;Historial de entrenos</button>
+    <button class="btn btn-blue"       onclick="initSimulator();showScreen('simulator-screen')">🎮 &nbsp;Simulador 3D</button>
     <div class="home-section-label">Análisis y exportar</div>
     <button class="btn btn-accent"     onclick="showScreen('stats-screen')">◈ &nbsp;Evolución y estadísticas</button>
     <button class="btn btn-save"       onclick="triggerDownload()">💾 &nbsp;Guardar app con mis datos</button>
@@ -751,6 +752,30 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   </div>
 </div>
 
+<!-- 3D SIMULATOR -->
+<div id="simulator-screen" class="screen">
+  <div class="screen-header">
+    <button class="back-btn" onclick="closeSimulator();showScreen('home')">←</button>
+    <h2>Simulador 3D</h2>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;position:relative;overflow:hidden">
+    <canvas id="simulator-canvas" style="width:100%;height:100%;display:block"></canvas>
+    <div id="sim-hud" style="position:absolute;bottom:20px;left:20px;right:20px;z-index:10;display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--text)">
+      <div style="background:rgba(0,0,0,0.5);padding:10px 14px;border-radius:8px;border:1px solid var(--border)">
+        <div style="color:var(--muted);font-size:10px;margin-bottom:2px">JUGADOR</div>
+        <div id="sim-player-name" style="font-weight:600;font-size:13px">Lucas</div>
+      </div>
+      <div style="background:rgba(0,0,0,0.5);padding:10px 14px;border-radius:8px;border:1px solid var(--border)">
+        <div style="color:var(--muted);font-size:10px;margin-bottom:2px">CONTROLES</div>
+        <div style="font-size:11px">WASD: Mover | ESPACIO: Drive | SHIFT: Globo | F: Bandeja</div>
+      </div>
+      <div style="background:rgba(0,0,0,0.5);padding:10px 14px;border-radius:8px;border:1px solid var(--border)">
+        <button class="btn btn-ghost" onclick="resetSimulator()" style="padding:8px 12px;font-size:11px">🔄 Reset</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- OVERLAYS -->
 <div id="menu-overlay" class="overlay hidden" onclick="closeMenuBg(event)">
   <div class="bottom-sheet">
@@ -797,6 +822,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 <div id="print-view"><div class="pv-page" id="pv-content"></div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -1534,6 +1560,93 @@ if(!app.playerName){
     const n=prompt('¡Bienvenido a Pádel Tracker!\n\n¿Cuál es el nombre de tu jugador?');
     if(n&&n.trim()){app.playerName=n.trim();saveApp();renderHome();}
   },firstTime?1800:400);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 3D SIMULATOR
+// ═══════════════════════════════════════════════════════════════
+let simState={scene:null,camera:null,renderer:null,pista:null,ball:null,players:[],keys:{},activePlayer:0,animId:null};
+function initSimulator(){
+  const canvas=document.getElementById('simulator-canvas');
+  simState.scene=new THREE.Scene();
+  simState.scene.background=new THREE.Color(0x1a3a1a);
+  simState.camera=new THREE.PerspectiveCamera(75,canvas.clientWidth/canvas.clientHeight,0.1,1000);
+  simState.camera.position.set(0,8,15);
+  simState.camera.lookAt(0,0,0);
+  simState.renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+  simState.renderer.setSize(canvas.clientWidth,canvas.clientHeight);
+  simState.renderer.shadowMap.enabled=true;
+
+  // Lighting
+  const light=new THREE.DirectionalLight(0xffffff,1);light.position.set(10,15,10);light.castShadow=true;light.shadow.mapSize.width=2048;light.shadow.mapSize.height=2048;simState.scene.add(light);
+  simState.scene.add(new THREE.AmbientLight(0xffffff,0.5));
+
+  // Pista (20x10m)
+  const pistaGeo=new THREE.PlaneGeometry(20,10);const pistaMat=new THREE.MeshStandardMaterial({color:0x2d5a2d,roughness:0.8});const pista=new THREE.Mesh(pistaGeo,pistaMat);pista.rotation.x=-Math.PI/2;pista.receiveShadow=true;simState.scene.add(pista);
+
+  // Límites (vallas)
+  const wallMat=new THREE.MeshStandardMaterial({color:0x333333,metalness:0.3});
+  const wallGeo=new THREE.BoxGeometry(20,1.5,0.2);
+  const wallBack=new THREE.Mesh(wallGeo,wallMat);wallBack.position.z=-5;wallBack.castShadow=true;wallBack.receiveShadow=true;simState.scene.add(wallBack);
+  const wallFront=new THREE.Mesh(wallGeo,wallMat);wallFront.position.z=5;wallFront.castShadow=true;wallFront.receiveShadow=true;simState.scene.add(wallFront);
+  const sideGeo=new THREE.BoxGeometry(0.2,1.5,10);
+  const wallLeft=new THREE.Mesh(sideGeo,wallMat);wallLeft.position.x=-10;wallLeft.castShadow=true;wallLeft.receiveShadow=true;simState.scene.add(wallLeft);
+  const wallRight=new THREE.Mesh(sideGeo,wallMat);wallRight.position.x=10;wallRight.castShadow=true;wallRight.receiveShadow=true;simState.scene.add(wallRight);
+
+  // Red (net)
+  const netGeo=new THREE.BoxGeometry(20,1,0.1);const netMat=new THREE.MeshStandardMaterial({color:0xcccccc,wireframe:true});const net=new THREE.Mesh(netGeo,netMat);net.position.y=0.5;net.position.z=0;simState.scene.add(net);
+
+  // Pelota
+  const ballGeo=new THREE.SphereGeometry(0.1,16,16);const ballMat=new THREE.MeshStandardMaterial({color:0xffff00,emissive:0xffff00});simState.ball=new THREE.Mesh(ballGeo,ballMat);simState.ball.castShadow=true;simState.ball.position.set(0,1,0);simState.ball.velocity={x:0,y:0,z:0};simState.scene.add(simState.ball);
+
+  // Jugadores
+  const playerNames=['Lucas','Marta','Diego','Sofía'];const startPos=[[-7,0,-3],[7,0,-3],[-7,0,3],[7,0,3]];
+  for(let i=0;i<4;i++){
+    const playerGeo=new THREE.CapsuleGeometry(0.3,1.5,4,8);const playerMat=new THREE.MeshStandardMaterial({color:[0x10b981,0xb57bff,0x3b82f6,0xf0dc50][i]});const player=new THREE.Mesh(playerGeo,playerMat);player.castShadow=true;player.position.set(...startPos[i]);player.userData={name:playerNames[i],pos:{x:startPos[i][0],y:startPos[i][1],z:startPos[i][2]},vel:{x:0,z:0},idx:i};simState.players.push(player);simState.scene.add(player);
+  }
+
+  simState.keys={w:false,a:false,s:false,d:false,space:false,shift:false,f:false};
+  window.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(k==='w')simState.keys.w=true;if(k==='a')simState.keys.a=true;if(k==='s')simState.keys.s=true;if(k==='d')simState.keys.d=true;if(e.code==='Space'){simState.keys.space=true;e.preventDefault();}if(e.shiftKey)simState.keys.shift=true;if(k==='f')simState.keys.f=true;});
+  window.addEventListener('keyup',e=>{const k=e.key.toLowerCase();if(k==='w')simState.keys.w=false;if(k==='a')simState.keys.a=false;if(k==='s')simState.keys.s=false;if(k==='d')simState.keys.d=false;if(e.code==='Space')simState.keys.space=false;if(e.shiftKey===false)simState.keys.shift=false;if(k==='f')simState.keys.f=false;});
+
+  document.getElementById('sim-player-name').textContent=simState.players[simState.activePlayer].userData.name;
+
+  function animate(){
+    simState.animId=requestAnimationFrame(animate);
+    const p=simState.players[simState.activePlayer];const speed=0.15;
+    if(simState.keys.w)p.userData.vel.z=-speed;if(simState.keys.s)p.userData.vel.z=speed;if(simState.keys.a)p.userData.vel.x=-speed;if(simState.keys.d)p.userData.vel.x=speed;
+    p.userData.pos.x+=p.userData.vel.x;p.userData.pos.z+=p.userData.vel.z;
+    p.userData.pos.x=Math.max(-9.7,Math.min(9.7,p.userData.pos.x));p.userData.pos.z=Math.max(-4.7,Math.min(4.7,p.userData.pos.z));
+    p.position.x=p.userData.pos.x;p.position.z=p.userData.pos.z;
+
+    if(simState.keys.space){const dir=new THREE.Vector3(Math.random()-0.5,0.8,Math.random()-0.5).normalize();simState.ball.velocity={x:dir.x*15,y:dir.y*15,z:dir.z*15};simState.keys.space=false;}
+    if(simState.keys.shift){const dir=new THREE.Vector3(Math.random()-0.5,1.2,Math.random()-0.5).normalize();simState.ball.velocity={x:dir.x*12,y:dir.y*12,z:dir.z*12};simState.keys.shift=false;}
+    if(simState.keys.f){const dir=new THREE.Vector3(Math.random()-0.5,0.5,Math.random()-0.5).normalize();simState.ball.velocity={x:dir.x*10,y:dir.y*10,z:dir.z*10};simState.keys.f=false;}
+
+    simState.ball.velocity.y-=0.15;simState.ball.position.x+=simState.ball.velocity.x*0.016;simState.ball.position.y+=simState.ball.velocity.y*0.016;simState.ball.position.z+=simState.ball.velocity.z*0.016;
+
+    if(simState.ball.position.y<0.1){simState.ball.position.y=0.1;simState.ball.velocity.y*=-0.7;}
+    if(simState.ball.position.x<-9.8){simState.ball.position.x=-9.8;simState.ball.velocity.x*=-0.6;}if(simState.ball.position.x>9.8){simState.ball.position.x=9.8;simState.ball.velocity.x*=-0.6;}
+    if(simState.ball.position.z<-4.8){simState.ball.position.z=-4.8;simState.ball.velocity.z*=-0.6;}if(simState.ball.position.z>4.8){simState.ball.position.z=4.8;simState.ball.velocity.z*=-0.6;}
+
+    simState.camera.position.x=p.userData.pos.x+5;simState.camera.position.z=p.userData.pos.z+10;simState.camera.lookAt(p.position.x,1,p.position.z);
+
+    simState.renderer.render(simState.scene,simState.camera);
+  }
+  animate();
+}
+
+function closeSimulator(){
+  if(simState.animId)cancelAnimationFrame(simState.animId);
+  if(simState.renderer){simState.renderer.dispose();simState.renderer.domElement.remove();}
+  window.removeEventListener('keydown',null);window.removeEventListener('keyup',null);
+  simState={scene:null,camera:null,renderer:null,pista:null,ball:null,players:[],keys:{},activePlayer:0,animId:null};
+}
+
+function resetSimulator(){
+  if(simState.ball){simState.ball.position.set(0,1,0);simState.ball.velocity={x:0,y:0,z:0};}
+  const startPos=[[−7,0,−3],[7,0,−3],[−7,0,3],[7,0,3]];
+  simState.players.forEach((p,i)=>{p.userData.pos={x:startPos[i][0],y:0,z:startPos[i][2]};p.userData.vel={x:0,z:0};p.position.set(...startPos[i]);});
 }
 </script>
 </body>
