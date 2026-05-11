@@ -1461,7 +1461,7 @@ function renderTechStats(){
   mkChart('chart-estado','line',{labels:sl,datasets:[{label:'E',data:tec.map(t=>t.energia||null),borderColor:'#3DDB82',backgroundColor:'transparent',pointRadius:3,tension:0.35,borderWidth:2},{label:'H',data:tec.map(t=>t.humor||null),borderColor:'#B57BFF',backgroundColor:'transparent',pointRadius:3,tension:0.35,borderWidth:2,borderDash:[4,3]}]},{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{...CD.tooltip}},scales:{y:{min:1,max:5,ticks:{color:CD.tick,font:{size:11},stepSize:1},grid:{color:CD.grid},border:{display:false}},x:{ticks:{color:CD.tick,font:{size:11},maxRotation:45},grid:{display:false},border:{display:false}}}});
   const colors=['#3DDB82','#B57BFF','#F0DC50','#3B82F6','#EF4444','#06B6D4','#EC4899','#10B981','#8B5CF6','#F59E0B'];
   const fData=Object.entries(freq).sort((a,b)=>b[1]-a[1]);
-  mkChart('chart-shots-pie','doughnut',{labels:fData.map(([k])=>ALL_SHOT_LABELS[k]||k),datasets:[{data:fData.map(([,v])=>v),backgroundColor:fData.map((,i)=>colors[i%colors.length]),borderWidth:0}]},{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{display:false},tooltip:{...CD.tooltip}}});
+  mkChart('chart-shots-pie','doughnut',{labels:fData.map(([k])=>ALL_SHOT_LABELS[k]||k),datasets:[{data:fData.map(([,v])=>v),backgroundColor:fData.map((_,i)=>colors[i%colors.length]),borderWidth:0}]},{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{display:false},tooltip:{...CD.tooltip}}});
 }
 
 function renderFisStats(){
