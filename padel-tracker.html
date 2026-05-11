@@ -1601,8 +1601,16 @@ function initSimulator(){
 
   // Jugadores
   const playerNames=['Lucas','Marta','Diego','Sofía'];const startPos=[[-7,0,-3],[7,0,-3],[-7,0,3],[7,0,3]];
+  const playerColors=[0x10b981,0xb57bff,0x3b82f6,0xf0dc50];
   for(let i=0;i<4;i++){
-    const playerGeo=new THREE.CapsuleGeometry(0.3,1.5,4,8);const playerMat=new THREE.MeshStandardMaterial({color:[0x10b981,0xb57bff,0x3b82f6,0xf0dc50][i]});const player=new THREE.Mesh(playerGeo,playerMat);player.castShadow=true;player.position.set(...startPos[i]);player.userData={name:playerNames[i],pos:{x:startPos[i][0],y:startPos[i][1],z:startPos[i][2]},vel:{x:0,z:0},idx:i};simState.players.push(player);simState.scene.add(player);
+    const playerGeo=new THREE.CylinderGeometry(0.3,0.3,1.5,8);
+    const playerMat=new THREE.MeshStandardMaterial({color:playerColors[i]});
+    const player=new THREE.Mesh(playerGeo,playerMat);
+    player.castShadow=true;
+    player.position.set(startPos[i][0],startPos[i][1],startPos[i][2]);
+    player.userData={name:playerNames[i],pos:{x:startPos[i][0],z:startPos[i][2]},vel:{x:0,z:0},idx:i};
+    simState.players.push(player);
+    simState.scene.add(player);
   }
 
   simState.keys={w:false,a:false,s:false,d:false,space:false,shift:false,f:false};
