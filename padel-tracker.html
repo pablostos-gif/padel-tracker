@@ -1563,74 +1563,35 @@ if(!app.playerName){
 }
 
 // ═══════════════════════════════════════════════════════════════
-// 3D SIMULATOR
+// 3D SIMULATOR - CANVAS 2D
 // ═══════════════════════════════════════════════════════════════
-let simData={canvas:null,scene:null,camera:null,renderer:null,ball:null,players:[],keys:{},animId:null};
+let simData={canvas:null,ctx:null,players:[],ball:{x:10,y:5,vx:0,vy:0,r:0.3},keys:{},animId:null,scale:30};
 
 function initSimulator(){
   try{
-    if(typeof THREE==='undefined'){
-      alert('Cargando motor 3D...');
-      setTimeout(initSimulator,500);
-      return;
-    }
-
     simData.canvas=document.getElementById('simulator-canvas');
     if(!simData.canvas){console.error('Canvas no encontrado');return;}
 
-    const w=simData.canvas.clientWidth;
-    const h=simData.canvas.clientHeight;
-    if(w<100||h<100){
-      console.warn('Canvas size too small:',w,h);
-      setTimeout(initSimulator,300);
-      return;
-    }
+    simData.ctx=simData.canvas.getContext('2d');
+    if(!simData.ctx){console.error('Context 2D no disponible');return;}
 
-    simData.scene=new THREE.Scene();
-    simData.scene.background=new THREE.Color(0x1a3a1a);
-    simData.camera=new THREE.PerspectiveCamera(75,w/h,0.1,1000);
-    simData.camera.position.set(0,8,15);
-    simData.camera.lookAt(0,0,0);
+    // Establecer dimensiones reales del canvas
+    const parent=simData.canvas.parentElement;
+    const rect=parent.getBoundingClientRect();
+    simData.canvas.width=rect.width;
+    simData.canvas.height=rect.height;
 
-    simData.renderer=new THREE.WebGLRenderer({canvas:simData.canvas,antialias:true});
-    simData.renderer.setSize(w,h);
+    // Inicializar jugadores: [nombre, x, y, color]
+    simData.players=[
+      {name:'Lucas',x:2,y:2,color:'#10b981'},
+      {name:'Marta',x:18,y:2,color:'#b57bff'},
+      {name:'Diego',x:2,y:8,color:'#3b82f6'},
+      {name:'Sofía',x:18,y:8,color:'#f0dc50'}
+    ];
 
-    // Luz
-    const light=new THREE.DirectionalLight(0xffffff,0.8);
-    light.position.set(10,15,10);
-    simData.scene.add(light);
-    simData.scene.add(new THREE.AmbientLight(0xffffff,0.4));
+    document.getElementById('sim-player-name').textContent=simData.players[0].name;
 
-    // Pista
-    const pistaGeo=new THREE.PlaneGeometry(20,10);
-    const pistaMat=new THREE.MeshStandardMaterial({color:0x2d5a2d});
-    const pista=new THREE.Mesh(pistaGeo,pistaMat);
-    pista.rotation.x=-Math.PI/2;
-    simData.scene.add(pista);
-
-    // Pelota
-    const ballGeo=new THREE.SphereGeometry(0.1,16,16);
-    const ballMat=new THREE.MeshStandardMaterial({color:0xffff00});
-    simData.ball=new THREE.Mesh(ballGeo,ballMat);
-    simData.ball.position.set(0,1,0);
-    simData.ball.vel={x:0,y:0,z:0};
-    simData.scene.add(simData.ball);
-
-    // Jugadores
-    const names=['Lucas','Marta','Diego','Sofía'];
-    const pos=[[-7,0,-3],[7,0,-3],[-7,0,3],[7,0,3]];
-    const colors=[0x10b981,0xb57bff,0x3b82f6,0xf0dc50];
-
-    for(let i=0;i<4;i++){
-      const geo=new THREE.CylinderGeometry(0.3,0.3,1.5,8);
-      const mat=new THREE.MeshStandardMaterial({color:colors[i]});
-      const mesh=new THREE.Mesh(geo,mat);
-      mesh.position.set(pos[i][0],pos[i][1],pos[i][2]);
-      mesh.userData={name:names[i],x:pos[i][0],z:pos[i][2],vx:0,vz:0};
-      simData.players.push(mesh);
-      simData.scene.add(mesh);
-    }
-
+    // Controles
     simData.keys={w:false,a:false,s:false,d:false};
     window.addEventListener('keydown',e=>{
       const k=e.key.toLowerCase();
@@ -1638,7 +1599,10 @@ function initSimulator(){
       if(k==='a')simData.keys.a=true;
       if(k==='s')simData.keys.s=true;
       if(k==='d')simData.keys.d=true;
-      if(e.code==='Space'||e.key===' '){simData.ball.vel={x:(Math.random()-0.5)*20,y:10,z:(Math.random()-0.5)*20};}
+      if(e.code==='Space'){
+        simData.ball.vx=(Math.random()-0.5)*15;
+        simData.ball.vy=(Math.random()-0.5)*15;
+      }
     });
 
     window.addEventListener('keyup',e=>{
@@ -1649,49 +1613,72 @@ function initSimulator(){
       if(k==='d')simData.keys.d=false;
     });
 
-    if(simData.players.length>0){
-      document.getElementById('sim-player-name').textContent=simData.players[0].userData.name;
-    }
-
     function animate(){
       simData.animId=requestAnimationFrame(animate);
 
+      // Mover jugador 0
       const p=simData.players[0];
-      if(simData.keys.w)p.userData.z-=0.2;
-      if(simData.keys.s)p.userData.z+=0.2;
-      if(simData.keys.a)p.userData.x-=0.2;
-      if(simData.keys.d)p.userData.x+=0.2;
+      if(simData.keys.w)p.y=Math.max(0.5,p.y-0.2);
+      if(simData.keys.s)p.y=Math.min(9.5,p.y+0.2);
+      if(simData.keys.a)p.x=Math.max(0.5,p.x-0.2);
+      if(simData.keys.d)p.x=Math.min(19.5,p.x+0.2);
 
-      p.userData.x=Math.max(-9.5,Math.min(9.5,p.userData.x));
-      p.userData.z=Math.max(-4.5,Math.min(4.5,p.userData.z));
-      p.position.x=p.userData.x;
-      p.position.z=p.userData.z;
+      // Física pelota
+      simData.ball.vy+=0.15;
+      simData.ball.x+=simData.ball.vx*0.016;
+      simData.ball.y+=simData.ball.vy*0.016;
 
-      simData.ball.vel.y-=0.1;
-      simData.ball.position.x+=simData.ball.vel.x*0.016;
-      simData.ball.position.y+=simData.ball.vel.y*0.016;
-      simData.ball.position.z+=simData.ball.vel.z*0.016;
+      // Rebotes
+      if(simData.ball.y>9.8){simData.ball.y=9.8;simData.ball.vy*=-0.7;}
+      if(simData.ball.y<0.5){simData.ball.y=0.5;simData.ball.vy*=-0.7;}
+      if(simData.ball.x<0.3){simData.ball.x=0.3;simData.ball.vx*=-0.6;}
+      if(simData.ball.x>19.7){simData.ball.x=19.7;simData.ball.vx*=-0.6;}
 
-      if(simData.ball.position.y<0.1){
-        simData.ball.position.y=0.1;
-        simData.ball.vel.y*=-0.7;
-      }
-
-      if(simData.ball.position.x<-9.8){simData.ball.position.x=-9.8;simData.ball.vel.x*=-0.6;}
-      if(simData.ball.position.x>9.8){simData.ball.position.x=9.8;simData.ball.vel.x*=-0.6;}
-      if(simData.ball.position.z<-4.8){simData.ball.position.z=-4.8;simData.ball.vel.z*=-0.6;}
-      if(simData.ball.position.z>4.8){simData.ball.position.z=4.8;simData.ball.vel.z*=-0.6;}
-
-      simData.camera.position.x=p.userData.x+5;
-      simData.camera.position.z=p.userData.z+10;
-      simData.camera.lookAt(p.position.x,1,p.position.z);
-
-      simData.renderer.render(simData.scene,simData.camera);
+      // Dibujar
+      draw();
     }
+
+    function draw(){
+      const w=simData.canvas.width;
+      const h=simData.canvas.height;
+      const scale=Math.min(w/20,h/10);
+
+      // Fondo
+      simData.ctx.fillStyle='#1a3a1a';
+      simData.ctx.fillRect(0,0,w,h);
+
+      // Pista (líneas)
+      simData.ctx.strokeStyle='#4a7c4a';
+      simData.ctx.lineWidth=2;
+      simData.ctx.strokeRect(0.5*scale,0.5*scale,19*scale,9*scale);
+      simData.ctx.beginPath();
+      simData.ctx.moveTo(10*scale,0.5*scale);
+      simData.ctx.lineTo(10*scale,9.5*scale);
+      simData.ctx.stroke();
+
+      // Jugadores
+      simData.players.forEach((p,i)=>{
+        simData.ctx.fillStyle=p.color;
+        simData.ctx.beginPath();
+        simData.ctx.arc(p.x*scale,p.y*scale,0.4*scale,0,Math.PI*2);
+        simData.ctx.fill();
+        simData.ctx.fillStyle='#fff';
+        simData.ctx.font='12px Arial';
+        simData.ctx.textAlign='center';
+        simData.ctx.fillText(p.name.substring(0,1),p.x*scale,p.y*scale+4);
+      });
+
+      // Pelota
+      simData.ctx.fillStyle='#ffff00';
+      simData.ctx.beginPath();
+      simData.ctx.arc(simData.ball.x*scale,simData.ball.y*scale,simData.ball.r*scale,0,Math.PI*2);
+      simData.ctx.fill();
+    }
+
     animate();
   }catch(e){
     console.error('Simulator error:',e);
-    alert('Error inicializando simulador: '+e.message);
+    alert('Error: '+e.message);
   }
 }
 
