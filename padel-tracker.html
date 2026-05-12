@@ -1565,96 +1565,135 @@ if(!app.playerName){
 // ═══════════════════════════════════════════════════════════════
 // 3D SIMULATOR
 // ═══════════════════════════════════════════════════════════════
-let simState={scene:null,camera:null,renderer:null,pista:null,ball:null,players:[],keys:{},activePlayer:0,animId:null};
+let simData={canvas:null,scene:null,camera:null,renderer:null,ball:null,players:[],keys:{},animId:null};
+
 function initSimulator(){
-  const canvas=document.getElementById('simulator-canvas');
-  simState.scene=new THREE.Scene();
-  simState.scene.background=new THREE.Color(0x1a3a1a);
-  simState.camera=new THREE.PerspectiveCamera(75,canvas.clientWidth/canvas.clientHeight,0.1,1000);
-  simState.camera.position.set(0,8,15);
-  simState.camera.lookAt(0,0,0);
-  simState.renderer=new THREE.WebGLRenderer({canvas,antialias:true});
-  simState.renderer.setSize(canvas.clientWidth,canvas.clientHeight);
-  simState.renderer.shadowMap.enabled=true;
+  try{
+    simData.canvas=document.getElementById('simulator-canvas');
+    if(!simData.canvas){alert('Canvas no encontrado');return;}
 
-  // Lighting
-  const light=new THREE.DirectionalLight(0xffffff,1);light.position.set(10,15,10);light.castShadow=true;light.shadow.mapSize.width=2048;light.shadow.mapSize.height=2048;simState.scene.add(light);
-  simState.scene.add(new THREE.AmbientLight(0xffffff,0.5));
+    simData.scene=new THREE.Scene();
+    simData.scene.background=new THREE.Color(0x1a3a1a);
+    simData.camera=new THREE.PerspectiveCamera(75,simData.canvas.clientWidth/simData.canvas.clientHeight,0.1,1000);
+    simData.camera.position.set(0,8,15);
+    simData.camera.lookAt(0,0,0);
 
-  // Pista (20x10m)
-  const pistaGeo=new THREE.PlaneGeometry(20,10);const pistaMat=new THREE.MeshStandardMaterial({color:0x2d5a2d,roughness:0.8});const pista=new THREE.Mesh(pistaGeo,pistaMat);pista.rotation.x=-Math.PI/2;pista.receiveShadow=true;simState.scene.add(pista);
+    simData.renderer=new THREE.WebGLRenderer({canvas:simData.canvas,antialias:true});
+    simData.renderer.setSize(simData.canvas.clientWidth,simData.canvas.clientHeight);
 
-  // Límites (vallas)
-  const wallMat=new THREE.MeshStandardMaterial({color:0x333333,metalness:0.3});
-  const wallGeo=new THREE.BoxGeometry(20,1.5,0.2);
-  const wallBack=new THREE.Mesh(wallGeo,wallMat);wallBack.position.z=-5;wallBack.castShadow=true;wallBack.receiveShadow=true;simState.scene.add(wallBack);
-  const wallFront=new THREE.Mesh(wallGeo,wallMat);wallFront.position.z=5;wallFront.castShadow=true;wallFront.receiveShadow=true;simState.scene.add(wallFront);
-  const sideGeo=new THREE.BoxGeometry(0.2,1.5,10);
-  const wallLeft=new THREE.Mesh(sideGeo,wallMat);wallLeft.position.x=-10;wallLeft.castShadow=true;wallLeft.receiveShadow=true;simState.scene.add(wallLeft);
-  const wallRight=new THREE.Mesh(sideGeo,wallMat);wallRight.position.x=10;wallRight.castShadow=true;wallRight.receiveShadow=true;simState.scene.add(wallRight);
+    // Luz
+    const light=new THREE.DirectionalLight(0xffffff,0.8);
+    light.position.set(10,15,10);
+    simData.scene.add(light);
+    simData.scene.add(new THREE.AmbientLight(0xffffff,0.4));
 
-  // Red (net)
-  const netGeo=new THREE.BoxGeometry(20,1,0.1);const netMat=new THREE.MeshStandardMaterial({color:0xcccccc,wireframe:true});const net=new THREE.Mesh(netGeo,netMat);net.position.y=0.5;net.position.z=0;simState.scene.add(net);
+    // Pista
+    const pistaGeo=new THREE.PlaneGeometry(20,10);
+    const pistaMat=new THREE.MeshStandardMaterial({color:0x2d5a2d});
+    const pista=new THREE.Mesh(pistaGeo,pistaMat);
+    pista.rotation.x=-Math.PI/2;
+    simData.scene.add(pista);
 
-  // Pelota
-  const ballGeo=new THREE.SphereGeometry(0.1,16,16);const ballMat=new THREE.MeshStandardMaterial({color:0xffff00,emissive:0xffff00});simState.ball=new THREE.Mesh(ballGeo,ballMat);simState.ball.castShadow=true;simState.ball.position.set(0,1,0);simState.ball.velocity={x:0,y:0,z:0};simState.scene.add(simState.ball);
+    // Pelota
+    const ballGeo=new THREE.SphereGeometry(0.1,16,16);
+    const ballMat=new THREE.MeshStandardMaterial({color:0xffff00});
+    simData.ball=new THREE.Mesh(ballGeo,ballMat);
+    simData.ball.position.set(0,1,0);
+    simData.ball.vel={x:0,y:0,z:0};
+    simData.scene.add(simData.ball);
 
-  // Jugadores
-  const playerNames=['Lucas','Marta','Diego','Sofía'];const startPos=[[-7,0,-3],[7,0,-3],[-7,0,3],[7,0,3]];
-  const playerColors=[0x10b981,0xb57bff,0x3b82f6,0xf0dc50];
-  for(let i=0;i<4;i++){
-    const playerGeo=new THREE.CylinderGeometry(0.3,0.3,1.5,8);
-    const playerMat=new THREE.MeshStandardMaterial({color:playerColors[i]});
-    const player=new THREE.Mesh(playerGeo,playerMat);
-    player.castShadow=true;
-    player.position.set(startPos[i][0],startPos[i][1],startPos[i][2]);
-    player.userData={name:playerNames[i],pos:{x:startPos[i][0],z:startPos[i][2]},vel:{x:0,z:0},idx:i};
-    simState.players.push(player);
-    simState.scene.add(player);
+    // Jugadores
+    const names=['Lucas','Marta','Diego','Sofía'];
+    const pos=[[-7,0,-3],[7,0,-3],[-7,0,3],[7,0,3]];
+    const colors=[0x10b981,0xb57bff,0x3b82f6,0xf0dc50];
+
+    for(let i=0;i<4;i++){
+      const geo=new THREE.CylinderGeometry(0.3,0.3,1.5,8);
+      const mat=new THREE.MeshStandardMaterial({color:colors[i]});
+      const mesh=new THREE.Mesh(geo,mat);
+      mesh.position.set(pos[i][0],pos[i][1],pos[i][2]);
+      mesh.userData={name:names[i],x:pos[i][0],z:pos[i][2],vx:0,vz:0};
+      simData.players.push(mesh);
+      simData.scene.add(mesh);
+    }
+
+    simData.keys={w:false,a:false,s:false,d:false};
+    window.addEventListener('keydown',e=>{
+      const k=e.key.toLowerCase();
+      if(k==='w')simData.keys.w=true;
+      if(k==='a')simData.keys.a=true;
+      if(k==='s')simData.keys.s=true;
+      if(k==='d')simData.keys.d=true;
+      if(e.code==='Space'||e.key===' '){simData.ball.vel={x:(Math.random()-0.5)*20,y:10,z:(Math.random()-0.5)*20};}
+    });
+
+    window.addEventListener('keyup',e=>{
+      const k=e.key.toLowerCase();
+      if(k==='w')simData.keys.w=false;
+      if(k==='a')simData.keys.a=false;
+      if(k==='s')simData.keys.s=false;
+      if(k==='d')simData.keys.d=false;
+    });
+
+    if(simData.players.length>0){
+      document.getElementById('sim-player-name').textContent=simData.players[0].userData.name;
+    }
+
+    function animate(){
+      simData.animId=requestAnimationFrame(animate);
+
+      const p=simData.players[0];
+      if(simData.keys.w)p.userData.z-=0.2;
+      if(simData.keys.s)p.userData.z+=0.2;
+      if(simData.keys.a)p.userData.x-=0.2;
+      if(simData.keys.d)p.userData.x+=0.2;
+
+      p.userData.x=Math.max(-9.5,Math.min(9.5,p.userData.x));
+      p.userData.z=Math.max(-4.5,Math.min(4.5,p.userData.z));
+      p.position.x=p.userData.x;
+      p.position.z=p.userData.z;
+
+      simData.ball.vel.y-=0.1;
+      simData.ball.position.x+=simData.ball.vel.x*0.016;
+      simData.ball.position.y+=simData.ball.vel.y*0.016;
+      simData.ball.position.z+=simData.ball.vel.z*0.016;
+
+      if(simData.ball.position.y<0.1){
+        simData.ball.position.y=0.1;
+        simData.ball.vel.y*=-0.7;
+      }
+
+      if(simData.ball.position.x<-9.8){simData.ball.position.x=-9.8;simData.ball.vel.x*=-0.6;}
+      if(simData.ball.position.x>9.8){simData.ball.position.x=9.8;simData.ball.vel.x*=-0.6;}
+      if(simData.ball.position.z<-4.8){simData.ball.position.z=-4.8;simData.ball.vel.z*=-0.6;}
+      if(simData.ball.position.z>4.8){simData.ball.position.z=4.8;simData.ball.vel.z*=-0.6;}
+
+      simData.camera.position.x=p.userData.x+5;
+      simData.camera.position.z=p.userData.z+10;
+      simData.camera.lookAt(p.position.x,1,p.position.z);
+
+      simData.renderer.render(simData.scene,simData.camera);
+    }
+    animate();
+  }catch(e){
+    console.error('Simulator error:',e);
+    alert('Error inicializando simulador: '+e.message);
   }
-
-  simState.keys={w:false,a:false,s:false,d:false,space:false,shift:false,f:false};
-  window.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(k==='w')simState.keys.w=true;if(k==='a')simState.keys.a=true;if(k==='s')simState.keys.s=true;if(k==='d')simState.keys.d=true;if(e.code==='Space'){simState.keys.space=true;e.preventDefault();}if(e.shiftKey)simState.keys.shift=true;if(k==='f')simState.keys.f=true;});
-  window.addEventListener('keyup',e=>{const k=e.key.toLowerCase();if(k==='w')simState.keys.w=false;if(k==='a')simState.keys.a=false;if(k==='s')simState.keys.s=false;if(k==='d')simState.keys.d=false;if(e.code==='Space')simState.keys.space=false;if(e.shiftKey===false)simState.keys.shift=false;if(k==='f')simState.keys.f=false;});
-
-  document.getElementById('sim-player-name').textContent=simState.players[simState.activePlayer].userData.name;
-
-  function animate(){
-    simState.animId=requestAnimationFrame(animate);
-    const p=simState.players[simState.activePlayer];const speed=0.15;
-    if(simState.keys.w)p.userData.vel.z=-speed;if(simState.keys.s)p.userData.vel.z=speed;if(simState.keys.a)p.userData.vel.x=-speed;if(simState.keys.d)p.userData.vel.x=speed;
-    p.userData.pos.x+=p.userData.vel.x;p.userData.pos.z+=p.userData.vel.z;
-    p.userData.pos.x=Math.max(-9.7,Math.min(9.7,p.userData.pos.x));p.userData.pos.z=Math.max(-4.7,Math.min(4.7,p.userData.pos.z));
-    p.position.x=p.userData.pos.x;p.position.z=p.userData.pos.z;
-
-    if(simState.keys.space){const dir=new THREE.Vector3(Math.random()-0.5,0.8,Math.random()-0.5).normalize();simState.ball.velocity={x:dir.x*15,y:dir.y*15,z:dir.z*15};simState.keys.space=false;}
-    if(simState.keys.shift){const dir=new THREE.Vector3(Math.random()-0.5,1.2,Math.random()-0.5).normalize();simState.ball.velocity={x:dir.x*12,y:dir.y*12,z:dir.z*12};simState.keys.shift=false;}
-    if(simState.keys.f){const dir=new THREE.Vector3(Math.random()-0.5,0.5,Math.random()-0.5).normalize();simState.ball.velocity={x:dir.x*10,y:dir.y*10,z:dir.z*10};simState.keys.f=false;}
-
-    simState.ball.velocity.y-=0.15;simState.ball.position.x+=simState.ball.velocity.x*0.016;simState.ball.position.y+=simState.ball.velocity.y*0.016;simState.ball.position.z+=simState.ball.velocity.z*0.016;
-
-    if(simState.ball.position.y<0.1){simState.ball.position.y=0.1;simState.ball.velocity.y*=-0.7;}
-    if(simState.ball.position.x<-9.8){simState.ball.position.x=-9.8;simState.ball.velocity.x*=-0.6;}if(simState.ball.position.x>9.8){simState.ball.position.x=9.8;simState.ball.velocity.x*=-0.6;}
-    if(simState.ball.position.z<-4.8){simState.ball.position.z=-4.8;simState.ball.velocity.z*=-0.6;}if(simState.ball.position.z>4.8){simState.ball.position.z=4.8;simState.ball.velocity.z*=-0.6;}
-
-    simState.camera.position.x=p.userData.pos.x+5;simState.camera.position.z=p.userData.pos.z+10;simState.camera.lookAt(p.position.x,1,p.position.z);
-
-    simState.renderer.render(simState.scene,simState.camera);
-  }
-  animate();
 }
 
 function closeSimulator(){
-  if(simState.animId)cancelAnimationFrame(simState.animId);
-  if(simState.renderer){simState.renderer.dispose();simState.renderer.domElement.remove();}
-  window.removeEventListener('keydown',null);window.removeEventListener('keyup',null);
-  simState={scene:null,camera:null,renderer:null,pista:null,ball:null,players:[],keys:{},activePlayer:0,animId:null};
+  if(simData.animId)cancelAnimationFrame(simData.animId);
+  if(simData.renderer){simData.renderer.dispose();}
+  window.removeEventListener('keydown',null);
+  window.removeEventListener('keyup',null);
+  simData={canvas:null,scene:null,camera:null,renderer:null,ball:null,players:[],keys:{},animId:null};
 }
 
 function resetSimulator(){
-  if(simState.ball){simState.ball.position.set(0,1,0);simState.ball.velocity={x:0,y:0,z:0};}
-  const startPos=[[-7,0,-3],[7,0,-3],[-7,0,3],[7,0,3]];
-  simState.players.forEach((p,i)=>{p.userData.pos={x:startPos[i][0],y:0,z:startPos[i][2]};p.userData.vel={x:0,z:0};p.position.set(...startPos[i]);});
+  if(simData.ball){
+    simData.ball.position.set(0,1,0);
+    simData.ball.vel={x:0,y:0,z:0};
+  }
 }
 </script>
 </body>
