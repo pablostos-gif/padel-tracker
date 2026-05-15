@@ -951,25 +951,28 @@ let firstTime=false;
 // FIREBASE SYNC
 // ═══════════════════════════════════════════════════════════════
 const firebaseConfig={
-  apiKey:"AIzaSyCELBcV-6VvV-6VvV-6VvV-6VvV-6VvV-6Vv",
+  apiKey:"AIzaSyBd4GTh-zZRyBWmf9PAfxO7pRPp9HyK8-E",
   authDomain:"padel-lucas-app.firebaseapp.com",
   databaseURL:"https://padel-lucas-app-default-rtdb.firebaseio.com",
   projectId:"padel-lucas-app",
-  storageBucket:"padel-lucas-app.appspot.com",
+  storageBucket:"padel-lucas-app.firebasestorage.app",
   messagingSenderId:"604478762156",
-  appId:"1:604478762156:web:123456789abcdef"
+  appId:"1:604478762156:web:4c4aa4b2698cca335f8309"
 };
 let fbDb=null, fbAuth=null, fbUserId=null, syncEnabled=false;
 async function initFirebase(){
   try{
     firebase.initializeApp(firebaseConfig);
     fbAuth=firebase.auth();
-    fbDb=firebase.database();
-    fbAuth.onAuthStateChanged(u=>{
-      if(u){fbUserId=u.uid;syncEnabled=true;syncFromFirebase();}
-      else{fbAuth.signInAnonymously().catch(e=>console.log("Auth error:",e));}
-    });
-  }catch(e){console.log("Firebase init skipped (offline or error):",e);}
+    // Database only if available
+    try{
+      fbDb=firebase.database();
+      fbAuth.onAuthStateChanged(u=>{
+        if(u){fbUserId=u.uid;syncEnabled=true;syncFromFirebase();}
+        else{fbAuth.signInAnonymously().catch(e=>{});}
+      });
+    }catch(e){}
+  }catch(e){}
 }
 
 async function syncFromFirebase(){
