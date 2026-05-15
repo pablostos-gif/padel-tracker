@@ -1635,9 +1635,9 @@ if(!app.playerName){
 // ═══════════════════════════════════════════════════════════════
 // TACTICS BOARD
 // ═══════════════════════════════════════════════════════════════
-const CW=320, CH=560, PX=30, PT=20, PB=20;
-const IW=CW-PX*2, IH=CH-PT-PB;
-const MID_Y=PT+IH/2;
+const CW=320, CH=560, PX=30, PT_TAC=20, PB=20;
+const IW=CW-PX*2, IH=CH-PT_TAC-PB;
+const MID_Y=PT_TAC+IH/2;
 const R=18, BR=10;
 
 const formations={
@@ -1655,9 +1655,9 @@ let dragging=null, dragOffX=0, dragOffY=0;
 let arrowStart=null, previewEnd=null;
 
 function px(rx){ return PX+rx*IW; }
-function py(ry){ return PT+ry*IH; }
+function py(ry){ return PT_TAC+ry*IH; }
 function rx(x){ return Math.max(0,Math.min(1,(x-PX)/IW)); }
-function ry(y){ return Math.max(0,Math.min(1,(y-PT)/IH)); }
+function ry(y){ return Math.max(0,Math.min(1,(y-PT_TAC)/IH)); }
 
 function setF(name){
   document.querySelectorAll('.tb').forEach(b=>{
@@ -1699,24 +1699,24 @@ function redraw(){
 
 function drawCourt(ctx){
   ctx.fillStyle='#2d5a3d';
-  ctx.beginPath(); ctx.roundRect(PX,PT,IW,IH,4); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(PX,PT_TAC,IW,IH,4); ctx.fill();
   ctx.strokeStyle='rgba(255,255,255,0.22)'; ctx.lineWidth=1.5;
-  ctx.strokeRect(PX,PT,IW,IH);
+  ctx.strokeRect(PX,PT_TAC,IW,IH);
   ctx.fillStyle='rgba(0,0,0,0.18)';
-  ctx.fillRect(PX,PT,IW,10); ctx.fillRect(PX,PT+IH-10,IW,10);
-  ctx.fillRect(PX,PT+10,10,IH-20); ctx.fillRect(PX+IW-10,PT+10,10,IH-20);
+  ctx.fillRect(PX,PT_TAC,IW,10); ctx.fillRect(PX,PT_TAC+IH-10,IW,10);
+  ctx.fillRect(PX,PT_TAC+10,10,IH-20); ctx.fillRect(PX+IW-10,PT_TAC+10,10,IH-20);
   ctx.strokeStyle='rgba(255,255,255,0.18)'; ctx.lineWidth=1;
   const q=IH/4;
-  [[PX,PT+q,PX+IW,PT+q],[PX,PT+q*3,PX+IW,PT+q*3]].forEach(([x1,y1,x2,y2])=>{
+  [[PX,PT_TAC+q,PX+IW,PT_TAC+q],[PX,PT_TAC+q*3,PX+IW,PT_TAC+q*3]].forEach(([x1,y1,x2,y2])=>{
     ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
   });
   [IW/3,IW*2/3].forEach(dx=>{
-    ctx.beginPath(); ctx.moveTo(PX+dx,PT+q); ctx.lineTo(PX+dx,PT+q*3); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PX+dx,PT_TAC+q); ctx.lineTo(PX+dx,PT_TAC+q*3); ctx.stroke();
   });
   ctx.setLineDash([5,5]);
   ctx.beginPath();
-  ctx.moveTo(PX+IW/2,PT); ctx.lineTo(PX+IW/2,PT+q);
-  ctx.moveTo(PX+IW/2,PT+q*3); ctx.lineTo(PX+IW/2,PT+IH);
+  ctx.moveTo(PX+IW/2,PT_TAC); ctx.lineTo(PX+IW/2,PT_TAC+q);
+  ctx.moveTo(PX+IW/2,PT_TAC+q*3); ctx.lineTo(PX+IW/2,PT_TAC+IH);
   ctx.stroke(); ctx.setLineDash([]);
   ctx.strokeStyle='rgba(255,255,255,0.7)'; ctx.lineWidth=3;
   ctx.beginPath(); ctx.moveTo(PX,MID_Y); ctx.lineTo(PX+IW,MID_Y); ctx.stroke();
@@ -1724,8 +1724,8 @@ function drawCourt(ctx){
   ctx.font='bold 9px Arial'; ctx.textAlign='center';
   ctx.fillText('RED',PX+IW/2,MID_Y-5);
   ctx.fillStyle='rgba(255,255,255,0.12)'; ctx.font='9px Arial';
-  ctx.fillText('FONDO',PX+IW/2,PT+7);
-  ctx.fillText('FONDO',PX+IW/2,PT+IH-3);
+  ctx.fillText('FONDO',PX+IW/2,PT_TAC+7);
+  ctx.fillText('FONDO',PX+IW/2,PT_TAC+IH-3);
 }
 
 function drawPlayer(ctx,id,fill){
