@@ -419,7 +419,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <div class="home-section-label">Entrenamientos</div>
     <button class="btn btn-purple"     onclick="goToTraining()">⊕ &nbsp;Nuevo Entrenamiento</button>
     <button class="btn btn-secondary"  onclick="showScreen('train-history-screen')">⊞ &nbsp;Historial de entrenos</button>
-    <button class="btn btn-blue"       onclick="showScreen('simulator-screen');setTimeout(()=>{setF('paralelas');redraw()},100)">🎮 &nbsp;Simulador Táctico</button>
+    <button class="btn btn-blue"       onclick="showScreen('simulator-screen');setTimeout(()=>{resizeCanvas();setF('paralelas');},150)">🎮 &nbsp;Simulador Táctico</button>
     <div class="home-section-label">Análisis y exportar</div>
     <button class="btn btn-accent"     onclick="showScreen('stats-screen')">◈ &nbsp;Evolución y estadísticas</button>
     <button class="btn btn-save"       onclick="triggerDownload()">💾 &nbsp;Guardar app con mis datos</button>
@@ -1993,21 +1993,18 @@ function exportImg(){
 function resizeCanvas(){
   const container=document.getElementById('tacourt');
   if(!container)return;
-  const w=Math.min(container.clientWidth-24,1000);
-  const h=Math.min(container.clientHeight-24,Math.floor(w*1.75));
-  CW=Math.max(w,300);
-  CH=Math.max(h,500);
+  // Si el contenedor está oculto, usamos el ancho de ventana menos la sidebar
+  const cw=container.clientWidth>0?container.clientWidth:window.innerWidth-170;
+  const ch=container.clientHeight>0?container.clientHeight:window.innerHeight-80;
+  CW=Math.max(Math.min(cw-16,1000),300);
+  CH=Math.max(Math.min(ch-16,Math.floor(CW*1.75)),500);
   const canvas=document.getElementById('mainCanvas');
   canvas.width=CW;
   canvas.height=CH;
   redraw();
 }
 window.addEventListener('resize',resizeCanvas);
-window.addEventListener('load',resizeCanvas);
-setTimeout(resizeCanvas,200);
-
 setF('paralelas');
-resizeCanvas();
 </script>
 </body>
 </html>
