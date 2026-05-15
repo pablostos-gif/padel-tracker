@@ -1736,18 +1736,13 @@ if(!app.playerName){
 // TACTICS BOARD
 // ═══════════════════════════════════════════════════════════════
 let CW=640, CH=1120;
-function getCanvasSize(){
-  const container=document.querySelector('.tac-court');
-  if(!container)return;
-  const maxW=window.innerWidth<600?Math.min(container.clientWidth-16,500):Math.min(container.clientWidth-24,1200);
-  CW=maxW;
-  CH=Math.floor(CW*1.75);
-}
-getCanvasSize();
-const PX=Math.floor(CW*0.09), PT_TAC=Math.floor(CH*0.04), PB=Math.floor(CH*0.04);
-const IW=CW-PX*2, IH=CH-PT_TAC-PB;
-const MID_Y=PT_TAC+IH/2;
 const R=18, BR=10;
+function PX(){return Math.floor(CW*0.09);}
+function PT_TAC(){return Math.floor(CH*0.04);}
+function PB(){return Math.floor(CH*0.04);}
+function IW(){return CW-PX()*2;}
+function IH(){return CH-PT_TAC()-PB();}
+function MID_Y(){return PT_TAC()+IH()/2;}
 
 const formations={
   paralelas: {A1:[0.25,0.78],A2:[0.75,0.78],B1:[0.25,0.22],B2:[0.75,0.22],ball:[0.5,0.5]},
@@ -1763,10 +1758,10 @@ let pos={}, arrows=[], mode='move', arrowColor='#1d6fa4';
 let dragging=null, dragOffX=0, dragOffY=0;
 let arrowStart=null, previewEnd=null;
 
-function px(rx){ return PX+rx*IW; }
-function py(ry){ return PT_TAC+ry*IH; }
-function rx(x){ return Math.max(0,Math.min(1,(x-PX)/IW)); }
-function ry(y){ return Math.max(0,Math.min(1,(y-PT_TAC)/IH)); }
+function px(rx){ return PX()+rx*IW(); }
+function py(ry){ return PT_TAC()+ry*IH(); }
+function rx(x){ return Math.max(0,Math.min(1,(x-PX())/IW())); }
+function ry(y){ return Math.max(0,Math.min(1,(y-PT_TAC())/IH())); }
 
 function setF(name){
   document.querySelectorAll('.tb').forEach(b=>{
@@ -1807,34 +1802,35 @@ function redraw(){
 }
 
 function drawCourt(ctx){
+  const _px=PX(),_pt=PT_TAC(),_iw=IW(),_ih=IH(),_my=MID_Y();
   ctx.fillStyle='#2d5a3d';
-  ctx.beginPath(); ctx.roundRect(PX,PT_TAC,IW,IH,4); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(_px,_pt,_iw,_ih,4); ctx.fill();
   ctx.strokeStyle='rgba(255,255,255,0.22)'; ctx.lineWidth=1.5;
-  ctx.strokeRect(PX,PT_TAC,IW,IH);
+  ctx.strokeRect(_px,_pt,_iw,_ih);
   ctx.fillStyle='rgba(0,0,0,0.18)';
-  ctx.fillRect(PX,PT_TAC,IW,10); ctx.fillRect(PX,PT_TAC+IH-10,IW,10);
-  ctx.fillRect(PX,PT_TAC+10,10,IH-20); ctx.fillRect(PX+IW-10,PT_TAC+10,10,IH-20);
+  ctx.fillRect(_px,_pt,_iw,10); ctx.fillRect(_px,_pt+_ih-10,_iw,10);
+  ctx.fillRect(_px,_pt+10,10,_ih-20); ctx.fillRect(_px+_iw-10,_pt+10,10,_ih-20);
   ctx.strokeStyle='rgba(255,255,255,0.18)'; ctx.lineWidth=1;
-  const q=IH/4;
-  [[PX,PT_TAC+q,PX+IW,PT_TAC+q],[PX,PT_TAC+q*3,PX+IW,PT_TAC+q*3]].forEach(([x1,y1,x2,y2])=>{
+  const q=_ih/4;
+  [[_px,_pt+q,_px+_iw,_pt+q],[_px,_pt+q*3,_px+_iw,_pt+q*3]].forEach(([x1,y1,x2,y2])=>{
     ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
   });
-  [IW/3,IW*2/3].forEach(dx=>{
-    ctx.beginPath(); ctx.moveTo(PX+dx,PT_TAC+q); ctx.lineTo(PX+dx,PT_TAC+q*3); ctx.stroke();
+  [_iw/3,_iw*2/3].forEach(dx=>{
+    ctx.beginPath(); ctx.moveTo(_px+dx,_pt+q); ctx.lineTo(_px+dx,_pt+q*3); ctx.stroke();
   });
   ctx.setLineDash([5,5]);
   ctx.beginPath();
-  ctx.moveTo(PX+IW/2,PT_TAC); ctx.lineTo(PX+IW/2,PT_TAC+q);
-  ctx.moveTo(PX+IW/2,PT_TAC+q*3); ctx.lineTo(PX+IW/2,PT_TAC+IH);
+  ctx.moveTo(_px+_iw/2,_pt); ctx.lineTo(_px+_iw/2,_pt+q);
+  ctx.moveTo(_px+_iw/2,_pt+q*3); ctx.lineTo(_px+_iw/2,_pt+_ih);
   ctx.stroke(); ctx.setLineDash([]);
   ctx.strokeStyle='rgba(255,255,255,0.7)'; ctx.lineWidth=3;
-  ctx.beginPath(); ctx.moveTo(PX,MID_Y); ctx.lineTo(PX+IW,MID_Y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(_px,_my); ctx.lineTo(_px+_iw,_my); ctx.stroke();
   ctx.fillStyle='rgba(255,255,255,0.35)';
   ctx.font='bold 9px Arial'; ctx.textAlign='center';
-  ctx.fillText('RED',PX+IW/2,MID_Y-5);
+  ctx.fillText('RED',_px+_iw/2,_my-5);
   ctx.fillStyle='rgba(255,255,255,0.12)'; ctx.font='9px Arial';
-  ctx.fillText('FONDO',PX+IW/2,PT_TAC+7);
-  ctx.fillText('FONDO',PX+IW/2,PT_TAC+IH-3);
+  ctx.fillText('FONDO',_px+_iw/2,_pt+7);
+  ctx.fillText('FONDO',_px+_iw/2,_pt+_ih-3);
 }
 
 function drawPlayer(ctx,id,fill){
