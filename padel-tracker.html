@@ -583,6 +583,14 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
         <div class="color-bar purple-bar"></div>
         <div class="f-label">🎾 Golpes técnicos — puntúa del 1 al 5 ⭐</div>
         <div class="shots-quality-grid" id="shots-quality-grid"></div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08)">
+          <div class="f-label" style="margin-bottom:8px">+ Añadir golpe personalizado</div>
+          <div class="add-ex-row">
+            <input id="custom-shot-inp" type="text" placeholder="Ej: Remate slice, Volea lateral..." maxlength="40">
+            <button class="add-ex-btn" onclick="addCustomShot()">+ Golpe</button>
+          </div>
+          <div id="custom-shots-list" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div>
+        </div>
       </div>
       <div id="t-physical-section" class="f-section">
         <div class="color-bar" style="background:linear-gradient(90deg,var(--blue),#7EC8FF)"></div>
@@ -1482,6 +1490,7 @@ function editTraining(id){
   if(!t)return;
   editingTrainingId=id;
   exercises=[...(t.exercises||[])];
+  customShots=[...(t.customShots||[])];
   document.getElementById('t-date').value=t.date||'';
   document.getElementById('t-duration').value=t.duration||'';
   document.getElementById('t-notes').value=t.notes||'';
@@ -1491,6 +1500,7 @@ function editTraining(id){
   buildShotsQualityGrid();
   Object.keys(t.shotQuality||{}).forEach(k=>{const v=t.shotQuality[k];if(v){const row=document.getElementById('sqr-'+k);if(row)row.classList.add('active');for(let i=1;i<=v;i++){const el=document.getElementById(`sqs-${k}-${i}`);if(el)el.classList.add('lit');}}});
   renderExerciseList();
+  renderCustomShots();
   showScreen('train-setup');
 }
 function buildShotsQualityGrid(){
@@ -1506,9 +1516,13 @@ function buildShotsQualityGrid(){
 function toggleShot(k){const row=document.getElementById('sqr-'+k);const a=row.classList.toggle('active');if(!a)for(let n=1;n<=5;n++)document.getElementById(`sqs-${k}-${n}`).className='sq-star';}
 function rateStar(k,n){const row=document.getElementById('sqr-'+k);if(!row.classList.contains('active'))row.classList.add('active');for(let i=1;i<=5;i++){const el=document.getElementById(`sqs-${k}-${i}`);if(el)el.className='sq-star'+(i<=n?' lit':'');}}
 function getShotRating(k){const row=document.getElementById('sqr-'+k);if(!row||!row.classList.contains('active'))return null;for(let n=5;n>=1;n--){if(document.getElementById(`sqs-${k}-${n}`)&&document.getElementById(`sqs-${k}-${n}`).classList.contains('lit'))return n;}return 3;}
+let customShots=[];
 function addExercise(){const inp=document.getElementById('ex-name-inp');const v=inp.value.trim();if(!v)return;exercises.push(v);inp.value='';renderExerciseList();}
 function removeExercise(i){exercises.splice(i,1);renderExerciseList();}
 function renderExerciseList(){const el=document.getElementById('exercise-list');if(!exercises.length){el.innerHTML='<div style="font-size:13px;color:var(--muted);padding:4px 0">Añade los ejercicios realizados</div>';return;}el.innerHTML=exercises.map((e,i)=>`<div class="ex-item"><div class="ex-name">${esc(e)}</div><div class="ex-del" onclick="removeExercise(${i})">✕</div></div>`).join('');}
+function addCustomShot(){const inp=document.getElementById('custom-shot-inp');const v=inp.value.trim();if(!v)return;customShots.push(v);inp.value='';renderCustomShots();}
+function removeCustomShot(i){customShots.splice(i,1);renderCustomShots();}
+function renderCustomShots(){const el=document.getElementById('custom-shots-list');if(!customShots.length){el.innerHTML='';return;}el.innerHTML=customShots.map((s,i)=>`<div class="custom-shot-badge" style="background:rgba(181,123,255,0.2);border:1px solid rgba(181,123,255,0.4);padding:4px 10px;border-radius:6px;font-size:12px;color:#b57bff;display:flex;align-items:center;gap:6px"><span>${esc(s)}</span><span style="cursor:pointer;font-weight:bold" onclick="removeCustomShot(${i})">✕</span></div>`).join('');}
 function updSlider(el,valId,colors){const v=parseInt(el.value);const ve=document.getElementById(valId);ve.textContent=v;ve.style.color=colors[v-1]||'var(--muted)';}
 function saveTraining(){
   const sq={};ALL_SHOT_KEYS.forEach(k=>{const r=getShotRating(k);if(r!==null)sq[k]=r;});
@@ -1518,6 +1532,7 @@ function saveTraining(){
     type:'both',
     duration:parseInt(document.getElementById('t-duration').value)||null,
     shotQuality:sq,
+    customShots:[...customShots],
     exercises:[...exercises],
     energia:parseInt(document.getElementById('sl-energia').value),
     humor:parseInt(document.getElementById('sl-humor').value),
@@ -1525,6 +1540,7 @@ function saveTraining(){
     notes:document.getElementById('t-notes').value.trim()
   };
   if(editingTrainingId){const idx=app.trainings.findIndex(x=>x.id===editingTrainingId);if(idx>=0)app.trainings[idx]=t;}else{app.trainings.unshift(t);}
+  customShots=[];
   saveApp();
   showScreen('train-history-screen');
   setTimeout(showSaveToast,500);
