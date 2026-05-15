@@ -392,7 +392,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .pv-coef-label{font-size:9px;color:#999;text-transform:uppercase;letter-spacing:1px;margin-top:3px}
 .pv-footer{font-size:10px;color:#ccc;text-align:center;margin-top:28px;padding-top:10px;border-top:1px solid #f0f0f0}
 
-@media(min-width:600px){body{background:#030810}.screen{max-width:430px;margin:0 auto;box-shadow:0 0 80px rgba(0,0,0,0.8);background:var(--bg);min-height:100dvh}.tz-point{font-size:88px}.scoring-area{min-height:280px}#shot-sheet{max-width:430px;left:50%;transform:translateX(-50%) translateY(100%)}#shot-sheet.open{transform:translateX(-50%) translateY(0)}#save-toast{max-width:430px;left:50%;transform:translateX(-50%) translateY(100%)}#save-toast.show{transform:translateX(-50%) translateY(0)}}
+@media(min-width:600px){body{background:#030810}.screen{width:100%;margin:0;background:var(--bg);min-height:100dvh}.tz-point{font-size:88px}.scoring-area{min-height:280px}#shot-sheet{width:100%;left:0;transform:translateY(100%)}#shot-sheet.open{transform:translateY(0)}#save-toast{width:100%;left:0;transform:translateY(100%)}#save-toast.show{transform:translateY(0)}}
 </style>
 </head>
 <body>
@@ -809,8 +809,8 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
       <button class="tac-btn tac-btn-danger" onclick="clearArrows()">🗑 Borrar flechas</button>
       <p class="tip">✦ Arrastra jugadores y pelota<br>→ Modo flecha: traza trayectorias<br>✕ Modo borrar: clic sobre una flecha</p>
     </div>
-    <div class="tac-court">
-      <canvas id="mainCanvas" width="320" height="560"></canvas>
+    <div class="tac-court" id="tacourt">
+      <canvas id="mainCanvas"></canvas>
     </div>
   </div>
 </div>
@@ -1641,7 +1641,15 @@ if(!app.playerName){
 // ═══════════════════════════════════════════════════════════════
 // TACTICS BOARD
 // ═══════════════════════════════════════════════════════════════
-const CW=320, CH=560, PX=30, PT_TAC=20, PB=20;
+function getCanvasSize(){
+  const container=document.querySelector('.tac-court');
+  if(!container)return{w:320,h:560};
+  const w=Math.min(container.clientWidth-24,800);
+  const h=Math.min(container.clientHeight-24,Math.floor(w*1.75));
+  return{w:Math.max(w,300),h:Math.max(h,500)};
+}
+let{w:CW,h:CH}=getCanvasSize();
+const PX=Math.floor(CW*0.09), PT_TAC=Math.floor(CH*0.04), PB=Math.floor(CH*0.04);
 const IW=CW-PX*2, IH=CH-PT_TAC-PB;
 const MID_Y=PT_TAC+IH/2;
 const R=18, BR=10;
@@ -1886,7 +1894,25 @@ function exportImg(){
   a.click();
 }
 
+// Redimensionar canvas dinámicamente
+function resizeCanvas(){
+  const container=document.getElementById('tacourt');
+  if(!container)return;
+  const w=Math.min(container.clientWidth-24,1000);
+  const h=Math.min(container.clientHeight-24,Math.floor(w*1.75));
+  CW=Math.max(w,300);
+  CH=Math.max(h,500);
+  const canvas=document.getElementById('mainCanvas');
+  canvas.width=CW;
+  canvas.height=CH;
+  redraw();
+}
+window.addEventListener('resize',resizeCanvas);
+window.addEventListener('load',resizeCanvas);
+setTimeout(resizeCanvas,200);
+
 setF('paralelas');
+resizeCanvas();
 </script>
 </body>
 </html>
