@@ -817,13 +817,21 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 
 <style>
 :root{--tac-bg:#0f1f17;--tac-bg2:#162b1f;--tac-bg3:#1e3828;--tac-green:#40916c;--tac-border:rgba(255,255,255,0.08);--tac-border2:rgba(255,255,255,0.15);--tac-text:#e8f5e9;--tac-text2:#a5c4ae;--tac-text3:#6a9678}
-.tac-sidebar{width:200px;background:var(--tac-bg2);border-right:1px solid var(--tac-border);padding:12px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;font-size:11px}
-.tac-court{flex:1;display:flex;align-items:center;justify-content:center;padding:12px;background:var(--tac-bg);overflow:auto}
+.tac-sidebar{width:160px;background:var(--tac-bg2);border-right:1px solid var(--tac-border);padding:10px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;font-size:10px}
+.tac-court{flex:1;display:flex;align-items:center;justify-content:center;padding:8px;background:var(--tac-bg);overflow:auto}
+@media(max-width:1024px){
+  .tac-sidebar{width:140px;padding:8px;font-size:9px;gap:6px}
+  .tac-court{padding:6px}
+}
 @media(max-width:768px){
   #simulator-screen{display:flex;flex-direction:column}
   #simulator-screen > div:nth-child(2){flex-direction:column}
-  .tac-sidebar{width:100%;border-right:none;border-bottom:1px solid var(--tac-border);min-height:auto;max-height:45vh;overflow-y:auto;padding:10px}
-  .tac-court{min-height:45vh;padding:8px}
+  .tac-sidebar{width:100%;border-right:none;border-bottom:1px solid var(--tac-border);min-height:auto;max-height:40vh;overflow-y:auto;padding:8px;font-size:10px}
+  .tac-court{min-height:60vh;padding:4px;justify-content:flex-start}
+}
+@media(max-width:480px){
+  .tac-sidebar{max-height:35vh;padding:6px;font-size:9px}
+  .tac-court{min-height:65vh}
 }
 .section-label{font-size:9px;font-weight:600;letter-spacing:0.5px;color:var(--tac-text3);text-transform:uppercase;margin-bottom:4px;margin-top:4px}
 .btn-group{display:flex;flex-wrap:wrap;gap:3px}
@@ -1645,10 +1653,9 @@ let CW=640, CH=1120;
 function getCanvasSize(){
   const container=document.querySelector('.tac-court');
   if(!container)return;
-  CW=Math.min(container.clientWidth-24,1000);
-  CH=Math.min(container.clientHeight-24,Math.floor(CW*1.75));
-  CW=Math.max(CW,300);
-  CH=Math.max(CH,500);
+  const maxW=window.innerWidth<600?Math.min(container.clientWidth-16,500):Math.min(container.clientWidth-24,1200);
+  CW=maxW;
+  CH=Math.floor(CW*1.75);
 }
 getCanvasSize();
 const PX=Math.floor(CW*0.09), PT_TAC=Math.floor(CH*0.04), PB=Math.floor(CH*0.04);
