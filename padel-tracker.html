@@ -6,6 +6,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Pádel Tracker</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js"></script>
 <!-- DATOS GUARDADOS — no tocar esta línea -->
 <script type="application/json" id="__ptd">null</script>
 <style>
@@ -936,25 +940,70 @@ let pendingShot={team:null,outcome:null,shot:null,pointPlayer:null};
 let firstTime=false;
 
 // ═══════════════════════════════════════════════════════════════
+// FIREBASE SYNC
+// ═══════════════════════════════════════════════════════════════
+const firebaseConfig={
+  apiKey:"AIzaSyCELBcV-6VvV-6VvV-6VvV-6VvV-6VvV-6Vv",
+  authDomain:"padel-lucas-app.firebaseapp.com",
+  databaseURL:"https://padel-lucas-app-default-rtdb.firebaseio.com",
+  projectId:"padel-lucas-app",
+  storageBucket:"padel-lucas-app.appspot.com",
+  messagingSenderId:"604478762156",
+  appId:"1:604478762156:web:123456789abcdef"
+};
+let fbDb=null, fbAuth=null, fbUserId=null, syncEnabled=false;
+async function initFirebase(){
+  try{
+    firebase.initializeApp(firebaseConfig);
+    fbAuth=firebase.auth();
+    fbDb=firebase.database();
+    fbAuth.onAuthStateChanged(u=>{
+      if(u){fbUserId=u.uid;syncEnabled=true;syncFromFirebase();}
+      else{fbAuth.signInAnonymously().catch(e=>console.log("Auth error:",e));}
+    });
+  }catch(e){console.log("Firebase init skipped (offline or error):",e);}
+}
+
+async function syncFromFirebase(){
+  if(!fbUserId||!fbDb)return;
+  try{
+    const snap=await fbDb.ref('users/'+fbUserId).once('value');
+    const data=snap.val();
+    if(data){
+      Object.assign(app,data);
+      if(!app.trainings)app.trainings=[];
+      if(!app.history)app.history=[];
+      localStorage.setItem(DB_KEY,JSON.stringify(app));
+    }
+  }catch(e){console.log("Sync error:",e);}
+}
+
+function syncToFirebase(){
+  if(!fbUserId||!fbDb||!syncEnabled)return;
+  const data={playerName:app.playerName,history:app.history,trainings:app.trainings,lastSync:new Date().toISOString()};
+  fbDb.ref('users/'+fbUserId).set(data).catch(e=>console.log("Save error:",e));
+}
+
+// ═══════════════════════════════════════════════════════════════
 // PERSISTENCE — CORE (self-saving HTML approach)
 // ═══════════════════════════════════════════════════════════════
 function loadApp(){
-  // 1. Try embedded data in the HTML file itself (most reliable)
-  try{
-    const embedded=JSON.parse(document.getElementById('__ptd').textContent);
-    if(embedded&&(embedded.history||embedded.playerName||embedded.trainings)){
-      Object.assign(app,embedded);
-      if(!app.trainings)app.trainings=[];
-      if(!app.history)app.history=[];
-      return;
-    }
-  }catch(e){}
-  // 2. Fall back to localStorage
+  // 1. Try localStorage first (fastest)
   try{
     const r=localStorage.getItem(DB_KEY);
     if(r){
       const parsed=JSON.parse(r);
       Object.assign(app,parsed);
+      if(!app.trainings)app.trainings=[];
+      if(!app.history)app.history=[];
+      return;
+    }
+  }catch(e){}
+  // 2. Try embedded data in the HTML file itself
+  try{
+    const embedded=JSON.parse(document.getElementById('__ptd').textContent);
+    if(embedded&&(embedded.history||embedded.playerName||embedded.trainings)){
+      Object.assign(app,embedded);
       if(!app.trainings)app.trainings=[];
       if(!app.history)app.history=[];
       return;
@@ -967,10 +1016,12 @@ function loadApp(){
 function saveApp(){
   const data={playerName:app.playerName,history:app.history,trainings:app.trainings};
   const json=JSON.stringify(data);
+  // Save to localStorage (fast, always works)
+  try{localStorage.setItem(DB_KEY,json);}catch(e){}
   // Save to embedded element (used when generating download)
   try{document.getElementById('__ptd').textContent=json;}catch(e){}
-  // Also save to localStorage as session cache
-  try{localStorage.setItem(DB_KEY,json);}catch(e){}
+  // Sync to Firebase (async, background)
+  syncToFirebase();
 }
 
 // Generate the full HTML with data embedded and trigger download
@@ -1630,8 +1681,12 @@ function esc(s){if(!s)return'';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;
 // ═══════════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════════
-loadApp();
-renderHome();
+// Inicializar Firebase y cargar datos
+initFirebase();
+setTimeout(()=>{
+  loadApp();
+  renderHome();
+},100);
 
 // Show first-time modal if no data and no prior intro seen
 const seenIntro=()=>{try{return localStorage.getItem('pt_seen_intro')==='1';}catch(e){return false;}};
