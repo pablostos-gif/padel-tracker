@@ -1,0 +1,9 @@
+[[headers]]
+for = "/"
+[headers.values]
+Cache-Control = "max-age=0, no-cache, no-store, must-revalidate"
+
+[[headers]]
+for = "/padel-tracker.html"
+[headers.values]
+Cache-Control = "max-age=0, no-cache, no-store, must-revalidate"
