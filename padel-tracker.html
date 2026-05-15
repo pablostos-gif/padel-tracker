@@ -1641,14 +1641,16 @@ if(!app.playerName){
 // ═══════════════════════════════════════════════════════════════
 // TACTICS BOARD
 // ═══════════════════════════════════════════════════════════════
+let CW=640, CH=1120;
 function getCanvasSize(){
   const container=document.querySelector('.tac-court');
-  if(!container)return{w:320,h:560};
-  const w=Math.min(container.clientWidth-24,800);
-  const h=Math.min(container.clientHeight-24,Math.floor(w*1.75));
-  return{w:Math.max(w,300),h:Math.max(h,500)};
+  if(!container)return;
+  CW=Math.min(container.clientWidth-24,1000);
+  CH=Math.min(container.clientHeight-24,Math.floor(CW*1.75));
+  CW=Math.max(CW,300);
+  CH=Math.max(CH,500);
 }
-let{w:CW,h:CH}=getCanvasSize();
+getCanvasSize();
 const PX=Math.floor(CW*0.09), PT_TAC=Math.floor(CH*0.04), PB=Math.floor(CH*0.04);
 const IW=CW-PX*2, IH=CH-PT_TAC-PB;
 const MID_Y=PT_TAC+IH/2;
