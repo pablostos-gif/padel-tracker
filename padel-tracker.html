@@ -1499,12 +1499,12 @@ function editTraining(id){
   document.getElementById('sl-intensidad').value=t.intensidad||3;document.getElementById('sl-intensidad-val').textContent=t.intensidad||3;
   buildShotsQualityGrid();
   Object.keys(t.shotQuality||{}).forEach(k=>{const v=t.shotQuality[k];if(v){const row=document.getElementById('sqr-'+k);if(row)row.classList.add('active');for(let i=1;i<=v;i++){const el=document.getElementById(`sqs-${k}-${i}`);if(el)el.classList.add('lit');}}});
+  Object.keys(t.customShotRatings||{}).forEach(s=>{const idx=customShots.indexOf(s);if(idx>=0){const k='custom-'+idx;const v=t.customShotRatings[s];if(v){const row=document.getElementById('sqr-'+k);if(row)row.classList.add('active');for(let i=1;i<=v;i++){const el=document.getElementById(`sqs-${k}-${i}`);if(el)el.classList.add('lit');}}}});
   renderExerciseList();
-  renderCustomShots();
   showScreen('train-setup');
 }
 function buildShotsQualityGrid(){
-  document.getElementById('shots-quality-grid').innerHTML=ALL_SHOT_KEYS.map(k=>`
+  const standardShots=ALL_SHOT_KEYS.map(k=>`
     <div class="sq-row" id="sqr-${k}" onclick="toggleShot('${k}')">
       <div class="sq-toggle" id="sqt-${k}">✓</div>
       <div class="sq-name">${ALL_SHOT_LABELS[k]}</div>
@@ -1512,6 +1512,17 @@ function buildShotsQualityGrid(){
         ${[1,2,3,4,5].map(n=>`<span class="sq-star" id="sqs-${k}-${n}" onclick="rateStar('${k}',${n})">★</span>`).join('')}
       </div>
     </div>`).join('');
+  const customShotsHtml=customShots.length?'<div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);font-size:11px;color:var(--muted);margin-bottom:8px">GOLPES PERSONALIZADOS</div>'+customShots.map((s,i)=>{
+    const k='custom-'+i;
+    return`<div class="sq-row" id="sqr-${k}" onclick="toggleShot('${k}')">
+      <div class="sq-toggle" id="sqt-${k}">✓</div>
+      <div class="sq-name" style="display:flex;align-items:center;justify-content:space-between"><span>${s}</span><span style="cursor:pointer;font-size:14px;color:var(--muted)" onclick="event.stopPropagation();removeCustomShot(${i});buildShotsQualityGrid()">✕</span></div>
+      <div class="sq-stars" onclick="event.stopPropagation()">
+        ${[1,2,3,4,5].map(n=>`<span class="sq-star" id="sqs-${k}-${n}" onclick="rateStar('${k}',${n})">★</span>`).join('')}
+      </div>
+    </div>`;
+  }).join(''):'';
+  document.getElementById('shots-quality-grid').innerHTML=standardShots+customShotsHtml;
 }
 function toggleShot(k){const row=document.getElementById('sqr-'+k);const a=row.classList.toggle('active');if(!a)for(let n=1;n<=5;n++)document.getElementById(`sqs-${k}-${n}`).className='sq-star';}
 function rateStar(k,n){const row=document.getElementById('sqr-'+k);if(!row.classList.contains('active'))row.classList.add('active');for(let i=1;i<=5;i++){const el=document.getElementById(`sqs-${k}-${i}`);if(el)el.className='sq-star'+(i<=n?' lit':'');}}
@@ -1520,12 +1531,12 @@ let customShots=[];
 function addExercise(){const inp=document.getElementById('ex-name-inp');const v=inp.value.trim();if(!v)return;exercises.push(v);inp.value='';renderExerciseList();}
 function removeExercise(i){exercises.splice(i,1);renderExerciseList();}
 function renderExerciseList(){const el=document.getElementById('exercise-list');if(!exercises.length){el.innerHTML='<div style="font-size:13px;color:var(--muted);padding:4px 0">Añade los ejercicios realizados</div>';return;}el.innerHTML=exercises.map((e,i)=>`<div class="ex-item"><div class="ex-name">${esc(e)}</div><div class="ex-del" onclick="removeExercise(${i})">✕</div></div>`).join('');}
-function addCustomShot(){const inp=document.getElementById('custom-shot-inp');const v=inp.value.trim();if(!v)return;customShots.push(v);inp.value='';renderCustomShots();}
-function removeCustomShot(i){customShots.splice(i,1);renderCustomShots();}
-function renderCustomShots(){const el=document.getElementById('custom-shots-list');if(!customShots.length){el.innerHTML='';return;}el.innerHTML=customShots.map((s,i)=>`<div class="custom-shot-badge" style="background:rgba(181,123,255,0.2);border:1px solid rgba(181,123,255,0.4);padding:4px 10px;border-radius:6px;font-size:12px;color:#b57bff;display:flex;align-items:center;gap:6px"><span>${esc(s)}</span><span style="cursor:pointer;font-weight:bold" onclick="removeCustomShot(${i})">✕</span></div>`).join('');}
+function addCustomShot(){const inp=document.getElementById('custom-shot-inp');const v=inp.value.trim();if(!v)return;customShots.push(v);inp.value='';buildShotsQualityGrid();}
+function removeCustomShot(i){customShots.splice(i,1);}
 function updSlider(el,valId,colors){const v=parseInt(el.value);const ve=document.getElementById(valId);ve.textContent=v;ve.style.color=colors[v-1]||'var(--muted)';}
 function saveTraining(){
   const sq={};ALL_SHOT_KEYS.forEach(k=>{const r=getShotRating(k);if(r!==null)sq[k]=r;});
+  const customShotRatings={};customShots.forEach((s,i)=>{const r=getShotRating('custom-'+i);if(r!==null)customShotRatings[s]=r;});
   const t={
     id:editingTrainingId||Date.now(),
     date:document.getElementById('t-date').value||new Date().toISOString().split('T')[0],
@@ -1533,6 +1544,7 @@ function saveTraining(){
     duration:parseInt(document.getElementById('t-duration').value)||null,
     shotQuality:sq,
     customShots:[...customShots],
+    customShotRatings:customShotRatings,
     exercises:[...exercises],
     energia:parseInt(document.getElementById('sl-energia').value),
     humor:parseInt(document.getElementById('sl-humor').value),
