@@ -10,6 +10,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
 <!-- DATOS GUARDADOS — no tocar esta línea -->
 <script type="application/json" id="__ptd">null</script>
 <style>
@@ -419,7 +420,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <div class="home-section-label">Entrenamientos</div>
     <button class="btn btn-purple"     onclick="goToTraining()">⊕ &nbsp;Nuevo Entrenamiento</button>
     <button class="btn btn-secondary"  onclick="showScreen('train-history-screen')">⊞ &nbsp;Historial de entrenos</button>
-    <button class="btn btn-blue"       onclick="showScreen('simulator-screen');setTimeout(()=>{resizeCanvas();setF('paralelas');},150)">🎮 &nbsp;Simulador Táctico</button>
+    <button class="btn btn-blue"       onclick="showScreen('simulator-screen');setTimeout(()=>init3DSim(),200)">🎮 &nbsp;Simulador Táctico</button>
     <div class="home-section-label">Análisis y exportar</div>
     <button class="btn btn-accent"     onclick="showScreen('stats-screen')">◈ &nbsp;Evolución y estadísticas</button>
     <button class="btn btn-save"       onclick="triggerDownload()">💾 &nbsp;Guardar app con mis datos</button>
@@ -765,72 +766,43 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   </div>
 </div>
 
-<!-- TACTICS BOARD -->
+<!-- TACTICS BOARD 3D -->
 <div id="simulator-screen" class="screen" style="padding:0;overflow:hidden">
-  <div class="screen-header" style="background:#162b1f;border-bottom:1px solid rgba(255,255,255,0.08)">
+  <div class="screen-header" style="background:#0f1419;border-bottom:1px solid rgba(255,255,255,0.08)">
     <button class="back-btn" onclick="showScreen('home')">←</button>
-    <h2>Táctica Pádel Pro</h2>
+    <h2>Simulador 3D</h2>
   </div>
-  <div style="flex:1;display:flex;gap:0;overflow:hidden">
-    <div class="tac-sidebar">
-      <div>
-        <div class="section-label">Formación</div>
-        <div class="btn-group">
-          <button class="tb active" onclick="setF('paralelas')">Paralelas</button>
-          <button class="tb" onclick="setF('diagonales')">Diagonales</button>
-          <button class="tb" onclick="setF('defensa')">Defensa</button>
-          <button class="tb" onclick="setF('ataque')">Ataque red</button>
-          <button class="tb" onclick="setF('globo')">Globo</button>
-          <button class="tb" onclick="setF('bandeja')">Bandeja</button>
-          <button class="tb" onclick="setF('contrapie')">Contrapié</button>
-        </div>
-      </div>
-      <hr class="divider">
-      <div>
-        <div class="section-label">Modo de edición</div>
-        <div class="btn-group" style="margin-bottom:8px">
-          <button class="mode-btn active" id="mode-move" onclick="setMode('move')">✦ Mover</button>
-          <button class="mode-btn" id="mode-arrow" onclick="setMode('arrow')">→ Flecha</button>
-          <button class="mode-btn" id="mode-erase" onclick="setMode('erase')">✕ Borrar</button>
-        </div>
-        <div class="section-label" style="margin-top:6px">Color flecha</div>
-        <div style="display:flex;gap:7px;align-items:center;margin-top:4px">
-          <button class="color-btn active" id="col-blue" style="background:#1d6fa4" onclick="setArrowColor('#1d6fa4','col-blue')"></button>
-          <button class="color-btn" id="col-red" style="background:#993c1d" onclick="setArrowColor('#993c1d','col-red')"></button>
-          <button class="color-btn" id="col-amber" style="background:#f4a226" onclick="setArrowColor('#f4a226','col-amber')"></button>
-          <button class="color-btn" id="col-white" style="background:#e8f5e9" onclick="setArrowColor('#e8f5e9','col-white')"></button>
-        </div>
-      </div>
-      <hr class="divider">
-      <div>
-        <div class="section-label">Equipo azul</div>
-        <div class="player-input"><div class="dot" style="background:#1d6fa4"></div><input id="nA1" type="text" value="Lucas" oninput="redraw()"></div>
-        <div class="player-input"><div class="dot" style="background:#1d6fa4"></div><input id="nA2" type="text" value="Jugador 2" oninput="redraw()"></div>
-      </div>
-      <div>
-        <div class="section-label">Equipo rojo</div>
-        <div class="player-input"><div class="dot" style="background:#993c1d"></div><input id="nB1" type="text" value="Jugador 3" oninput="redraw()"></div>
-        <div class="player-input"><div class="dot" style="background:#993c1d"></div><input id="nB2" type="text" value="Jugador 4" oninput="redraw()"></div>
-      </div>
-      <hr class="divider">
-      <div>
-        <div class="section-label">Nota táctica</div>
-        <textarea id="tactNote" placeholder="Escribe indicaciones para tus alumnos..."></textarea>
-      </div>
-      <button class="tac-btn tac-btn-primary" onclick="exportImg()">📥 Guardar imagen PNG</button>
-      <button class="tac-btn tac-btn-danger" onclick="clearArrows()">🗑 Borrar flechas</button>
-      <p class="tip">✦ Arrastra jugadores y pelota<br>→ Modo flecha: traza trayectorias<br>✕ Modo borrar: clic sobre una flecha</p>
+  <div style="flex:1;position:relative;overflow:hidden">
+    <canvas id="sim3d-canvas" style="display:block;width:100%;height:100%;touch-action:none"></canvas>
+    <div id="sim3d-arrowmode" style="display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(59,130,246,0.9);color:#fff;font-size:11px;font-weight:700;padding:5px 14px;border-radius:20px;letter-spacing:1px;pointer-events:none">✏ MODO FLECHAS</div>
+  </div>
+  <div id="sim3d-panel" style="background:#1a1f26;border-top:1px solid rgba(255,255,255,0.08);padding:10px 14px 14px;flex-shrink:0">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+      <span style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#64748b;width:100%;margin-bottom:2px">Formación</span>
+      <button class="s3-pill s3-active" onclick="s3SetF('paralelas',this)">Paralelas</button>
+      <button class="s3-pill" onclick="s3SetF('diagonales',this)">Diagonales</button>
+      <button class="s3-pill" onclick="s3SetF('ataque',this)">Ataque red</button>
+      <button class="s3-pill" onclick="s3SetF('defensa',this)">Defensa</button>
+      <button class="s3-pill" onclick="s3SetF('globo',this)">Globo</button>
+      <button class="s3-pill" onclick="s3SetF('bandeja',this)">Bandeja</button>
     </div>
-    <div class="tac-court" id="tacourt">
-      <canvas id="mainCanvas"></canvas>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="s3-pill" id="s3-btn-arrow" onclick="s3ToggleArrow()">✏ Trazar flecha</button>
+      <button class="s3-pill" onclick="s3ClearArrows()">🗑 Borrar flechas</button>
+      <button class="s3-pill" onclick="s3Reset()">⟳ Reset</button>
+      <span style="font-size:10px;color:#64748b;align-self:center;margin-left:4px">Pellizca para rotar</span>
     </div>
   </div>
 </div>
 
 <style>
-:root{--tac-bg:#0f1f17;--tac-bg2:#162b1f;--tac-bg3:#1e3828;--tac-green:#40916c;--tac-border:rgba(255,255,255,0.08);--tac-border2:rgba(255,255,255,0.15);--tac-text:#e8f5e9;--tac-text2:#a5c4ae;--tac-text3:#6a9678}
-.tac-sidebar{width:160px;background:var(--tac-bg2);border-right:1px solid var(--tac-border);padding:10px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;font-size:10px}
-.tac-court{flex:1;display:flex;align-items:center;justify-content:center;padding:8px;background:var(--tac-bg);overflow:auto}
+#simulator-screen{display:flex;flex-direction:column}
+.s3-pill{background:#252d38;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;color:#f1f5f9;cursor:pointer;font-family:inherit;transition:all 0.2s;white-space:nowrap}
+.s3-pill:active{transform:scale(0.95)}
+.s3-pill.s3-active{background:#10b981;color:#fff;border-color:#10b981}
+#s3-btn-arrow.s3-active{background:#3b82f6;color:#fff;border-color:#3b82f6}
+/* remove old tac vars */
+.tac-sidebar{display:none}.tac-court{display:none}
 @media(max-width:1024px){
   .tac-sidebar{width:140px;padding:8px;font-size:9px;gap:6px}
   .tac-court{padding:6px}
@@ -1722,274 +1694,292 @@ if(firstTime&&!seenIntro()){
 if(!app.playerName){app.playerName='Lucas';saveApp();renderHome();}
 
 // ═══════════════════════════════════════════════════════════════
-// TACTICS BOARD
+// SIMULADOR 3D
 // ═══════════════════════════════════════════════════════════════
-let CW=640, CH=1120;
-const R=18, BR=10;
-function PX(){return Math.floor(CW*0.09);}
-function PT_TAC(){return Math.floor(CH*0.04);}
-function PB(){return Math.floor(CH*0.04);}
-function IW(){return CW-PX()*2;}
-function IH(){return CH-PT_TAC()-PB();}
-function MID_Y(){return PT_TAC()+IH()/2;}
+let s3renderer=null, s3scene=null, s3camera=null;
+let s3players=[], s3ball=null, s3arrows=[], s3arrowMode=false;
+let s3dragging=null, s3dragOffset=new THREE.Vector3();
+let s3camTheta=0, s3camPhi=0.6, s3camDist=22;
+let s3camDragging=false, s3camStart={x:0,y:0};
+let s3drawingArrow=null, s3arrowPreview=null;
+let s3animId=null, s3t=0;
+let s3lastPinch=null;
 
-const formations={
-  paralelas: {A1:[0.25,0.78],A2:[0.75,0.78],B1:[0.25,0.22],B2:[0.75,0.22],ball:[0.5,0.5]},
-  diagonales:{A1:[0.15,0.82],A2:[0.82,0.68],B1:[0.82,0.18],B2:[0.15,0.32],ball:[0.5,0.5]},
-  defensa:   {A1:[0.22,0.92],A2:[0.78,0.92],B1:[0.28,0.32],B2:[0.72,0.32],ball:[0.5,0.72]},
-  ataque:    {A1:[0.28,0.58],A2:[0.72,0.58],B1:[0.28,0.12],B2:[0.72,0.12],ball:[0.5,0.35]},
-  globo:     {A1:[0.22,0.88],A2:[0.78,0.88],B1:[0.28,0.55],B2:[0.72,0.55],ball:[0.35,0.75]},
-  bandeja:   {A1:[0.3,0.62], A2:[0.7,0.62], B1:[0.25,0.15],B2:[0.75,0.15],ball:[0.4,0.42]},
-  contrapie: {A1:[0.72,0.75],A2:[0.28,0.88],B1:[0.25,0.22],B2:[0.75,0.28],ball:[0.5,0.55]}
+const s3formations={
+  paralelas: {A1:[-2.5,7],A2:[2.5,7],B1:[-2.5,-7],B2:[2.5,-7],ball:[0,0]},
+  diagonales:{A1:[-1,8],A2:[3,5],B1:[1,-8],B2:[-3,-5],ball:[0,0]},
+  ataque:    {A1:[-2,2],A2:[2,2],B1:[-2,-7],B2:[2,-7],ball:[0,0]},
+  defensa:   {A1:[-3,8],A2:[3,8],B1:[-2,-3],B2:[2,-3],ball:[0,0]},
+  globo:     {A1:[-2.5,7],A2:[2.5,7],B1:[-1,-4],B2:[1,-4],ball:[-2,5]},
+  bandeja:   {A1:[-2,3],A2:[2,3],B1:[-2.5,-7],B2:[2.5,-7],ball:[0,1]},
 };
 
-let pos={}, arrows=[], mode='move', arrowColor='#1d6fa4';
-let dragging=null, dragOffX=0, dragOffY=0;
-let arrowStart=null, previewEnd=null;
+function init3DSim(){
+  const canvas=document.getElementById('sim3d-canvas');
+  if(!canvas) return;
+  const wrap=canvas.parentElement;
 
-function px(rx){ return PX()+rx*IW(); }
-function py(ry){ return PT_TAC()+ry*IH(); }
-function rx(x){ return Math.max(0,Math.min(1,(x-PX())/IW())); }
-function ry(y){ return Math.max(0,Math.min(1,(y-PT_TAC())/IH())); }
-
-function setF(name){
-  document.querySelectorAll('.tb').forEach(b=>{
-    const map={paralelas:'Paralelas',diagonales:'Diagonales',defensa:'Defensa',ataque:'Ataque red',globo:'Globo',bandeja:'Bandeja',contrapie:'Contrapie'};
-    b.classList.toggle('active', b.textContent===map[name]);
-  });
-  pos=JSON.parse(JSON.stringify(formations[name]));
-  redraw();
-}
-
-function setMode(m){
-  mode=m;
-  ['move','arrow','erase'].forEach(id=>{
-    document.getElementById('mode-'+id).classList.toggle('active',m===id);
-  });
-  const c=document.getElementById('mainCanvas');
-  c.style.cursor=m==='erase'?'not-allowed':'crosshair';
-}
-
-function setArrowColor(c,btnId){
-  arrowColor=c;
-  document.querySelectorAll('.color-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById(btnId).classList.add('active');
-}
-
-function clearArrows(){ arrows=[]; redraw(); }
-
-function redraw(){
-  const canvas=document.getElementById('mainCanvas');
-  const ctx=canvas.getContext('2d');
-  ctx.clearRect(0,0,CW,CH);
-  drawCourt(ctx);
-  arrows.forEach(a=>drawArrow(ctx,px(a.x1),py(a.y1),px(a.x2),py(a.y2),a.color,false));
-  if(previewEnd&&arrowStart) drawArrow(ctx,arrowStart.x,arrowStart.y,previewEnd.x,previewEnd.y,arrowColor,true);
-  drawBall(ctx);
-  ['A1','A2'].forEach(id=>drawPlayer(ctx,id,'#1d6fa4'));
-  ['B1','B2'].forEach(id=>drawPlayer(ctx,id,'#993c1d'));
-}
-
-function drawCourt(ctx){
-  const _px=PX(),_pt=PT_TAC(),_iw=IW(),_ih=IH(),_my=MID_Y();
-  ctx.fillStyle='#2d5a3d';
-  ctx.beginPath(); ctx.roundRect(_px,_pt,_iw,_ih,4); ctx.fill();
-  ctx.strokeStyle='rgba(255,255,255,0.22)'; ctx.lineWidth=1.5;
-  ctx.strokeRect(_px,_pt,_iw,_ih);
-  ctx.fillStyle='rgba(0,0,0,0.18)';
-  ctx.fillRect(_px,_pt,_iw,10); ctx.fillRect(_px,_pt+_ih-10,_iw,10);
-  ctx.fillRect(_px,_pt+10,10,_ih-20); ctx.fillRect(_px+_iw-10,_pt+10,10,_ih-20);
-  ctx.strokeStyle='rgba(255,255,255,0.18)'; ctx.lineWidth=1;
-  const q=_ih/4;
-  [[_px,_pt+q,_px+_iw,_pt+q],[_px,_pt+q*3,_px+_iw,_pt+q*3]].forEach(([x1,y1,x2,y2])=>{
-    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
-  });
-  [_iw/3,_iw*2/3].forEach(dx=>{
-    ctx.beginPath(); ctx.moveTo(_px+dx,_pt+q); ctx.lineTo(_px+dx,_pt+q*3); ctx.stroke();
-  });
-  ctx.setLineDash([5,5]);
-  ctx.beginPath();
-  ctx.moveTo(_px+_iw/2,_pt); ctx.lineTo(_px+_iw/2,_pt+q);
-  ctx.moveTo(_px+_iw/2,_pt+q*3); ctx.lineTo(_px+_iw/2,_pt+_ih);
-  ctx.stroke(); ctx.setLineDash([]);
-  ctx.strokeStyle='rgba(255,255,255,0.7)'; ctx.lineWidth=3;
-  ctx.beginPath(); ctx.moveTo(_px,_my); ctx.lineTo(_px+_iw,_my); ctx.stroke();
-  ctx.fillStyle='rgba(255,255,255,0.35)';
-  ctx.font='bold 9px Arial'; ctx.textAlign='center';
-  ctx.fillText('RED',_px+_iw/2,_my-5);
-  ctx.fillStyle='rgba(255,255,255,0.12)'; ctx.font='9px Arial';
-  ctx.fillText('FONDO',_px+_iw/2,_pt+7);
-  ctx.fillText('FONDO',_px+_iw/2,_pt+_ih-3);
-}
-
-function drawPlayer(ctx,id,fill){
-  const [ex,ey]=pos[id]; const x=px(ex), y=py(ey);
-  const names={A1:'nA1',A2:'nA2',B1:'nB1',B2:'nB2'};
-  const name=(document.getElementById(names[id])?.value||id).substring(0,7);
-  ctx.fillStyle=fill; ctx.beginPath(); ctx.arc(x,y,R,0,Math.PI*2); ctx.fill();
-  ctx.strokeStyle='rgba(255,255,255,0.8)'; ctx.lineWidth=2;
-  ctx.beginPath(); ctx.arc(x,y,R,0,Math.PI*2); ctx.stroke();
-  ctx.fillStyle='white'; ctx.font='bold 9px Arial';
-  ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText(name.substring(0,5),x,y); ctx.textBaseline='alphabetic';
-  const tw=ctx.measureText(name).width+12;
-  ctx.fillStyle='rgba(0,0,0,0.65)';
-  ctx.beginPath(); ctx.roundRect(x-tw/2,y+R+2,tw,15,4); ctx.fill();
-  ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.font='9px Arial';
-  ctx.fillText(name,x,y+R+13);
-}
-
-function drawBall(ctx){
-  const [ex,ey]=pos.ball; const x=px(ex), y=py(ey);
-  ctx.fillStyle='#f4a226'; ctx.beginPath(); ctx.arc(x,y,BR,0,Math.PI*2); ctx.fill();
-  ctx.strokeStyle='#7a4f0a'; ctx.lineWidth=1.5;
-  ctx.beginPath(); ctx.arc(x,y,BR,0,Math.PI*2); ctx.stroke();
-  ctx.strokeStyle='rgba(255,255,255,0.45)'; ctx.lineWidth=1;
-  ctx.beginPath(); ctx.arc(x-2,y-2,4,Math.PI*0.8,Math.PI*1.8); ctx.stroke();
-}
-
-function drawArrow(ctx,x1,y1,x2,y2,color,dashed){
-  const dx=x2-x1, dy=y2-y1, len=Math.sqrt(dx*dx+dy*dy);
-  if(len<6) return;
-  const ux=dx/len, uy=dy/len;
-  ctx.strokeStyle=color; ctx.lineWidth=2.5;
-  if(dashed) ctx.setLineDash([5,4]); else ctx.setLineDash([]);
-  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2-ux*9,y2-uy*9); ctx.stroke();
-  ctx.setLineDash([]);
-  const angle=Math.atan2(dy,dx); ctx.fillStyle=color;
-  ctx.beginPath();
-  ctx.moveTo(x2,y2);
-  ctx.lineTo(x2-13*Math.cos(angle-0.38),y2-13*Math.sin(angle-0.38));
-  ctx.lineTo(x2-13*Math.cos(angle+0.38),y2-13*Math.sin(angle+0.38));
-  ctx.closePath(); ctx.fill();
-}
-
-function hitTest(mx,my){
-  for(const id of ['A1','A2','B1','B2']){
-    const [ex,ey]=pos[id];
-    const dx=mx-px(ex), dy=my-py(ey);
-    if(dx*dx+dy*dy<=(R+5)*(R+5)) return id;
+  if(s3renderer){
+    s3renderer.setSize(wrap.clientWidth, wrap.clientHeight, false);
+    s3camera.aspect=wrap.clientWidth/wrap.clientHeight;
+    s3camera.updateProjectionMatrix();
+    return;
   }
-  const [bx,by]=pos.ball;
-  const dx=mx-px(bx), dy=my-py(by);
-  if(dx*dx+dy*dy<=(BR+6)*(BR+6)) return 'ball';
-  return null;
-}
 
-function eraseArrowAt(mx,my){
-  arrows=arrows.filter(a=>{
-    const x1=px(a.x1),y1=py(a.y1),x2=px(a.x2),y2=py(a.y2);
-    const dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);
-    if(len<1) return true;
-    const t=Math.max(0,Math.min(1,((mx-x1)*dx+(my-y1)*dy)/(len*len)));
-    return Math.sqrt((mx-(x1+t*dx))*(mx-(x1+t*dx))+(my-(y1+t*dy))*(my-(y1+t*dy)))>12;
-  });
-  redraw();
-}
+  // Renderer
+  s3renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+  s3renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  s3renderer.shadowMap.enabled=true;
+  s3renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  s3renderer.setClearColor(0x0a1628,1);
+  s3renderer.setSize(wrap.clientWidth,wrap.clientHeight,false);
 
-const tacCanvas=document.getElementById('mainCanvas');
-tacCanvas.addEventListener('mousedown',e=>{
-  const r=tacCanvas.getBoundingClientRect();
-  const mx=(e.clientX-r.left)*(CW/r.width), my=(e.clientY-r.top)*(CH/r.height);
-  if(mode==='erase'){eraseArrowAt(mx,my);return;}
-  if(mode==='arrow'){arrowStart={x:mx,y:my};return;}
-  const hit=hitTest(mx,my);
-  if(hit){dragging=hit;const [ex,ey]=pos[hit];dragOffX=mx-px(ex);dragOffY=my-py(ey);}
-});
-tacCanvas.addEventListener('mousemove',e=>{
-  const r=tacCanvas.getBoundingClientRect();
-  const mx=(e.clientX-r.left)*(CW/r.width), my=(e.clientY-r.top)*(CH/r.height);
-  if(mode==='arrow'&&arrowStart){previewEnd={x:mx,y:my};redraw();return;}
-  if(!dragging) return;
-  pos[dragging]=[rx(mx-dragOffX),ry(my-dragOffY)];
-  redraw();
-});
-tacCanvas.addEventListener('mouseup',e=>{
-  const r=tacCanvas.getBoundingClientRect();
-  const mx=(e.clientX-r.left)*(CW/r.width), my=(e.clientY-r.top)*(CH/r.height);
-  if(mode==='arrow'&&arrowStart){
-    const dx=mx-arrowStart.x,dy=my-arrowStart.y;
-    if(Math.sqrt(dx*dx+dy*dy)>10) arrows.push({x1:rx(arrowStart.x),y1:ry(arrowStart.y),x2:rx(mx),y2:ry(my),color:arrowColor});
-    arrowStart=null; previewEnd=null; redraw(); return;
+  // Scene
+  s3scene=new THREE.Scene();
+  s3scene.fog=new THREE.Fog(0x0a1628,30,80);
+
+  // Camera
+  s3camera=new THREE.PerspectiveCamera(50,wrap.clientWidth/wrap.clientHeight,0.1,200);
+  s3updateCamera();
+
+  // Lights
+  s3scene.add(new THREE.AmbientLight(0x334466,1.2));
+  const sun=new THREE.DirectionalLight(0xffffff,1.4);
+  sun.position.set(5,20,10); sun.castShadow=true;
+  sun.shadow.camera.left=-15;sun.shadow.camera.right=15;
+  sun.shadow.camera.top=15;sun.shadow.camera.bottom=-15;
+  sun.shadow.mapSize.set(1024,1024);
+  s3scene.add(sun);
+  s3scene.add(Object.assign(new THREE.DirectionalLight(0x4488ff,0.4),{position:new THREE.Vector3(-5,8,-10)}));
+
+  // Court floor
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(10,20,20,40),new THREE.MeshLambertMaterial({color:0x1a6b3c}));
+  floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; s3scene.add(floor);
+
+  // Court lines
+  function addL(x1,z1,x2,z2,op=0.6){
+    const geo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x1,0.01,z1),new THREE.Vector3(x2,0.01,z2)]);
+    s3scene.add(new THREE.Line(geo,new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:op})));
   }
-  dragging=null;
-});
-tacCanvas.addEventListener('touchstart',e=>{
-  e.preventDefault();
-  const r=tacCanvas.getBoundingClientRect();
-  const t=e.touches[0];
-  const mx=(t.clientX-r.left)*(CW/r.width), my=(t.clientY-r.top)*(CH/r.height);
-  if(mode==='arrow'){arrowStart={x:mx,y:my};return;}
-  if(mode==='erase'){eraseArrowAt(mx,my);return;}
-  const hit=hitTest(mx,my);
-  if(hit){dragging=hit;const[ex,ey]=pos[hit];dragOffX=mx-px(ex);dragOffY=my-py(ey);}
-},{passive:false});
-tacCanvas.addEventListener('touchmove',e=>{
-  e.preventDefault();
-  const r=tacCanvas.getBoundingClientRect();
-  const t=e.touches[0];
-  const mx=(t.clientX-r.left)*(CW/r.width), my=(t.clientY-r.top)*(CH/r.height);
-  if(mode==='arrow'&&arrowStart){previewEnd={x:mx,y:my};redraw();return;}
-  if(!dragging) return;
-  pos[dragging]=[rx(mx-dragOffX),ry(my-dragOffY)];
-  redraw();
-},{passive:false});
-tacCanvas.addEventListener('touchend',e=>{
-  const r=tacCanvas.getBoundingClientRect();
-  const t=e.changedTouches[0];
-  const mx=(t.clientX-r.left)*(CW/r.width), my=(t.clientY-r.top)*(CH/r.height);
-  if(mode==='arrow'&&arrowStart){
-    const dx=mx-arrowStart.x,dy=my-arrowStart.y;
-    if(Math.sqrt(dx*dx+dy*dy)>10) arrows.push({x1:rx(arrowStart.x),y1:ry(arrowStart.y),x2:rx(mx),y2:ry(my),color:arrowColor});
-    arrowStart=null;previewEnd=null;redraw();return;
-  }
-  dragging=null;
-});
+  addL(-5,10,5,10);addL(-5,-10,5,-10);addL(-5,-10,-5,10);addL(5,-10,5,10);
+  addL(-5,0,5,0,1);addL(-5,5,5,5,0.3);addL(-5,-5,5,-5,0.3);
+  addL(0,10,0,0,0.3);addL(0,-10,0,0,0.3);
 
-function exportImg(){
-  const src=document.getElementById('mainCanvas');
-  const note=document.getElementById('tactNote').value.trim();
-  const nH=note?70:0;
-  const exp=document.createElement('canvas');
-  exp.width=CW; exp.height=CH+nH+28;
-  const ctx=exp.getContext('2d');
-  ctx.fillStyle='#1b4332'; ctx.fillRect(0,0,exp.width,exp.height);
-  ctx.font='bold 11px Arial'; ctx.fillStyle='rgba(255,255,255,0.45)'; ctx.textAlign='center';
-  ctx.fillText('TACTICA PADEL PRO',CW/2,14);
-  ctx.drawImage(src,0,18);
-  if(note){
-    ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fillRect(0,CH+18,CW,nH+10);
-    ctx.fillStyle='rgba(255,255,255,0.8)'; ctx.font='11px Arial'; ctx.textAlign='left';
-    const words=note.split(' '); let line='', ly=CH+34;
-    words.forEach(w=>{
-      const test=line+w+' ';
-      if(ctx.measureText(test).width>CW-18&&line!==''){ctx.fillText(line,9,ly);line=w+' ';ly+=15;}
-      else line=test;
+  // Glass walls
+  const gm=new THREE.MeshPhongMaterial({color:0x88ccff,transparent:true,opacity:0.13,side:THREE.DoubleSide,shininess:120});
+  const fm=new THREE.MeshLambertMaterial({color:0xaabbcc});
+  function makeWall(w,h,x,z,ry){
+    const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),gm);
+    m.position.set(x,h/2,z); m.rotation.y=ry; s3scene.add(m);
+    [-w/2,w/2].forEach(dx=>{
+      const p=new THREE.Mesh(new THREE.BoxGeometry(0.08,h,0.08),fm);
+      p.position.set(x+Math.sin(ry)*dx,h/2,z+Math.cos(ry)*dx); s3scene.add(p);
     });
-    ctx.fillText(line,9,ly);
   }
-  const a=document.createElement('a');
-  a.download='tactica-padel.png';
-  a.href=exp.toDataURL('image/png');
-  a.click();
+  makeWall(10,4,0,10,0);makeWall(10,4,0,-10,0);makeWall(20,4,-5,0,Math.PI/2);makeWall(20,4,5,0,Math.PI/2);
+
+  // Net
+  [-5,5].forEach(x=>{const m=new THREE.Mesh(new THREE.BoxGeometry(0.1,1,0.1),fm);m.position.set(x,0.5,0);s3scene.add(m);});
+  const nb=new THREE.Mesh(new THREE.PlaneGeometry(10,0.08),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.8,side:THREE.DoubleSide}));
+  nb.position.set(0,0.96,0);nb.rotation.y=Math.PI/2;s3scene.add(nb);
+
+  // Players
+  function makePlayer(color,label){
+    const g=new THREE.Group();
+    const shd=new THREE.Mesh(new THREE.CircleGeometry(0.35,16),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0.3}));
+    shd.rotation.x=-Math.PI/2;shd.position.y=0.01;g.add(shd);
+    const bm=new THREE.MeshPhongMaterial({color,shininess:60});
+    const body=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.28,0.9,8),bm);
+    body.position.y=0.45;body.castShadow=true;g.add(body);
+    const head=new THREE.Mesh(new THREE.SphereGeometry(0.22,12,8),new THREE.MeshPhongMaterial({color:0xf5d0a9,shininess:40}));
+    head.position.y=1.12;head.castShadow=true;g.add(head);
+    [-1,1].forEach(s=>{
+      const arm=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.06,0.55,6),bm);
+      arm.position.set(s*0.32,0.6,0);arm.rotation.z=s*0.4;arm.castShadow=true;g.add(arm);
+      const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.07,0.7,6),new THREE.MeshPhongMaterial({color:0x1e293b,shininess:20}));
+      leg.position.set(s*0.13,-0.35,0);leg.castShadow=true;g.add(leg);
+    });
+    const c2=document.createElement('canvas');c2.width=64;c2.height=64;
+    const cx=c2.getContext('2d');
+    cx.fillStyle='rgba(0,0,0,0.7)';cx.beginPath();cx.arc(32,32,28,0,Math.PI*2);cx.fill();
+    cx.fillStyle='#fff';cx.font='bold 24px Arial';cx.textAlign='center';cx.textBaseline='middle';cx.fillText(label,32,32);
+    const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c2),transparent:true}));
+    sp.scale.set(0.6,0.6,0.6);sp.position.y=1.6;g.add(sp);
+    g.userData.isPlayer=true;
+    return g;
+  }
+  [{x:-2.5,z:7,c:0x10b981,l:'A1'},{x:2.5,z:7,c:0x10b981,l:'A2'},{x:-2.5,z:-7,c:0xef4444,l:'B1'},{x:2.5,z:-7,c:0xef4444,l:'B2'}]
+    .forEach(p=>{
+      const pl=makePlayer(p.c,p.l);
+      pl.position.set(p.x,0,p.z);
+      pl.userData.def={x:p.x,z:p.z};
+      s3scene.add(pl); s3players.push(pl);
+    });
+
+  // Ball
+  s3ball=new THREE.Mesh(new THREE.SphereGeometry(0.18,16,12),new THREE.MeshPhongMaterial({color:0xffff00,shininess:100}));
+  s3ball.position.set(0,0.18,0);s3ball.castShadow=true;s3ball.userData.isBall=true;s3scene.add(s3ball);
+
+  // Events
+  const gp=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+  const rc=new THREE.Raycaster();
+  function getGround(e){
+    const rect=canvas.getBoundingClientRect();
+    const cx=(e.clientX??e.touches[0].clientX),cy=(e.clientY??e.touches[0].clientY);
+    const ndc={x:((cx-rect.left)/rect.width)*2-1,y:-((cy-rect.top)/rect.height)*2+1};
+    rc.setFromCamera(ndc,s3camera);
+    const pt=new THREE.Vector3();
+    return rc.ray.intersectPlane(gp,pt)?pt:null;
+  }
+  function pickObj(e){
+    const rect=canvas.getBoundingClientRect();
+    const cx=(e.clientX??e.touches[0].clientX),cy=(e.clientY??e.touches[0].clientY);
+    const ndc={x:((cx-rect.left)/rect.width)*2-1,y:-((cy-rect.top)/rect.height)*2+1};
+    rc.setFromCamera(ndc,s3camera);
+    const hits=rc.intersectObjects([...s3players,s3ball],true);
+    if(!hits.length) return null;
+    let o=hits[0].object;
+    while(o.parent&&!o.userData.isPlayer&&!o.userData.isBall) o=o.parent;
+    return o;
+  }
+  function clamp(x,z){return{x:Math.max(-4.7,Math.min(4.7,x)),z:Math.max(-9.7,Math.min(9.7,z))};}
+
+  canvas.addEventListener('pointerdown',e=>{
+    e.preventDefault();
+    if(s3arrowMode){
+      const pt=getGround(e);
+      if(pt) s3drawingArrow={start:pt.clone(),end:pt.clone()};
+      return;
+    }
+    const obj=pickObj(e);
+    if(obj){
+      s3dragging=obj;
+      const pt=getGround(e);
+      if(pt) s3dragOffset.subVectors(obj.position,pt).setY(0);
+      canvas.setPointerCapture(e.pointerId);
+    } else {
+      s3camDragging=true;
+      s3camStart={x:e.clientX,y:e.clientY};
+      canvas.setPointerCapture(e.pointerId);
+    }
+  });
+  canvas.addEventListener('pointermove',e=>{
+    e.preventDefault();
+    if(s3arrowMode&&s3drawingArrow){
+      const pt=getGround(e);
+      if(pt){s3drawingArrow.end=pt.clone();s3renderArrowPreview();}
+      return;
+    }
+    if(s3dragging){
+      const pt=getGround(e);
+      if(pt){
+        const c=clamp(pt.x+s3dragOffset.x,pt.z+s3dragOffset.z);
+        s3dragging.position.x=c.x; s3dragging.position.z=c.z;
+        if(s3dragging.userData.isBall) s3dragging.position.y=0.18;
+      }
+    } else if(s3camDragging){
+      s3camTheta-=(e.clientX-s3camStart.x)*0.005;
+      s3camPhi=Math.max(0.15,Math.min(1.4,s3camPhi-(e.clientY-s3camStart.y)*0.005));
+      s3camStart={x:e.clientX,y:e.clientY};
+      s3updateCamera();
+    }
+  });
+  canvas.addEventListener('pointerup',e=>{
+    if(s3arrowMode&&s3drawingArrow){s3finalizeArrow();s3drawingArrow=null;}
+    s3dragging=null; s3camDragging=false;
+  });
+  canvas.addEventListener('touchstart',e=>{
+    if(e.touches.length===2){
+      const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;
+      s3lastPinch=Math.sqrt(dx*dx+dy*dy);
+    }
+  },{passive:true});
+  canvas.addEventListener('touchmove',e=>{
+    if(e.touches.length===2&&s3lastPinch){
+      const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;
+      const d=Math.sqrt(dx*dx+dy*dy);
+      s3camDist=Math.max(8,Math.min(40,s3camDist*(s3lastPinch/d)));
+      s3lastPinch=d; s3updateCamera();
+    }
+  },{passive:true});
+  canvas.addEventListener('touchend',()=>{s3lastPinch=null;},{passive:true});
+  canvas.addEventListener('wheel',e=>{s3camDist=Math.max(8,Math.min(40,s3camDist+e.deltaY*0.02));s3updateCamera();},{passive:true});
+  window.addEventListener('resize',()=>{
+    if(document.getElementById('simulator-screen').classList.contains('active')){
+      s3renderer.setSize(wrap.clientWidth,wrap.clientHeight,false);
+      s3camera.aspect=wrap.clientWidth/wrap.clientHeight;
+      s3camera.updateProjectionMatrix();
+    }
+  });
+
+  // Animate
+  function animate(){
+    s3animId=requestAnimationFrame(animate);
+    s3t+=0.016;
+    if(!s3dragging||!s3dragging.userData?.isBall) s3ball.position.y=0.18+Math.abs(Math.sin(s3t*2))*0.08;
+    s3players.forEach((p,i)=>{if(s3dragging!==p) p.position.y=Math.sin(s3t*1.5+i)*0.02;});
+    s3renderer.render(s3scene,s3camera);
+  }
+  animate();
+  s3SetF('paralelas', document.querySelector('.s3-pill'));
 }
 
-// Redimensionar canvas dinámicamente
-function resizeCanvas(){
-  const container=document.getElementById('tacourt');
-  if(!container)return;
-  // Si el contenedor está oculto, usamos el ancho de ventana menos la sidebar
-  const cw=container.clientWidth>0?container.clientWidth:window.innerWidth-170;
-  const ch=container.clientHeight>0?container.clientHeight:window.innerHeight-80;
-  CW=Math.max(Math.min(cw-16,1000),300);
-  CH=Math.max(Math.min(ch-16,Math.floor(CW*1.75)),500);
-  const canvas=document.getElementById('mainCanvas');
-  canvas.width=CW;
-  canvas.height=CH;
-  redraw();
+function s3updateCamera(){
+  if(!s3camera) return;
+  s3camera.position.x=Math.sin(s3camTheta)*Math.cos(s3camPhi)*s3camDist;
+  s3camera.position.y=Math.sin(s3camPhi)*s3camDist;
+  s3camera.position.z=Math.cos(s3camTheta)*Math.cos(s3camPhi)*s3camDist;
+  s3camera.lookAt(0,0,0);
 }
-window.addEventListener('resize',resizeCanvas);
-setF('paralelas');
+
+function s3SetF(name,btn){
+  const f=s3formations[name]; if(!f) return;
+  const labels=['A1','A2','B1','B2'];
+  s3players.forEach((p,i)=>{const k=labels[i];if(f[k]){p.position.x=f[k][0];p.position.z=f[k][1];}});
+  if(f.ball&&s3ball){s3ball.position.x=f.ball[0];s3ball.position.z=f.ball[1];s3ball.position.y=0.18;}
+  document.querySelectorAll('.s3-pill').forEach(b=>b.classList.remove('s3-active'));
+  if(btn) btn.classList.add('s3-active');
+}
+
+function s3Reset(){
+  s3players.forEach(p=>{p.position.x=p.userData.def.x;p.position.z=p.userData.def.z;});
+  if(s3ball){s3ball.position.set(0,0.18,0);}
+  s3ClearArrows();
+}
+
+function s3ToggleArrow(){
+  s3arrowMode=!s3arrowMode;
+  document.getElementById('s3-btn-arrow').classList.toggle('s3-active',s3arrowMode);
+  document.getElementById('sim3d-arrowmode').style.display=s3arrowMode?'block':'none';
+}
+
+function s3renderArrowPreview(){
+  if(s3arrowPreview){s3scene.remove(s3arrowPreview);s3arrowPreview=null;}
+  if(!s3drawingArrow) return;
+  const pts=[new THREE.Vector3(s3drawingArrow.start.x,0.05,s3drawingArrow.start.z),new THREE.Vector3(s3drawingArrow.end.x,0.05,s3drawingArrow.end.z)];
+  s3arrowPreview=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0x3b82f6,transparent:true,opacity:0.5}));
+  s3scene.add(s3arrowPreview);
+}
+
+function s3finalizeArrow(){
+  if(s3arrowPreview){s3scene.remove(s3arrowPreview);s3arrowPreview=null;}
+  if(!s3drawingArrow) return;
+  const dx=s3drawingArrow.end.x-s3drawingArrow.start.x,dz=s3drawingArrow.end.z-s3drawingArrow.start.z;
+  if(Math.sqrt(dx*dx+dz*dz)<0.3) return;
+  const pts=[new THREE.Vector3(s3drawingArrow.start.x,0.06,s3drawingArrow.start.z),new THREE.Vector3(s3drawingArrow.end.x,0.06,s3drawingArrow.end.z)];
+  const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0x60a5fa}));
+  s3scene.add(line);
+  const ang=Math.atan2(dx,dz),hl=0.5,ha=0.4,ex=s3drawingArrow.end.x,ez=s3drawingArrow.end.z;
+  const hpts=[new THREE.Vector3(ex-hl*Math.sin(ang-ha),0.06,ez-hl*Math.cos(ang-ha)),new THREE.Vector3(ex,0.06,ez),new THREE.Vector3(ex-hl*Math.sin(ang+ha),0.06,ez-hl*Math.cos(ang+ha))];
+  const head=new THREE.Line(new THREE.BufferGeometry().setFromPoints(hpts),new THREE.LineBasicMaterial({color:0x60a5fa}));
+  s3scene.add(head);
+  s3arrows.push(line,head);
+}
+
+function s3ClearArrows(){
+  s3arrows.forEach(a=>{if(s3scene)s3scene.remove(a);}); s3arrows=[];
+  if(s3arrowPreview){s3scene.remove(s3arrowPreview);s3arrowPreview=null;}
+}
 </script>
 </body>
 </html>
