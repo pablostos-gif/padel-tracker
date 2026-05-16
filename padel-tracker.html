@@ -959,40 +959,34 @@ const firebaseConfig={
   messagingSenderId:"604478762156",
   appId:"1:604478762156:web:4c4aa4b2698cca335f8309"
 };
-let fbDb=null, fbAuth=null, fbUserId=null, syncEnabled=false;
-async function initFirebase(){
+const FB_PATH='padel-lucas';
+let fbDb=null, syncEnabled=false;
+function initFirebase(){
   try{
     firebase.initializeApp(firebaseConfig);
-    fbAuth=firebase.auth();
-    // Database only if available
     try{
       fbDb=firebase.database();
-      fbAuth.onAuthStateChanged(u=>{
-        if(u){fbUserId=u.uid;syncEnabled=true;syncFromFirebase();}
-        else{fbAuth.signInAnonymously().catch(e=>{});}
+      syncEnabled=true;
+      // Real-time listener: any change in Firebase updates all devices instantly
+      fbDb.ref(FB_PATH).on('value',snap=>{
+        const data=snap.val();
+        if(data&&(data.history||data.trainings)){
+          Object.assign(app,data);
+          if(!app.playerName)app.playerName='Lucas';
+          if(!app.trainings)app.trainings=[];
+          if(!app.history)app.history=[];
+          localStorage.setItem(DB_KEY,JSON.stringify(app));
+          renderHome();
+        }
       });
-    }catch(e){}
-  }catch(e){}
-}
-
-async function syncFromFirebase(){
-  if(!fbUserId||!fbDb)return;
-  try{
-    const snap=await fbDb.ref('users/'+fbUserId).once('value');
-    const data=snap.val();
-    if(data){
-      Object.assign(app,data);
-      if(!app.trainings)app.trainings=[];
-      if(!app.history)app.history=[];
-      localStorage.setItem(DB_KEY,JSON.stringify(app));
-    }
-  }catch(e){console.log("Sync error:",e);}
+    }catch(e){console.log("DB init error:",e);}
+  }catch(e){console.log("Firebase init error:",e);}
 }
 
 function syncToFirebase(){
-  if(!fbUserId||!fbDb||!syncEnabled)return;
+  if(!fbDb||!syncEnabled)return;
   const data={playerName:app.playerName,history:app.history,trainings:app.trainings,lastSync:new Date().toISOString()};
-  fbDb.ref('users/'+fbUserId).set(data).catch(e=>console.log("Save error:",e));
+  fbDb.ref(FB_PATH).set(data).catch(e=>console.log("Save error:",e));
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1725,12 +1719,7 @@ if(firstTime&&!seenIntro()){
   setTimeout(()=>document.getElementById('first-modal').classList.remove('hidden'),600);
 }
 
-if(!app.playerName){
-  setTimeout(()=>{
-    const n=prompt('¡Bienvenido a Pádel Tracker!\n\n¿Cuál es el nombre de tu jugador?');
-    if(n&&n.trim()){app.playerName=n.trim();saveApp();renderHome();}
-  },firstTime?1800:400);
-}
+if(!app.playerName){app.playerName='Lucas';saveApp();renderHome();}
 
 // ═══════════════════════════════════════════════════════════════
 // TACTICS BOARD
