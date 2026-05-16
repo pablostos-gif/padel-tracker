@@ -774,10 +774,17 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   <div style="flex:1;position:relative;overflow:hidden">
     <canvas id="sim3d-canvas" style="display:block;width:100%;height:100%;touch-action:none"></canvas>
     <div id="sim3d-arrowmode" style="display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(59,130,246,0.9);color:#fff;font-size:11px;font-weight:700;padding:5px 14px;border-radius:20px;letter-spacing:1px;pointer-events:none">✏ MODO FLECHAS</div>
+    <!-- Camera view buttons overlaid on canvas -->
+    <div style="position:absolute;top:10px;right:10px;display:flex;flex-direction:column;gap:6px">
+      <button class="s3-cam-btn" onclick="s3SetView('frente')" title="Vista de frente">⬛ Frente</button>
+      <button class="s3-cam-btn" onclick="s3SetView('planta')" title="Vista en planta">⬛ Planta</button>
+      <button class="s3-cam-btn" onclick="s3SetView('lado')" title="Vista de lado">⬛ Lado</button>
+      <button class="s3-cam-btn" onclick="s3SetView('perspectiva')" title="Vista 3D">⬛ 3D</button>
+    </div>
   </div>
-  <div id="sim3d-panel" style="background:#1a1f26;border-top:1px solid rgba(255,255,255,0.08);padding:10px 14px 14px;flex-shrink:0">
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-      <span style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#64748b;width:100%;margin-bottom:2px">Formación</span>
+  <div id="sim3d-panel" style="background:#1a1f26;border-top:1px solid rgba(255,255,255,0.08);padding:10px 14px 14px;flex-shrink:0;overflow:hidden">
+    <div style="display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:6px;margin-bottom:6px;scrollbar-width:none">
+      <span style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#64748b;align-self:center;white-space:nowrap;margin-right:2px">FORM.</span>
       <button class="s3-pill s3-active" onclick="s3SetF('paralelas',this)">Paralelas</button>
       <button class="s3-pill" onclick="s3SetF('diagonales',this)">Diagonales</button>
       <button class="s3-pill" onclick="s3SetF('ataque',this)">Ataque red</button>
@@ -785,11 +792,10 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
       <button class="s3-pill" onclick="s3SetF('globo',this)">Globo</button>
       <button class="s3-pill" onclick="s3SetF('bandeja',this)">Bandeja</button>
     </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap">
-      <button class="s3-pill" id="s3-btn-arrow" onclick="s3ToggleArrow()">✏ Trazar flecha</button>
-      <button class="s3-pill" onclick="s3ClearArrows()">🗑 Borrar flechas</button>
+    <div style="display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none">
+      <button class="s3-pill" id="s3-btn-arrow" onclick="s3ToggleArrow()">✏ Flecha</button>
+      <button class="s3-pill" onclick="s3ClearArrows()">🗑 Borrar</button>
       <button class="s3-pill" onclick="s3Reset()">⟳ Reset</button>
-      <span style="font-size:10px;color:#64748b;align-self:center;margin-left:4px">Pellizca para rotar</span>
     </div>
   </div>
 </div>
@@ -800,6 +806,8 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .s3-pill:active{transform:scale(0.95)}
 .s3-pill.s3-active{background:#10b981;color:#fff;border-color:#10b981}
 #s3-btn-arrow.s3-active{background:#3b82f6;color:#fff;border-color:#3b82f6}
+.s3-cam-btn{background:rgba(15,20,25,0.75);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;color:#f1f5f9;cursor:pointer;font-family:inherit;backdrop-filter:blur(6px);white-space:nowrap;transition:all 0.2s}
+.s3-cam-btn:active{transform:scale(0.93);background:rgba(16,185,129,0.3)}
 /* remove old tac vars */
 .tac-sidebar{display:none}.tac-court{display:none}
 @media(max-width:1024px){
@@ -1929,6 +1937,15 @@ function s3updateCamera(){
   s3camera.position.y=Math.sin(s3camPhi)*s3camDist;
   s3camera.position.z=Math.cos(s3camTheta)*Math.cos(s3camPhi)*s3camDist;
   s3camera.lookAt(0,0,0);
+}
+
+function s3SetView(v){
+  if(!s3camera) return;
+  if(v==='frente'){s3camTheta=0;s3camPhi=0.18;s3camDist=26;}
+  else if(v==='planta'){s3camTheta=0;s3camPhi=1.48;s3camDist=26;}
+  else if(v==='lado'){s3camTheta=Math.PI/2;s3camPhi=0.25;s3camDist=26;}
+  else if(v==='perspectiva'){s3camTheta=0;s3camPhi=0.6;s3camDist=22;}
+  s3updateCamera();
 }
 
 function s3SetF(name,btn){
