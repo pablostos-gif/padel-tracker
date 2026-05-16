@@ -1973,23 +1973,36 @@ function s3renderArrowPreview(){
   if(s3arrowPreview){s3scene.remove(s3arrowPreview);s3arrowPreview=null;}
   if(!s3drawingArrow) return;
   const pts=[new THREE.Vector3(s3drawingArrow.start.x,0.05,s3drawingArrow.start.z),new THREE.Vector3(s3drawingArrow.end.x,0.05,s3drawingArrow.end.z)];
-  s3arrowPreview=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0x3b82f6,transparent:true,opacity:0.5}));
+  s3arrowPreview=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0xef4444,transparent:true,opacity:0.5}));
   s3scene.add(s3arrowPreview);
 }
 
 function s3finalizeArrow(){
   if(s3arrowPreview){s3scene.remove(s3arrowPreview);s3arrowPreview=null;}
   if(!s3drawingArrow) return;
-  const dx=s3drawingArrow.end.x-s3drawingArrow.start.x,dz=s3drawingArrow.end.z-s3drawingArrow.start.z;
-  if(Math.sqrt(dx*dx+dz*dz)<0.3) return;
-  const pts=[new THREE.Vector3(s3drawingArrow.start.x,0.06,s3drawingArrow.start.z),new THREE.Vector3(s3drawingArrow.end.x,0.06,s3drawingArrow.end.z)];
-  const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0x60a5fa}));
-  s3scene.add(line);
-  const ang=Math.atan2(dx,dz),hl=0.5,ha=0.4,ex=s3drawingArrow.end.x,ez=s3drawingArrow.end.z;
-  const hpts=[new THREE.Vector3(ex-hl*Math.sin(ang-ha),0.06,ez-hl*Math.cos(ang-ha)),new THREE.Vector3(ex,0.06,ez),new THREE.Vector3(ex-hl*Math.sin(ang+ha),0.06,ez-hl*Math.cos(ang+ha))];
-  const head=new THREE.Line(new THREE.BufferGeometry().setFromPoints(hpts),new THREE.LineBasicMaterial({color:0x60a5fa}));
-  s3scene.add(head);
-  s3arrows.push(line,head);
+  const sx=s3drawingArrow.start.x,sz=s3drawingArrow.start.z;
+  const ex=s3drawingArrow.end.x,ez=s3drawingArrow.end.z;
+  const dx=ex-sx,dz=ez-sz,len=Math.sqrt(dx*dx+dz*dz);
+  if(len<0.3) return;
+  const mat=new THREE.MeshPhongMaterial({color:0xef4444,shininess:60});
+  const ang=Math.atan2(dx,dz);
+  const group=new THREE.Group();
+  // Shaft (tube via cylinder)
+  const shaftLen=len-0.55;
+  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,shaftLen,8),mat);
+  shaft.rotation.x=Math.PI/2;
+  const midX=sx+dx/2-Math.sin(ang)*0.275,midZ=sz+dz/2-Math.cos(ang)*0.275;
+  shaft.position.set(0,0.08,0);
+  group.add(shaft);
+  // Cone head
+  const cone=new THREE.Mesh(new THREE.ConeGeometry(0.18,0.55,8),mat);
+  cone.rotation.x=Math.PI/2;
+  cone.position.set(0,0.08,shaftLen/2+0.275);
+  group.add(cone);
+  group.position.set(midX,0,midZ);
+  group.rotation.y=-ang;
+  s3scene.add(group);
+  s3arrows.push(group);
 }
 
 function s3ClearArrows(){
