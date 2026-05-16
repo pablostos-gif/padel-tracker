@@ -1772,7 +1772,7 @@ function init3DSim(){
     m.position.set(x,h/2,z); m.rotation.y=ry; s3scene.add(m);
     [-w/2,w/2].forEach(dx=>{
       const p=new THREE.Mesh(new THREE.BoxGeometry(0.08,h,0.08),fm);
-      p.position.set(x+Math.sin(ry)*dx,h/2,z+Math.cos(ry)*dx); s3scene.add(p);
+      p.position.set(x+Math.cos(ry)*dx,h/2,z-Math.sin(ry)*dx); s3scene.add(p);
     });
   }
   makeWall(10,4,0,10,0);makeWall(10,4,0,-10,0);makeWall(20,4,-5,0,Math.PI/2);makeWall(20,4,5,0,Math.PI/2);
@@ -1780,7 +1780,7 @@ function init3DSim(){
   // Net
   [-5,5].forEach(x=>{const m=new THREE.Mesh(new THREE.BoxGeometry(0.1,1,0.1),fm);m.position.set(x,0.5,0);s3scene.add(m);});
   const nb=new THREE.Mesh(new THREE.PlaneGeometry(10,0.08),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.8,side:THREE.DoubleSide}));
-  nb.position.set(0,0.96,0);nb.rotation.y=Math.PI/2;s3scene.add(nb);
+  nb.position.set(0,0.96,0);s3scene.add(nb);
 
   // Players
   function makePlayer(color,label){
