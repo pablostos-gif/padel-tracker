@@ -10,7 +10,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
 <!-- DATOS GUARDADOS — no tocar esta línea -->
 <script type="application/json" id="__ptd">null</script>
 <style>
@@ -1750,7 +1749,7 @@ function init3DSim(){
   sun.shadow.camera.top=15;sun.shadow.camera.bottom=-15;
   sun.shadow.mapSize.set(1024,1024);
   s3scene.add(sun);
-  s3scene.add(Object.assign(new THREE.DirectionalLight(0x4488ff,0.4),{position:new THREE.Vector3(-5,8,-10)}));
+  const fill=new THREE.DirectionalLight(0x4488ff,0.4);fill.position.set(-5,8,-10);s3scene.add(fill);
 
   // Court floor
   const floor=new THREE.Mesh(new THREE.PlaneGeometry(10,20,20,40),new THREE.MeshLambertMaterial({color:0x1a6b3c}));
