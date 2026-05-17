@@ -8,8 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <!-- Firebase SDK (Compat) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <!-- DATOS GUARDADOS — no tocar esta línea -->
 <script type="application/json" id="__ptd">null</script>
 <style>
@@ -938,65 +937,55 @@ const firebaseConfig={
   messagingSenderId:"604478762156",
   appId:"1:604478762156:web:4c4aa4b2698cca335f8309"
 };
-const FB_PATH='padel-lucas';
-let fbDb=null, syncEnabled=false, myLastSave=null, listenerReady=false;
+const FS_DOC='padel-lucas';
+let fsDb=null, syncEnabled=false, myLastSave=null;
 
 function initFirebase(){
   try{
     firebase.initializeApp(firebaseConfig);
-    fbDb=firebase.database();
+    fsDb=firebase.firestore();
     syncEnabled=true;
 
-    // PASO 1: Carga local inmediata
+    // PASO 1: carga local inmediata para que no haya pantalla en blanco
     loadApp();
     renderHome();
 
-    // PASO 2: Pedir datos de Firebase UNA vez y compararlos con los locales
-    fbDb.ref(FB_PATH).once('value').then(snap=>{
-      const fb=snap.val();
-      if(fb){
-        const fbSync=fb.lastSync||'';
-        const localSync=app.lastSync||'';
-        const fbMore=(fb.history||[]).length>(app.history||[]).length||(fb.trainings||[]).length>(app.trainings||[]).length;
-        // Firebase gana si es más nuevo O tiene más datos
-        if(fbSync>localSync||fbMore){
-          app.playerName=fb.playerName||'Lucas';
-          app.history=fb.history||[];
-          app.trainings=fb.trainings||[];
-          app.lastSync=fb.lastSync||'';
-          localStorage.setItem(DB_KEY,JSON.stringify(app));
-          renderHome();
-        }
-      }
-      // PASO 3: Ahora activar listener en tiempo real para otros dispositivos
-      listenerReady=true;
-      fbDb.ref(FB_PATH).on('value',snap=>{
-        if(!listenerReady)return;
-        const data=snap.val();
-        if(!data||!data.lastSync)return;
-        // Ignorar eco propio
-        if(data.lastSync===myLastSave)return;
-        // Solo actualizar si Firebase es más nuevo que lo que tenemos
-        if(app.lastSync&&data.lastSync<=app.lastSync)return;
-        app.playerName=data.playerName||'Lucas';
-        app.history=data.history||[];
-        app.trainings=data.trainings||[];
-        app.lastSync=data.lastSync;
-        localStorage.setItem(DB_KEY,JSON.stringify(app));
+    // PASO 2: onSnapshot — escucha cambios en tiempo real (como tu otra app)
+    // Se ejecuta al arrancar (carga inicial) y cada vez que otro dispositivo guarda
+    fsDb.collection('datos').doc(FS_DOC).onSnapshot(snap=>{
+      if(!snap.exists) return;
+      const fb=snap.data();
+      if(!fb) return;
+      // Ignorar eco de nuestro propio guardado
+      if(fb.lastSync && fb.lastSync===myLastSave) return;
+      // Solo actualizar si Firestore tiene datos más nuevos o más partidos
+      const fbNewer = !app.lastSync || (fb.lastSync||'') > app.lastSync;
+      const fbMore = (fb.history||[]).length > (app.history||[]).length ||
+                     (fb.trainings||[]).length > (app.trainings||[]).length;
+      if(fbNewer || fbMore){
+        app.playerName = fb.playerName||'Lucas';
+        app.history    = fb.history||[];
+        app.trainings  = fb.trainings||[];
+        app.lastSync   = fb.lastSync||'';
+        localStorage.setItem(DB_KEY, JSON.stringify(app));
         renderHome();
-      });
-    }).catch(e=>console.log("Firebase load error:",e));
+      }
+    }, e=>console.log("Firestore listener error:",e));
 
   }catch(e){console.log("Firebase init error:",e);}
 }
 
 function syncToFirebase(){
-  if(!fbDb||!syncEnabled)return;
+  if(!fsDb||!syncEnabled) return;
   const ts=new Date().toISOString();
   myLastSave=ts;
   app.lastSync=ts;
-  const data={playerName:app.playerName,history:app.history,trainings:app.trainings,lastSync:ts};
-  fbDb.ref(FB_PATH).set(data).catch(e=>console.log("Save error:",e));
+  fsDb.collection('datos').doc(FS_DOC).set({
+    playerName: app.playerName,
+    history:    app.history,
+    trainings:  app.trainings,
+    lastSync:   ts
+  }).catch(e=>console.log("Firestore save error:",e));
 }
 
 // ═══════════════════════════════════════════════════════════════
