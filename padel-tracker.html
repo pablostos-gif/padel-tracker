@@ -1984,26 +1984,28 @@ function s3finalizeArrow(){
   const ex=s3drawingArrow.end.x,ez=s3drawingArrow.end.z;
   const dx=ex-sx,dz=ez-sz,len=Math.sqrt(dx*dx+dz*dz);
   if(len<0.3) return;
-  const mat=new THREE.MeshPhongMaterial({color:0xef4444,shininess:60});
-  // Group positioned at start, rotated to point toward end
-  // In local space the arrow points along +Z
-  const ang=Math.atan2(dz,dx);
-  const group=new THREE.Group();
-  group.position.set(sx,0,sz);
-  group.rotation.y=-(Math.PI/2-ang);
   const shaftLen=Math.max(0.1,len-0.55);
-  // Shaft: cylinder along Y, rotated to lie along Z, centered at z=shaftLen/2
+  const mat=new THREE.MeshPhongMaterial({color:0xef4444,shininess:60});
+
+  // Shaft: cylinder pointing along world direction from start to end
   const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,shaftLen,8),mat);
-  shaft.rotation.x=Math.PI/2;
-  shaft.position.set(0,0.12,shaftLen/2);
-  group.add(shaft);
-  // Cone at tip: cone along Y, rotated to point along +Z, placed at end
+  // Mid point of shaft (offset from end by half cone length)
+  const midX=sx+dx/len*(shaftLen/2);
+  const midZ=sz+dz/len*(shaftLen/2);
+  shaft.position.set(midX,0.12,midZ);
+  // Rotate cylinder (Y axis) to align with direction vector
+  shaft.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), new THREE.Vector3(dx/len,0,dz/len));
+  s3scene.add(shaft);
+
+  // Cone head at the end point
   const cone=new THREE.Mesh(new THREE.ConeGeometry(0.18,0.55,8),mat);
-  cone.rotation.x=Math.PI/2;
-  cone.position.set(0,0.12,shaftLen+0.275);
-  group.add(cone);
-  s3scene.add(group);
-  s3arrows.push(group);
+  const tipX=sx+dx/len*(shaftLen+0.275);
+  const tipZ=sz+dz/len*(shaftLen+0.275);
+  cone.position.set(tipX,0.12,tipZ);
+  cone.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), new THREE.Vector3(dx/len,0,dz/len));
+  s3scene.add(cone);
+
+  s3arrows.push(shaft,cone);
 }
 
 function s3ClearArrows(){
