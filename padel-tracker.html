@@ -939,32 +939,63 @@ const firebaseConfig={
   appId:"1:604478762156:web:4c4aa4b2698cca335f8309"
 };
 const FB_PATH='padel-lucas';
-let fbDb=null, syncEnabled=false;
+let fbDb=null, syncEnabled=false, myLastSave=null, listenerReady=false;
+
 function initFirebase(){
   try{
     firebase.initializeApp(firebaseConfig);
-    try{
-      fbDb=firebase.database();
-      syncEnabled=true;
-      // Real-time listener: any change in Firebase updates all devices instantly
-      fbDb.ref(FB_PATH).on('value',snap=>{
-        const data=snap.val();
-        if(data&&(data.history||data.trainings)){
-          Object.assign(app,data);
-          if(!app.playerName)app.playerName='Lucas';
-          if(!app.trainings)app.trainings=[];
-          if(!app.history)app.history=[];
+    fbDb=firebase.database();
+    syncEnabled=true;
+
+    // PASO 1: Carga local inmediata
+    loadApp();
+    renderHome();
+
+    // PASO 2: Pedir datos de Firebase UNA vez y compararlos con los locales
+    fbDb.ref(FB_PATH).once('value').then(snap=>{
+      const fb=snap.val();
+      if(fb){
+        const fbSync=fb.lastSync||'';
+        const localSync=app.lastSync||'';
+        const fbMore=(fb.history||[]).length>(app.history||[]).length||(fb.trainings||[]).length>(app.trainings||[]).length;
+        // Firebase gana si es más nuevo O tiene más datos
+        if(fbSync>localSync||fbMore){
+          app.playerName=fb.playerName||'Lucas';
+          app.history=fb.history||[];
+          app.trainings=fb.trainings||[];
+          app.lastSync=fb.lastSync||'';
           localStorage.setItem(DB_KEY,JSON.stringify(app));
           renderHome();
         }
+      }
+      // PASO 3: Ahora activar listener en tiempo real para otros dispositivos
+      listenerReady=true;
+      fbDb.ref(FB_PATH).on('value',snap=>{
+        if(!listenerReady)return;
+        const data=snap.val();
+        if(!data||!data.lastSync)return;
+        // Ignorar eco propio
+        if(data.lastSync===myLastSave)return;
+        // Solo actualizar si Firebase es más nuevo que lo que tenemos
+        if(app.lastSync&&data.lastSync<=app.lastSync)return;
+        app.playerName=data.playerName||'Lucas';
+        app.history=data.history||[];
+        app.trainings=data.trainings||[];
+        app.lastSync=data.lastSync;
+        localStorage.setItem(DB_KEY,JSON.stringify(app));
+        renderHome();
       });
-    }catch(e){console.log("DB init error:",e);}
+    }).catch(e=>console.log("Firebase load error:",e));
+
   }catch(e){console.log("Firebase init error:",e);}
 }
 
 function syncToFirebase(){
   if(!fbDb||!syncEnabled)return;
-  const data={playerName:app.playerName,history:app.history,trainings:app.trainings,lastSync:new Date().toISOString()};
+  const ts=new Date().toISOString();
+  myLastSave=ts;
+  app.lastSync=ts;
+  const data={playerName:app.playerName,history:app.history,trainings:app.trainings,lastSync:ts};
   fbDb.ref(FB_PATH).set(data).catch(e=>console.log("Save error:",e));
 }
 
@@ -998,13 +1029,10 @@ function loadApp(){
 }
 
 function saveApp(){
-  const data={playerName:app.playerName,history:app.history,trainings:app.trainings};
+  const data={playerName:app.playerName,history:app.history,trainings:app.trainings,lastSync:app.lastSync||''};
   const json=JSON.stringify(data);
-  // Save to localStorage (fast, always works)
   try{localStorage.setItem(DB_KEY,json);}catch(e){}
-  // Save to embedded element (used when generating download)
   try{document.getElementById('__ptd').textContent=json;}catch(e){}
-  // Sync to Firebase (async, background)
   syncToFirebase();
 }
 
@@ -1685,20 +1713,8 @@ function esc(s){if(!s)return'';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;
 // ═══════════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════════
-// Inicializar Firebase y cargar datos
+// initFirebase ya hace loadApp+renderHome internamente
 initFirebase();
-setTimeout(()=>{
-  loadApp();
-  renderHome();
-},100);
-
-// Show first-time modal if no data and no prior intro seen
-const seenIntro=()=>{try{return localStorage.getItem('pt_seen_intro')==='1';}catch(e){return false;}};
-if(firstTime&&!seenIntro()){
-  setTimeout(()=>document.getElementById('first-modal').classList.remove('hidden'),600);
-}
-
-if(!app.playerName){app.playerName='Lucas';saveApp();renderHome();}
 
 // ═══════════════════════════════════════════════════════════════
 // SIMULADOR 3D
