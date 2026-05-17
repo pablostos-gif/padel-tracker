@@ -1987,10 +1987,10 @@ function s3finalizeArrow(){
   const mat=new THREE.MeshPhongMaterial({color:0xef4444,shininess:60});
   // Group positioned at start, rotated to point toward end
   // In local space the arrow points along +Z
-  const ang=Math.atan2(dx,dz);
+  const ang=Math.atan2(dz,dx);
   const group=new THREE.Group();
   group.position.set(sx,0,sz);
-  group.rotation.y=-ang;
+  group.rotation.y=-(Math.PI/2-ang);
   const shaftLen=Math.max(0.1,len-0.55);
   // Shaft: cylinder along Y, rotated to lie along Z, centered at z=shaftLen/2
   const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,shaftLen,8),mat);
