@@ -1985,22 +1985,23 @@ function s3finalizeArrow(){
   const dx=ex-sx,dz=ez-sz,len=Math.sqrt(dx*dx+dz*dz);
   if(len<0.3) return;
   const mat=new THREE.MeshPhongMaterial({color:0xef4444,shininess:60});
+  // Group positioned at start, rotated to point toward end
+  // In local space the arrow points along +Z
   const ang=Math.atan2(dx,dz);
   const group=new THREE.Group();
-  // Shaft (tube via cylinder)
-  const shaftLen=len-0.55;
+  group.position.set(sx,0,sz);
+  group.rotation.y=-ang;
+  const shaftLen=Math.max(0.1,len-0.55);
+  // Shaft: cylinder along Y, rotated to lie along Z, centered at z=shaftLen/2
   const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,shaftLen,8),mat);
   shaft.rotation.x=Math.PI/2;
-  const midX=sx+dx/2-Math.sin(ang)*0.275,midZ=sz+dz/2-Math.cos(ang)*0.275;
-  shaft.position.set(0,0.08,0);
+  shaft.position.set(0,0.12,shaftLen/2);
   group.add(shaft);
-  // Cone head
+  // Cone at tip: cone along Y, rotated to point along +Z, placed at end
   const cone=new THREE.Mesh(new THREE.ConeGeometry(0.18,0.55,8),mat);
   cone.rotation.x=Math.PI/2;
-  cone.position.set(0,0.08,shaftLen/2+0.275);
+  cone.position.set(0,0.12,shaftLen+0.275);
   group.add(cone);
-  group.position.set(midX,0,midZ);
-  group.rotation.y=-ang;
   s3scene.add(group);
   s3arrows.push(group);
 }
