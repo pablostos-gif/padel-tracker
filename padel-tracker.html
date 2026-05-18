@@ -1194,7 +1194,8 @@ function startMatch(){
   if(format==='1'){bestOf=1;startGame={my:0,ri:0};}
   else if(format==='1-1'){bestOf=1;startGame={my:1,ri:1};}
 
-  app.match={myName,myPartner,rival1,rival2,bestOf,tournament,date,format,tiebreakMax:0,sets:[],currentSet:startGame,currentGame:{my:0,ri:0},tiebreak:false,winner:null,notes:'',shots:emptyShots()};
+  const startTime=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+  app.match={myName,myPartner,rival1,rival2,bestOf,tournament,date,format,tiebreakMax:0,sets:[],currentSet:startGame,currentGame:{my:0,ri:0},tiebreak:false,winner:null,notes:'',shots:emptyShots(),startTime,endTime:null};
   stateStack=[];showScreen('match');renderMatch();
 }
 function emptyShots(){
@@ -1369,13 +1370,14 @@ function saveShot(){
 // ═══════════════════════════════════════════════════════════════
 // END SCREEN
 // ═══════════════════════════════════════════════════════════════
-function goToEndScreen(){showScreen('end-screen');renderEndScreen();}
+function goToEndScreen(){app.match.endTime=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});showScreen('end-screen');renderEndScreen();}
 function renderEndScreen(){
   const m=app.match;
   const mySets=m.sets.filter(s=>s.my>s.ri).length,rivSets=m.sets.filter(s=>s.ri>s.my).length;
   const isMyWin=mySets>rivSets;
   const sH=m.sets.map(s=>{const w=s.my>s.ri;return`<div class="result-set"><span class="${w?'my':'ri'}">${w?s.my:s.ri}</span><span style="color:var(--muted);margin:0 2px">-</span><span class="${w?'ri':'my'}">${w?s.ri:s.my}</span></div>`;}).join('');
-  document.getElementById('result-card').innerHTML=`<div class="result-winner-label">🏆 Ganador</div><div class="result-winner-name" style="color:${isMyWin?'var(--my)':'var(--rival)'}">${esc((isMyWin?m.myName:m.rival1).toUpperCase())}</div><div class="result-winner-partner">${(isMyWin?m.myPartner:m.rival2)?'con '+esc(isMyWin?m.myPartner:m.rival2):''}</div><div class="result-sets">${sH}</div><div class="result-meta">${m.tournament?esc(m.tournament)+' · ':''}${fmtDate(m.date)}</div>`;
+  const timeInfo=(m.startTime||m.endTime)?`<div class="result-meta" style="margin-top:4px">${m.startTime?'Inicio: '+m.startTime:''}${m.startTime&&m.endTime?' &nbsp;·&nbsp; ':''}${m.endTime?'Fin: '+m.endTime:''}</div>`:'';
+  document.getElementById('result-card').innerHTML=`<div class="result-winner-label">🏆 Ganador</div><div class="result-winner-name" style="color:${isMyWin?'var(--my)':'var(--rival)'}">${esc((isMyWin?m.myName:m.rival1).toUpperCase())}</div><div class="result-winner-partner">${(isMyWin?m.myPartner:m.rival2)?'con '+esc(isMyWin?m.myPartner:m.rival2):''}</div><div class="result-sets">${sH}</div><div class="result-meta">${m.tournament?esc(m.tournament)+' · ':''}${fmtDate(m.date)}</div>${timeInfo}`;
   const my=m.shots.my,ri=m.shots.ri;
   const tw=Object.values(my.winners).reduce((a,b)=>a+b,0),te=Object.values(my.enf).reduce((a,b)=>a+b,0);
   const rw=Object.values(ri.winners).reduce((a,b)=>a+b,0),re=Object.values(ri.enf).reduce((a,b)=>a+b,0);
@@ -1435,7 +1437,7 @@ function viewMatchDetail(idx){
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <div>
           <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">${m.tournament||'Amistoso'}</div>
-          <div style="font-size:12px;color:var(--muted)">${fmtDate(m.date)}</div>
+          <div style="font-size:12px;color:var(--muted)">${fmtDate(m.date)}${m.startTime?` · ${m.startTime}${m.endTime?' – '+m.endTime:''}`:''}</div>
         </div>
         <span class="hist-badge ${m.isWin?'badge-win':'badge-loss'}">${m.isWin?'VICTORIA':'DERROTA'}</span>
       </div>
