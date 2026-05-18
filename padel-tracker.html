@@ -877,7 +877,27 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
         <option value="cooper">🏃 Test Cooper 12'</option>
         <option value="yoyo">🔄 Yo-Yo Test</option>
         <option value="fuerza_sup">💪 Fuerza tren superior</option>
+        <option value="custom">✏️ Test personalizado...</option>
       </select>
+    </div>
+    <div id="ft-custom-fields" style="display:none">
+      <div style="margin-bottom:12px">
+        <label class="goal-lbl">Nombre del test</label>
+        <input id="ft-custom-name" class="goal-inp" type="text" maxlength="40" placeholder="Ej: HIIT 4min, Remo máquina...">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div>
+          <label class="goal-lbl">Unidad</label>
+          <input id="ft-custom-unit" class="goal-inp" type="text" maxlength="10" placeholder="rep, s, kg, m...">
+        </div>
+        <div>
+          <label class="goal-lbl">Mejor resultado</label>
+          <select id="ft-custom-lb" class="goal-inp">
+            <option value="0">↑ Más alto</option>
+            <option value="1">↓ Más bajo</option>
+          </select>
+        </div>
+      </div>
     </div>
     <div style="margin-bottom:12px">
       <label class="goal-lbl" id="ft-value-lbl">Resultado</label>
@@ -2360,7 +2380,7 @@ function renderFitness(){
   const el=document.getElementById('ft-player-name');if(el)el.textContent=app.playerName||'—';
   const tests=app.fitnessTests||[];
   const byType={};
-  tests.forEach(t=>{if(!byType[t.testType])byType[t.testType]=[];byType[t.testType].push(t);});
+  tests.forEach(t=>{const k=t.testType==='custom'?'custom__'+(t.customLabel||'?'):t.testType;if(!byType[k])byType[k]=[];byType[k].push(t);});
   Object.keys(byType).forEach(k=>byType[k].sort((a,b)=>new Date(a.date)-new Date(b.date)));
   const summary=document.getElementById('ft-summary');
   const list=document.getElementById('ft-list');
@@ -2372,8 +2392,9 @@ function renderFitness(){
   const typeCount=Object.keys(byType).length;
   summary.innerHTML=`<div style="background:var(--card);border-radius:14px;padding:14px 16px;border:1px solid var(--border)"><div style="display:flex;gap:16px;text-align:center"><div style="flex:1"><div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--blue)">${tests.length}</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Tests realizados</div></div><div style="flex:1"><div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:#B57BFF">${typeCount}</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Tipos distintos</div></div></div></div>`;
   list.innerHTML=Object.keys(byType).map(type=>{
-    const cfg=FT_CFG[type]||{label:type,icon:'📊',unit:'',lb:false};
     const results=byType[type];
+    const isCustom=type.startsWith('custom__');
+    const cfg=isCustom?{label:results[0].customLabel||type,icon:'✏️',unit:results[0].customUnit||'',lb:!!results[0].customLb}:(FT_CFG[type]||{label:type,icon:'📊',unit:'',lb:false});
     const vals=results.map(r=>r.value);
     const best=cfg.lb?Math.min(...vals):Math.max(...vals);
     const last=vals[vals.length-1];
@@ -2406,6 +2427,11 @@ function openAddFitTest(){
   document.getElementById('ft-unit-badge').textContent='—';
   document.getElementById('ft-date-inp').value=new Date().toISOString().split('T')[0];
   document.getElementById('ft-notes-inp').value='';
+  const customEl=document.getElementById('ft-custom-fields');
+  if(customEl)customEl.style.display='none';
+  const cn=document.getElementById('ft-custom-name');if(cn)cn.value='';
+  const cu=document.getElementById('ft-custom-unit');if(cu)cu.value='';
+  const cl=document.getElementById('ft-custom-lb');if(cl)cl.value='0';
   document.getElementById('add-ft-overlay').classList.remove('hidden');
   setTimeout(()=>document.getElementById('ft-value-inp').focus(),200);
 }
@@ -2413,7 +2439,9 @@ function closeAddFitTest(){document.getElementById('add-ft-overlay').classList.a
 function updateFtUnit(){
   const v=document.getElementById('ft-type-sel').value;
   const cfg=FT_CFG[v];
-  document.getElementById('ft-unit-badge').textContent=cfg?cfg.unit:'—';
+  const customEl=document.getElementById('ft-custom-fields');
+  if(customEl)customEl.style.display=v==='custom'?'block':'none';
+  document.getElementById('ft-unit-badge').textContent=cfg?cfg.unit:(v==='custom'?'':' —');
   const ph={velocidad_20m:'3.45',velocidad_30m:'4.20',sprint_10m:'1.80',agilidad:'9.50',salto_vert:'45',salto_horiz:'180',flexibilidad:'15',cooper:'2400',yoyo:'12.5',fuerza_sup:'20'}[v]||'0';
   document.getElementById('ft-value-inp').placeholder=ph;
 }
@@ -2423,7 +2451,17 @@ function saveFitTest(){
   if(!type){alert('Selecciona el tipo de test');return;}
   if(isNaN(val)||val<=0){alert('Introduce un resultado válido');return;}
   if(!app.fitnessTests)app.fitnessTests=[];
-  app.fitnessTests.push({id:Date.now(),testType:type,value:val,date:document.getElementById('ft-date-inp').value||new Date().toISOString().split('T')[0],notes:document.getElementById('ft-notes-inp').value.trim()});
+  const record={id:Date.now(),testType:type,value:val,date:document.getElementById('ft-date-inp').value||new Date().toISOString().split('T')[0],notes:document.getElementById('ft-notes-inp').value.trim()};
+  if(type==='custom'){
+    const cName=(document.getElementById('ft-custom-name').value||'').trim();
+    const cUnit=(document.getElementById('ft-custom-unit').value||'').trim();
+    const cLb=document.getElementById('ft-custom-lb').value==='1';
+    if(!cName){alert('Escribe el nombre del test');return;}
+    record.customLabel=cName;
+    record.customUnit=cUnit||'';
+    record.customLb=cLb;
+  }
+  app.fitnessTests.push(record);
   saveApp();closeAddFitTest();renderFitness();
 }
 function deleteFitTest(id){
