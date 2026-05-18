@@ -2608,43 +2608,89 @@ function renderCoachView(data){
   }
 }
 
+function _card(title,titleColor,body){return`<div style="background:var(--card);border-radius:16px;padding:18px;border:1px solid var(--border);border-left:3px solid ${titleColor||'var(--border)'};margin-bottom:14px"><div style="font-size:11px;font-weight:700;color:${titleColor||'var(--muted)'};text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px">${title}</div>${body}</div>`;}
+function _row(label,value,color){return`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05)"><span style="font-size:13px;color:var(--text)">${label}</span><span style="font-size:14px;font-weight:700;color:${color||'var(--text)'}">${value}</span></div>`;}
+function _bar(label,val,max,color){const pct=max?Math.round(val/max*100):0;return`<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:12px">${label}</span><span style="font-size:12px;font-weight:700;color:${color}">${val}</span></div><div style="height:6px;background:rgba(255,255,255,0.07);border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${color};border-radius:4px"></div></div></div>`;}
+
 function _renderCoachMatch(m,playerName){
   const rival=[m.rival1,m.rival2].filter(Boolean).join(' / ');
-  const partner=m.myPartner?` · con ${m.myPartner}`:'';
-  document.getElementById('cv-subtitle').textContent=`${playerName}${partner} vs ${rival||'Rival'} · ${fmtDate(m.date)}`;
+  const myTeam=[playerName,m.myPartner].filter(Boolean).join(' / ');
+  document.getElementById('cv-subtitle').textContent=`${myTeam} vs ${rival||'Rival'} · ${fmtDate(m.date)}`;
+
   const sets=[[m.sets1,m.sets2],[m.sets3,m.sets4],[m.sets5,m.sets6]].filter(([a,b])=>a!=null&&b!=null&&(a+b)>0);
-  const setsHtml=sets.map(([a,b])=>`<div style="background:var(--card2);border-radius:10px;padding:10px 18px;text-align:center"><span style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:${a>b?'#3DDB82':'#FF5E3A'}">${a}</span><span style="color:var(--muted);margin:0 6px">-</span><span style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:${b>a?'#3DDB82':'#FF5E3A'}">${b}</span></div>`).join('');
+  const mySetsWon=sets.filter(([a,b])=>a>b).length;
+  const rivSetsWon=sets.filter(([a,b])=>b>a).length;
+
+  // HEADER — resultado grande + equipos + sets + superficie + torneo
   document.getElementById('cv-elo').innerHTML=`
-    <div style="background:var(--card);border-radius:16px;padding:16px;border:1px solid var(--border);text-align:center;margin-bottom:12px">
-      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Resultado</div>
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:40px;color:${m.isWin?'#3DDB82':'#FF5E3A'};margin-bottom:10px">${m.isWin?'VICTORIA':'DERROTA'}</div>
-      <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap">${setsHtml}</div>
-      ${m.surface?`<div style="font-size:12px;color:var(--muted);margin-top:10px">${m.surface}</div>`:''}
+    <div style="background:${m.isWin?'rgba(61,219,130,0.08)':'rgba(255,94,58,0.08)'};border-radius:16px;padding:20px;border:2px solid ${m.isWin?'rgba(61,219,130,0.4)':'rgba(255,94,58,0.4)'};text-align:center;margin-bottom:14px">
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:6px">Resultado</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:52px;line-height:1;color:${m.isWin?'#3DDB82':'#FF5E3A'};letter-spacing:4px">${m.isWin?'VICTORIA':'DERROTA'}</div>
+      <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin:14px 0">
+        <div style="font-size:13px;color:var(--text);font-weight:600">${esc(myTeam)}</div>
+        <div style="display:flex;gap:6px">
+          ${sets.map(([a,b])=>`<div style="background:var(--card2);border-radius:8px;padding:6px 12px;text-align:center">
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:${a>b?'#3DDB82':'#FF5E3A'}">${a}</span>
+              <span style="color:var(--muted);font-size:14px">-</span>
+              <span style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:${b>a?'#3DDB82':'#FF5E3A'}">${b}</span>
+            </div>
+          </div>`).join('')}
+        </div>
+        <div style="font-size:13px;color:var(--muted);font-weight:600">${esc(rival||'Rival')}</div>
+      </div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;color:var(--muted)">${mySetsWon} - ${rivSetsWon} sets</div>
+      <div style="display:flex;justify-content:center;gap:16px;margin-top:12px;flex-wrap:wrap">
+        ${m.surface?`<span style="font-size:12px;background:rgba(255,255,255,0.07);border-radius:8px;padding:4px 12px">🏟 ${esc(m.surface)}</span>`:''}
+        ${m.tournament?`<span style="font-size:12px;background:rgba(255,255,255,0.07);border-radius:8px;padding:4px 12px">🏆 ${esc(m.tournament)}</span>`:''}
+        ${m.myPartner?`<span style="font-size:12px;background:rgba(255,255,255,0.07);border-radius:8px;padding:4px 12px">🤝 Pareja: ${esc(m.myPartner)}</span>`:''}
+      </div>
     </div>`;
+
   const shots=m.shots?(hasShotData(m.shots.player)?m.shots.player:m.shots.my):null;
-  let shotsHtml='';
+  let html='';
+
   if(shots){
     const tw=Object.values(shots.winners).reduce((a,b)=>a+b,0);
     const te=Object.values(shots.enf).reduce((a,b)=>a+b,0);
-    const topW=SHOT_KEYS.filter(k=>shots.winners[k]>0).sort((a,b)=>shots.winners[b]-shots.winners[a]).slice(0,4);
-    const topE=SHOT_KEYS.filter(k=>shots.enf[k]>0).sort((a,b)=>shots.enf[b]-shots.enf[a]).slice(0,4);
-    shotsHtml=`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);margin-bottom:12px">
-      <div style="display:flex;gap:12px;margin-bottom:12px;text-align:center">
-        <div style="flex:1;background:rgba(61,219,130,0.08);border-radius:10px;padding:10px"><div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:#3DDB82">${tw}</div><div style="font-size:10px;color:var(--muted)">Winners</div></div>
-        <div style="flex:1;background:rgba(255,94,58,0.08);border-radius:10px;padding:10px"><div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:#FF5E3A">${te}</div><div style="font-size:10px;color:var(--muted)">Err. No Forz.</div></div>
-        <div style="flex:1;background:rgba(240,220,80,0.08);border-radius:10px;padding:10px"><div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--yellow)">${shots.ef||0}</div><div style="font-size:10px;color:var(--muted)">Err. Forz.</div></div>
-      </div>
-      ${topW.length?`<div style="margin-bottom:10px"><div style="font-size:11px;color:#3DDB82;font-weight:700;margin-bottom:6px">✅ Winners</div>${topW.map(k=>`<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04)"><span style="font-size:12px">${SHOT_LABELS[k]}</span><span style="font-weight:700;color:#3DDB82">${shots.winners[k]}</span></div>`).join('')}</div>`:''}
-      ${topE.length?`<div><div style="font-size:11px;color:#FF5E3A;font-weight:700;margin-bottom:6px">⚠️ Errores no forzados</div>${topE.map(k=>`<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04)"><span style="font-size:12px">${SHOT_LABELS[k]}</span><span style="font-weight:700;color:#FF5E3A">${shots.enf[k]}</span></div>`).join('')}</div>`:''}
-    </div>`;
+    const ef=shots.ef||0;
+    const total=tw+te+ef||1;
+    const pctW=Math.round(tw/total*100),pctE=Math.round(te/total*100),pctF=Math.round(ef/total*100);
+    // coeficiente global
+    html+=`<div style="background:var(--card);border-radius:16px;padding:18px;border:1px solid var(--border);margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px">📊 Estadísticas de golpes</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;text-align:center">
+        <div style="background:rgba(61,219,130,0.1);border-radius:12px;padding:14px"><div style="font-family:'Bebas Neue',sans-serif;font-size:36px;color:#3DDB82;line-height:1">${tw}</div><div style="font-size:10px;color:#3DDB82;font-weight:700;margin-top:4px">WINNERS</div><div style="font-size:11px;color:var(--muted)">${pctW}%</div></div>
+        <div style="background:rgba(255,94,58,0.1);border-radius:12px;padding:14px"><div style="font-family:'Bebas Neue',sans-serif;font-size:36px;color:#FF5E3A;line-height:1">${te}</div><div style="font-size:10px;color:#FF5E3A;font-weight:700;margin-top:4px">ERR. NO FORZ.</div><div style="font-size:11px;color:var(--muted)">${pctE}%</div></div>
+        <div style="background:rgba(240,220,80,0.1);border-radius:12px;padding:14px"><div style="font-family:'Bebas Neue',sans-serif;font-size:36px;color:var(--yellow);line-height:1">${ef}</div><div style="font-size:10px;color:var(--yellow);font-weight:700;margin-top:4px">ERR. FORZ.</div><div style="font-size:11px;color:var(--muted)">${pctF}%</div></div>
+      </div>`;
+    // barras por golpe — winners
+    const allW=SHOT_KEYS.filter(k=>shots.winners[k]>0).sort((a,b)=>shots.winners[b]-shots.winners[a]);
+    const allE=SHOT_KEYS.filter(k=>shots.enf[k]>0).sort((a,b)=>shots.enf[b]-shots.enf[a]);
+    const maxW=allW.length?shots.winners[allW[0]]:1;
+    const maxE=allE.length?shots.enf[allE[0]]:1;
+    if(allW.length){html+=`<div style="margin-bottom:14px"><div style="font-size:12px;color:#3DDB82;font-weight:700;margin-bottom:10px">✅ Winners por golpe</div>${allW.map(k=>_bar(SHOT_LABELS[k],shots.winners[k],maxW,'#3DDB82')).join('')}</div>`;}
+    if(allE.length){html+=`<div><div style="font-size:12px;color:#FF5E3A;font-weight:700;margin-bottom:10px">⚠️ Errores no forzados por golpe</div>${allE.map(k=>_bar(SHOT_LABELS[k],shots.enf[k],maxE,'#FF5E3A')).join('')}</div>`;}
+    html+=`</div>`;
+
+    // ratio por golpe tabla completa
+    const allShots=SHOT_KEYS.filter(k=>shots.winners[k]>0||shots.enf[k]>0).sort((a,b)=>(shots.winners[b]+shots.enf[b])-(shots.winners[a]+shots.enf[a]));
+    if(allShots.length){
+      html+=_card('📋 Ratio W/(W+ENF) por golpe','var(--blue)',`<table style="width:100%;border-collapse:collapse"><thead><tr style="font-size:11px;color:var(--muted)"><th style="text-align:left;padding:4px 0">Golpe</th><th style="text-align:center">W</th><th style="text-align:center">ENF</th><th style="text-align:center">EF</th><th style="text-align:center">Ratio</th></tr></thead><tbody>${allShots.map(k=>{const w=shots.winners[k],e=shots.enf[k],ef2=0,t2=w+e;const r=t2?Math.round(w/t2*100):0;return`<tr style="border-bottom:1px solid rgba(255,255,255,0.05)"><td style="padding:7px 0;font-size:13px">${SHOT_LABELS[k]}</td><td style="text-align:center;font-weight:700;color:#3DDB82">${w}</td><td style="text-align:center;font-weight:700;color:#FF5E3A">${e}</td><td style="text-align:center;color:var(--muted)">${shots.ef||0}</td><td style="text-align:center;font-weight:700;color:${r>=50?'#3DDB82':'#FF5E3A'}">${r}%</td></tr>`;}).join('')}</tbody></table>`);
+    }
   }
-  document.getElementById('cv-kpis').innerHTML=shotsHtml;
-  const notesHtml=(m.notes||m.tactica||m.mejora)?`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);display:flex;flex-direction:column;gap:12px">
-    ${m.notes?`<div><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">📝 Notas</div><div style="font-size:13px;line-height:1.6">${esc(m.notes)}</div></div>`:''}
-    ${m.tactica?`<div style="${m.notes?'border-top:1px solid var(--border);padding-top:10px':''}"><div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">🎯 Táctica utilizada</div><div style="font-size:13px;line-height:1.6">${esc(m.tactica)}</div></div>`:''}
-    ${m.mejora?`<div style="${m.notes||m.tactica?'border-top:1px solid var(--border);padding-top:10px':''}"><div style="font-size:11px;font-weight:700;color:var(--yellow);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">🔄 ¿Qué cambiaríamos?</div><div style="font-size:13px;line-height:1.6">${esc(m.mejora)}</div></div>`:''}
-  </div>`:'';
-  document.getElementById('cv-recent').innerHTML=notesHtml;
+
+  // notas / táctica / mejora
+  if(m.notes||m.tactica||m.mejora){
+    let notesBody='';
+    if(m.notes) notesBody+=`<div style="margin-bottom:${m.tactica||m.mejora?12:0}px"><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">📝 Notas generales</div><div style="font-size:14px;line-height:1.7;color:var(--text)">${esc(m.notes)}</div></div>`;
+    if(m.tactica) notesBody+=`<div style="${m.notes?'border-top:1px solid var(--border);padding-top:12px;':''}margin-bottom:${m.mejora?12:0}px"><div style="font-size:11px;color:var(--blue);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">🎯 Táctica utilizada</div><div style="font-size:14px;line-height:1.7;color:var(--text)">${esc(m.tactica)}</div></div>`;
+    if(m.mejora) notesBody+=`<div style="${m.notes||m.tactica?'border-top:1px solid var(--border);padding-top:12px':''}"><div style="font-size:11px;color:var(--yellow);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">🔄 ¿Qué cambiaríamos?</div><div style="font-size:14px;line-height:1.7;color:var(--text)">${esc(m.mejora)}</div></div>`;
+    html+=_card('Análisis del partido','var(--yellow)',notesBody);
+  }
+
+  document.getElementById('cv-kpis').innerHTML=html;
+  document.getElementById('cv-recent').innerHTML='';
   document.getElementById('cv-shots').innerHTML='';
   document.getElementById('cv-fitness').innerHTML='';
   document.getElementById('cv-goals').innerHTML='';
@@ -2653,39 +2699,83 @@ function _renderCoachMatch(m,playerName){
 function _renderCoachTraining(t,playerName){
   const isTec=t.type==='tec'||t.type==='both';
   const isFis=t.type==='fis'||t.type==='both';
+  const typeLabel=t.type==='both'?'TÉCNICO + FÍSICO':isTec?'TÉCNICO':'FÍSICO';
+  const typeColor=isTec&&isFis?'var(--purple)':isTec?'var(--purple)':'var(--blue)';
   document.getElementById('cv-subtitle').textContent=`${playerName} · Entrenamiento ${fmtDate(t.date)}${t.coach?' · 🎓 '+t.coach:''}`;
+
+  // HEADER
   document.getElementById('cv-elo').innerHTML=`
-    <div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;color:${isTec?'var(--purple)':'var(--blue)'}">${t.type==='both'?'TÉCNICO + FÍSICO':isTec?'TÉCNICO':'FÍSICO'}</span>
-        ${t.duration?`<span style="font-size:13px;color:var(--muted)">${t.duration} min</span>`:''}
+    <div style="background:rgba(181,123,255,0.08);border-radius:16px;padding:20px;border:2px solid rgba(181,123,255,0.3);text-align:center;margin-bottom:14px">
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">Sesión de entrenamiento</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:38px;color:${typeColor};letter-spacing:3px;margin-bottom:12px">${typeLabel}</div>
+      <div style="display:flex;justify-content:center;gap:20px;flex-wrap:wrap;margin-bottom:12px">
+        ${t.duration?`<div style="text-align:center"><div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--muted)">${t.duration}</div><div style="font-size:11px;color:var(--muted)">minutos</div></div>`:''}
+        ${t.energia?`<div style="text-align:center"><div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:#3DDB82">${t.energia}/5</div><div style="font-size:11px;color:var(--muted)">Energía ⚡</div></div>`:''}
+        ${t.humor?`<div style="text-align:center"><div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:#B57BFF">${t.humor}/5</div><div style="font-size:11px;color:var(--muted)">Humor 😊</div></div>`:''}
+        ${t.intensidad?`<div style="text-align:center"><div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:#F0DC50">${t.intensidad}/5</div><div style="font-size:11px;color:var(--muted)">Intensidad 🔥</div></div>`:''}
       </div>
-      <div style="display:flex;gap:16px">
-        ${t.energia?`<div style="text-align:center"><div style="font-size:18px">${'⚡'.repeat(t.energia)}</div><div style="font-size:10px;color:var(--muted)">Energía</div></div>`:''}
-        ${t.humor?`<div style="text-align:center"><div style="font-size:18px">${'😊'.repeat(t.humor)}</div><div style="font-size:10px;color:var(--muted)">Humor</div></div>`:''}
-        ${t.intensidad?`<div style="text-align:center"><div style="font-size:18px">${'🔥'.repeat(t.intensidad)}</div><div style="font-size:10px;color:var(--muted)">Intensidad</div></div>`:''}
-      </div>
+      ${t.coach?`<div style="font-size:13px;color:var(--muted)">🎓 Entrenador: <strong style="color:var(--text)">${esc(t.coach)}</strong></div>`:''}
     </div>`;
+
   let html='';
+
+  // GOLPES TÉCNICOS con barras y estrellas
   if(isTec&&t.shotQuality&&Object.keys(t.shotQuality).length){
     const shots=Object.entries(t.shotQuality).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
-    html+=`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);margin-bottom:12px">
-      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">🎾 Golpes técnicos</div>
-      ${shots.map(([k,v])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)"><span style="font-size:13px">${ALL_SHOT_LABELS[k]||k}</span><div style="display:flex;gap:2px">${'⭐'.repeat(v)}</div></div>`).join('')}
+    const maxV=shots[0]?shots[0][1]:5;
+    const avgQ=shots.length?Math.round(shots.reduce((a,[,v])=>a+v,0)/shots.length*10)/10:0;
+    html+=`<div style="background:var(--card);border-radius:16px;padding:18px;border:1px solid var(--border);border-left:3px solid var(--purple);margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:1.5px">🎾 Golpes técnicos</div>
+        <div style="font-size:12px;color:var(--muted)">${shots.length} golpes · media ${avgQ}⭐</div>
+      </div>
+      ${shots.map(([k,v])=>{const pct=Math.round(v/5*100);const starColor=v>=4?'#3DDB82':v>=3?'#F0DC50':'#FF5E3A';return`<div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-size:13px;font-weight:500">${ALL_SHOT_LABELS[k]||k}</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:13px;font-weight:700;color:${starColor}">${v}/5 ${'⭐'.repeat(v)}</span>
+          </div>
+        </div>
+        <div style="height:6px;background:rgba(255,255,255,0.07);border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${starColor};border-radius:4px"></div></div>
+      </div>`;}).join('')}
     </div>`;
   }
-  if(t.exercises&&t.exercises.length){
-    html+=`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);margin-bottom:12px">
-      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">💪 Ejercicios físicos</div>
-      ${t.exercises.map(e=>`<div style="font-size:13px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04)">· ${esc(e)}</div>`).join('')}
+
+  // EJERCICIOS FÍSICOS
+  if(isFis&&t.exercises&&t.exercises.length){
+    html+=`<div style="background:var(--card);border-radius:16px;padding:18px;border:1px solid var(--border);border-left:3px solid var(--blue);margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px">💪 Ejercicios físicos realizados (${t.exercises.length})</div>
+      ${t.exercises.map((e,i)=>`<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+        <div style="min-width:22px;height:22px;border-radius:50%;background:rgba(59,130,246,0.2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--blue)">${i+1}</div>
+        <div style="font-size:14px;color:var(--text);line-height:1.4">${esc(e)}</div>
+      </div>`).join('')}
     </div>`;
   }
+
+  // ESTADO FÍSICO Y MENTAL barras visuales
+  if(t.energia||t.humor||t.intensidad){
+    const bars=[
+      t.energia?{label:'Energía ⚡',val:t.energia,color:'#3DDB82'}:null,
+      t.humor?{label:'Humor 😊',val:t.humor,color:'#B57BFF'}:null,
+      t.intensidad?{label:'Intensidad 🔥',val:t.intensidad,color:'#F0DC50'}:null,
+    ].filter(Boolean);
+    html+=`<div style="background:var(--card);border-radius:16px;padding:18px;border:1px solid var(--border);border-left:3px solid #3DDB82;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:#3DDB82;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px">🧠 Estado físico y mental</div>
+      ${bars.map(b=>`<div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:13px">${b.label}</span><span style="font-size:13px;font-weight:700;color:${b.color}">${b.val}/5</span></div>
+        <div style="height:8px;background:rgba(255,255,255,0.07);border-radius:4px;overflow:hidden"><div style="height:100%;width:${Math.round(b.val/5*100)}%;background:${b.color};border-radius:4px"></div></div>
+      </div>`).join('')}
+    </div>`;
+  }
+
+  // NOTAS
   if(t.notes){
-    html+=`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border)">
-      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">📝 Notas</div>
-      <div style="font-size:13px;line-height:1.6">${esc(t.notes)}</div>
+    html+=`<div style="background:var(--card);border-radius:16px;padding:18px;border:1px solid var(--border);border-left:3px solid var(--yellow);margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--yellow);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px">📝 Notas del entrenamiento</div>
+      <div style="font-size:14px;line-height:1.8;color:var(--text)">${esc(t.notes)}</div>
     </div>`;
   }
+
   document.getElementById('cv-kpis').innerHTML=html;
   document.getElementById('cv-recent').innerHTML='';
   document.getElementById('cv-shots').innerHTML='';
