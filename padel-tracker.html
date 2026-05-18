@@ -421,7 +421,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <div class="home-section-label">Entrenamientos</div>
     <button class="btn btn-purple"     onclick="goToTraining()">⊕ &nbsp;Nuevo Entrenamiento</button>
     <button class="btn btn-secondary"  onclick="showScreen('train-history-screen')">⊞ &nbsp;Historial de entrenos</button>
-    <button class="btn btn-blue"       onclick="showScreen('simulator-screen');setTimeout(()=>init3DSim(),200)">🎮 &nbsp;Simulador Táctico</button>
+    <button class="btn btn-blue"       onclick="openSimFrom('home')">🎮 &nbsp;Simulador Táctico</button>
     <div class="home-section-label">Análisis y exportar</div>
     <button class="btn btn-accent"     onclick="showScreen('stats-screen')">◈ &nbsp;Evolución y estadísticas</button>
     <button class="btn btn-save"       onclick="triggerDownload()">💾 &nbsp;Guardar app con mis datos</button>
@@ -824,7 +824,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 <!-- TACTICS BOARD 3D -->
 <div id="simulator-screen" class="screen" style="padding:0;overflow:hidden">
   <div class="screen-header" style="background:#0f1419;border-bottom:1px solid rgba(255,255,255,0.08)">
-    <button class="back-btn" onclick="showScreen('home')">←</button>
+    <button class="back-btn" onclick="closeSimulator()">←</button>
     <h2>Simulador 3D</h2>
   </div>
   <div style="flex:1;position:relative;overflow:hidden">
@@ -1717,6 +1717,9 @@ function viewMatchDetail(idx){
     </div>
     ${shotHtml}
     ${m.notes?`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);margin:0 16px"><div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Notas</div><div style="font-size:13px;color:var(--text);line-height:1.6">${esc(m.notes)}</div></div>`:''}
+    <div style="margin:16px 16px 8px">
+      <button class="btn btn-blue" onclick="openSimFrom('match-detail-screen')" style="width:100%;font-size:15px">🎮 &nbsp;Abrir Simulador Táctico</button>
+    </div>
   `;
   showScreen('match-detail-screen');
   if(shots) requestAnimationFrame(()=>renderMatchCharts(shots,myLabel,riLabel,'hd'));
@@ -1995,6 +1998,9 @@ initFirebase();
 // SIMULADOR 3D
 // ═══════════════════════════════════════════════════════════════
 let s3renderer=null, s3scene=null, s3camera=null;
+let s3fromScreen='home';
+function openSimFrom(from){s3fromScreen=from;showScreen('simulator-screen');setTimeout(()=>init3DSim(),200);}
+function closeSimulator(){showScreen(s3fromScreen||'home');}
 let s3players=[], s3ball=null, s3arrows=[], s3arrowMode=false;
 let s3dragging=null, s3dragOffset=new THREE.Vector3();
 let s3camTheta=0, s3camPhi=0.6, s3camDist=22;
