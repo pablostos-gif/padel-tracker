@@ -444,6 +444,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <button class="btn btn-secondary"  onclick="showScreen('train-history-screen')">⊞ &nbsp;Historial de entrenos</button>
     <button class="btn btn-blue"       onclick="openSimFrom('home')">🎮 &nbsp;Simulador Táctico</button>
     <div class="home-section-label">Desarrollo</div>
+    <button class="btn btn-blue"       onclick="showScreen('fitness-screen')">🏃 &nbsp;Tests Físicos</button>
     <button class="btn btn-accent"     onclick="showScreen('goals-screen')">🎯 &nbsp;Objetivos · <span id="home-goals-badge">—</span></button>
     <div class="home-section-label">Análisis y exportar</div>
     <button class="btn btn-accent"     onclick="showScreen('stats-screen')">◈ &nbsp;Evolución y estadísticas</button>
@@ -845,6 +846,61 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   </div>
 </div>
 
+<!-- FITNESS TESTS -->
+<div id="fitness-screen" class="screen">
+  <div class="screen-header">
+    <button class="back-btn" onclick="showScreen('home')">←</button>
+    <h2>Tests Físicos · <span id="ft-player-name">—</span></h2>
+    <button class="back-btn" style="color:var(--blue);font-size:26px;font-weight:300;line-height:1" onclick="openAddFitTest()" title="Nuevo test">+</button>
+  </div>
+  <div class="goals-body">
+    <div id="ft-summary"></div>
+    <div id="ft-list"></div>
+  </div>
+</div>
+
+<!-- ADD FITNESS TEST OVERLAY -->
+<div id="add-ft-overlay" class="confirm-overlay hidden">
+  <div class="confirm-box" style="max-width:360px;width:90%;max-height:90vh;overflow-y:auto">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;margin-bottom:14px">Nuevo Test Físico</div>
+    <div style="margin-bottom:12px">
+      <label class="goal-lbl">Tipo de test</label>
+      <select id="ft-type-sel" class="goal-inp" onchange="updateFtUnit()">
+        <option value="">— Seleccionar —</option>
+        <option value="velocidad_20m">⚡ Velocidad 20m</option>
+        <option value="velocidad_30m">⚡ Velocidad 30m</option>
+        <option value="sprint_10m">🏃 Sprint 10m</option>
+        <option value="agilidad">🔀 Agilidad (T-Test)</option>
+        <option value="salto_vert">↕️ Salto vertical</option>
+        <option value="salto_horiz">↔️ Salto horizontal</option>
+        <option value="flexibilidad">🤸 Flexibilidad (sit &amp; reach)</option>
+        <option value="cooper">🏃 Test Cooper 12'</option>
+        <option value="yoyo">🔄 Yo-Yo Test</option>
+        <option value="fuerza_sup">💪 Fuerza tren superior</option>
+      </select>
+    </div>
+    <div style="margin-bottom:12px">
+      <label class="goal-lbl" id="ft-value-lbl">Resultado</label>
+      <div style="display:flex;gap:10px;align-items:center">
+        <input id="ft-value-inp" class="goal-inp" type="number" step="0.01" min="0" placeholder="0.00" style="flex:1">
+        <div id="ft-unit-badge" style="min-width:36px;text-align:center;font-size:15px;font-weight:700;color:var(--blue)">—</div>
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label class="goal-lbl">Fecha</label>
+      <input id="ft-date-inp" class="goal-inp" type="date">
+    </div>
+    <div style="margin-bottom:16px">
+      <label class="goal-lbl">Notas (opcional)</label>
+      <textarea id="ft-notes-inp" class="goal-inp" rows="2" style="resize:none" placeholder="Condiciones, sensaciones..."></textarea>
+    </div>
+    <div class="confirm-btns">
+      <button class="btn btn-primary" onclick="saveFitTest()">✓ &nbsp;Guardar</button>
+      <button class="btn btn-ghost" onclick="closeAddFitTest()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <!-- GOALS -->
 <div id="goals-screen" class="screen">
   <div class="screen-header">
@@ -1109,7 +1165,7 @@ const CD={tooltip:{backgroundColor:'#1C2840',borderColor:'rgba(255,255,255,0.08)
 // ═══════════════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════════════
-let app={playerName:'',match:null,history:[],trainings:[],goals:[]};
+let app={playerName:'',match:null,history:[],trainings:[],goals:[],fitnessTests:[]};
 let stateStack=[];
 let statsPeriod='all';
 let charts={};
@@ -1197,6 +1253,7 @@ function loadApp(){
       if(!app.trainings)app.trainings=[];
       if(!app.history)app.history=[];
       if(!app.goals)app.goals=[];
+      if(!app.fitnessTests)app.fitnessTests=[];
       return;
     }
   }catch(e){}
@@ -1208,6 +1265,7 @@ function loadApp(){
       if(!app.trainings)app.trainings=[];
       if(!app.history)app.history=[];
       if(!app.goals)app.goals=[];
+      if(!app.fitnessTests)app.fitnessTests=[];
       return;
     }
   }catch(e){}
@@ -1216,7 +1274,7 @@ function loadApp(){
 }
 
 function saveApp(){
-  const data={playerName:app.playerName,history:app.history,trainings:app.trainings,goals:app.goals||[],lastSync:app.lastSync||''};
+  const data={playerName:app.playerName,history:app.history,trainings:app.trainings,goals:app.goals||[],fitnessTests:app.fitnessTests||[],lastSync:app.lastSync||''};
   const json=JSON.stringify(data);
   try{localStorage.setItem(DB_KEY,json);}catch(e){}
   try{document.getElementById('__ptd').textContent=json;}catch(e){}
@@ -1354,6 +1412,7 @@ function showScreen(id){
   if(id==='stats-screen')renderStats();
   if(id==='train-history-screen')renderTrainHistory();
   if(id==='goals-screen')renderGoals();
+  if(id==='fitness-screen')renderFitness();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2279,6 +2338,98 @@ function deleteGoal(id){
   if(!confirm('¿Eliminar este objetivo?'))return;
   app.goals=(app.goals||[]).filter(x=>x.id!==id);
   saveApp();renderGoals();renderHome();renderHomeHabitWidget();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FITNESS TESTS
+// ═══════════════════════════════════════════════════════════════
+const FT_CFG={
+  velocidad_20m:{label:'Velocidad 20m',icon:'⚡',unit:'s',lb:true},
+  velocidad_30m:{label:'Velocidad 30m',icon:'⚡',unit:'s',lb:true},
+  sprint_10m:   {label:'Sprint 10m',icon:'🏃',unit:'s',lb:true},
+  agilidad:     {label:'Agilidad T-Test',icon:'🔀',unit:'s',lb:true},
+  salto_vert:   {label:'Salto vertical',icon:'↕️',unit:'cm',lb:false},
+  salto_horiz:  {label:'Salto horizontal',icon:'↔️',unit:'cm',lb:false},
+  flexibilidad: {label:'Flexibilidad',icon:'🤸',unit:'cm',lb:false},
+  cooper:       {label:"Test Cooper 12'",icon:'🏃',unit:'m',lb:false},
+  yoyo:         {label:'Yo-Yo Test',icon:'🔄',unit:'niv',lb:false},
+  fuerza_sup:   {label:'Fuerza tren sup.',icon:'💪',unit:'rep',lb:false},
+};
+
+function renderFitness(){
+  const el=document.getElementById('ft-player-name');if(el)el.textContent=app.playerName||'—';
+  const tests=app.fitnessTests||[];
+  const byType={};
+  tests.forEach(t=>{if(!byType[t.testType])byType[t.testType]=[];byType[t.testType].push(t);});
+  Object.keys(byType).forEach(k=>byType[k].sort((a,b)=>new Date(a.date)-new Date(b.date)));
+  const summary=document.getElementById('ft-summary');
+  const list=document.getElementById('ft-list');
+  if(!tests.length){
+    summary.innerHTML='';
+    list.innerHTML=`<div class="empty-state"><div class="empty-icon">🏃</div><p>Sin tests físicos aún.<br>Pulsa + para registrar el primero.</p></div>`;
+    return;
+  }
+  const typeCount=Object.keys(byType).length;
+  summary.innerHTML=`<div style="background:var(--card);border-radius:14px;padding:14px 16px;border:1px solid var(--border)"><div style="display:flex;gap:16px;text-align:center"><div style="flex:1"><div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--blue)">${tests.length}</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Tests realizados</div></div><div style="flex:1"><div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:#B57BFF">${typeCount}</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Tipos distintos</div></div></div></div>`;
+  list.innerHTML=Object.keys(byType).map(type=>{
+    const cfg=FT_CFG[type]||{label:type,icon:'📊',unit:'',lb:false};
+    const results=byType[type];
+    const vals=results.map(r=>r.value);
+    const best=cfg.lb?Math.min(...vals):Math.max(...vals);
+    const last=vals[vals.length-1];
+    const prev=vals.length>1?vals[vals.length-2]:null;
+    const trend=prev===null?'':cfg.lb?(last<prev?'↑':last>prev?'↓':'→'):(last>prev?'↑':last<prev?'↓':'→');
+    const trendCol=trend==='↑'?'#3DDB82':trend==='↓'?'#FF5E3A':'var(--muted)';
+    // SVG sparkline
+    const recent=results.slice(-8);
+    const minV=Math.min(...recent.map(r=>r.value)),maxV=Math.max(...recent.map(r=>r.value)),range=maxV-minV||1;
+    const H=28,W=7;
+    const pts=recent.map((r,i)=>{const pct=(r.value-minV)/range;const y=cfg.lb?pct*(H-8):(1-pct)*(H-8);return{x:i*W,y:y+4,best:r.value===best};});
+    const linePath=pts.length>1?pts.map((p,i)=>`${i===0?'M':'L'}${p.x},${p.y}`).join(' '):'';
+    const spark=`<svg viewBox="0 0 ${(recent.length-1)*W||W} ${H}" width="${recent.length>1?(recent.length-1)*W:W}" height="${H}" style="overflow:visible">${linePath?`<path d="${linePath}" stroke="rgba(61,219,130,0.4)" stroke-width="1.5" fill="none"/>`:''}${pts.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="${p.best?'#3DDB82':'var(--muted)'}"/>`).join('')}</svg>`;
+    const histRows=results.slice().reverse().slice(0,5).map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04)"><span style="font-size:11px;color:var(--muted)">${fmtDate(r.date)}</span><div style="display:flex;align-items:center;gap:8px"><span style="font-size:13px;font-weight:700;color:${r.value===best?'#3DDB82':'var(--text)'}">${r.value} ${cfg.unit}</span>${r.value===best?`<span style="font-size:9px;font-weight:700;letter-spacing:1px;color:#3DDB82">MEJOR</span>`:''}<button onclick="deleteFitTest(${r.id})" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:11px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center">✕</button></div></div>`).join('');
+    return`<div style="background:var(--card);border-radius:14px;padding:14px 16px;border:1px solid var(--border);border-left:3px solid var(--blue)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+        <div><div style="font-size:13px;font-weight:700">${cfg.icon} ${cfg.label}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${results.length} test${results.length!==1?'s':''} · mejor: ${best} ${cfg.unit}</div></div>
+        <div style="text-align:right"><div style="font-family:'Bebas Neue',sans-serif;font-size:26px;line-height:1;color:${last===best?'#3DDB82':'var(--text)'}">${last}<span style="font-size:13px"> ${cfg.unit}</span>${trend?` <span style="font-size:15px;color:${trendCol}">${trend}</span>`:''}</div><div style="font-size:10px;color:var(--muted)">último resultado</div></div>
+      </div>
+      <div style="margin:6px 0 10px">${spark}</div>
+      <div style="border-top:1px solid var(--border);padding-top:8px">${histRows}</div>
+    </div>`;
+  }).join('');
+}
+
+function openAddFitTest(){
+  document.getElementById('ft-type-sel').value='';
+  document.getElementById('ft-value-inp').value='';
+  document.getElementById('ft-value-inp').placeholder='0.00';
+  document.getElementById('ft-unit-badge').textContent='—';
+  document.getElementById('ft-date-inp').value=new Date().toISOString().split('T')[0];
+  document.getElementById('ft-notes-inp').value='';
+  document.getElementById('add-ft-overlay').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('ft-value-inp').focus(),200);
+}
+function closeAddFitTest(){document.getElementById('add-ft-overlay').classList.add('hidden');}
+function updateFtUnit(){
+  const v=document.getElementById('ft-type-sel').value;
+  const cfg=FT_CFG[v];
+  document.getElementById('ft-unit-badge').textContent=cfg?cfg.unit:'—';
+  const ph={velocidad_20m:'3.45',velocidad_30m:'4.20',sprint_10m:'1.80',agilidad:'9.50',salto_vert:'45',salto_horiz:'180',flexibilidad:'15',cooper:'2400',yoyo:'12.5',fuerza_sup:'20'}[v]||'0';
+  document.getElementById('ft-value-inp').placeholder=ph;
+}
+function saveFitTest(){
+  const type=document.getElementById('ft-type-sel').value;
+  const val=parseFloat(document.getElementById('ft-value-inp').value);
+  if(!type){alert('Selecciona el tipo de test');return;}
+  if(isNaN(val)||val<=0){alert('Introduce un resultado válido');return;}
+  if(!app.fitnessTests)app.fitnessTests=[];
+  app.fitnessTests.push({id:Date.now(),testType:type,value:val,date:document.getElementById('ft-date-inp').value||new Date().toISOString().split('T')[0],notes:document.getElementById('ft-notes-inp').value.trim()});
+  saveApp();closeAddFitTest();renderFitness();
+}
+function deleteFitTest(id){
+  if(!confirm('¿Eliminar este resultado?'))return;
+  app.fitnessTests=(app.fitnessTests||[]).filter(x=>x.id!==id);
+  saveApp();renderFitness();
 }
 
 // ═══════════════════════════════════════════════════════════════
