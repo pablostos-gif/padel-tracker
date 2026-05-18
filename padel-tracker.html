@@ -859,6 +859,19 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   </div>
 </div>
 
+<!-- FITNESS TEST DETAIL OVERLAY -->
+<div id="ft-detail-overlay" class="confirm-overlay hidden">
+  <div class="confirm-box" style="max-width:400px;width:94%;max-height:92vh;overflow-y:auto;padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div id="ft-detail-title" style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px"></div>
+      <button onclick="closeFtDetail()" style="background:transparent;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1;padding:0">✕</button>
+    </div>
+    <div id="ft-detail-bests" style="display:flex;gap:10px;margin-bottom:16px"></div>
+    <div style="position:relative;height:200px;margin-bottom:16px"><canvas id="ft-detail-chart"></canvas></div>
+    <div id="ft-detail-history"></div>
+  </div>
+</div>
+
 <!-- ADD FITNESS TEST OVERLAY -->
 <div id="add-ft-overlay" class="confirm-overlay hidden">
   <div class="confirm-box" style="max-width:360px;width:90%;max-height:90vh;overflow-y:auto">
@@ -2409,7 +2422,7 @@ function renderFitness(){
     const linePath=pts.length>1?pts.map((p,i)=>`${i===0?'M':'L'}${p.x},${p.y}`).join(' '):'';
     const spark=`<svg viewBox="0 0 ${(recent.length-1)*W||W} ${H}" width="${recent.length>1?(recent.length-1)*W:W}" height="${H}" style="overflow:visible">${linePath?`<path d="${linePath}" stroke="rgba(61,219,130,0.4)" stroke-width="1.5" fill="none"/>`:''}${pts.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="${p.best?'#3DDB82':'var(--muted)'}"/>`).join('')}</svg>`;
     const histRows=results.slice().reverse().slice(0,5).map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04)"><span style="font-size:11px;color:var(--muted)">${fmtDate(r.date)}</span><div style="display:flex;align-items:center;gap:8px"><span style="font-size:13px;font-weight:700;color:${r.value===best?'#3DDB82':'var(--text)'}">${r.value} ${cfg.unit}</span>${r.value===best?`<span style="font-size:9px;font-weight:700;letter-spacing:1px;color:#3DDB82">MEJOR</span>`:''}<button onclick="deleteFitTest(${r.id})" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:11px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center">✕</button></div></div>`).join('');
-    return`<div style="background:var(--card);border-radius:14px;padding:14px 16px;border:1px solid var(--border);border-left:3px solid var(--blue)">
+    return`<div onclick="openFtDetail('${type}')" style="cursor:pointer;background:var(--card);border-radius:14px;padding:14px 16px;border:1px solid var(--border);border-left:3px solid var(--blue)">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
         <div><div style="font-size:13px;font-weight:700">${cfg.icon} ${cfg.label}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${results.length} test${results.length!==1?'s':''} · mejor: ${best} ${cfg.unit}</div></div>
         <div style="text-align:right"><div style="font-family:'Bebas Neue',sans-serif;font-size:26px;line-height:1;color:${last===best?'#3DDB82':'var(--text)'}">${last}<span style="font-size:13px"> ${cfg.unit}</span>${trend?` <span style="font-size:15px;color:${trendCol}">${trend}</span>`:''}</div><div style="font-size:10px;color:var(--muted)">último resultado</div></div>
@@ -2468,6 +2481,79 @@ function deleteFitTest(id){
   if(!confirm('¿Eliminar este resultado?'))return;
   app.fitnessTests=(app.fitnessTests||[]).filter(x=>x.id!==id);
   saveApp();renderFitness();
+}
+
+let ftDetailChart=null;
+function openFtDetail(typeKey){
+  const tests=app.fitnessTests||[];
+  const results=tests.filter(t=>(t.testType==='custom'?'custom__'+(t.customLabel||'?'):t.testType)===typeKey).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  if(!results.length)return;
+  const isCustom=typeKey.startsWith('custom__');
+  const cfg=isCustom?{label:results[0].customLabel||typeKey,icon:'✏️',unit:results[0].customUnit||'',lb:!!results[0].customLb}:(FT_CFG[typeKey]||{label:typeKey,icon:'📊',unit:'',lb:false});
+  const vals=results.map(r=>r.value);
+  const best=cfg.lb?Math.min(...vals):Math.max(...vals);
+  const last=vals[vals.length-1];
+  const first=vals[0];
+  const improv=cfg.lb?(first-last).toFixed(2):(last-first).toFixed(2);
+  const improvSign=parseFloat(improv)>0?'+':'';
+
+  document.getElementById('ft-detail-title').textContent=cfg.icon+' '+cfg.label;
+  document.getElementById('ft-detail-bests').innerHTML=`
+    <div style="flex:1;background:rgba(61,219,130,0.08);border:1px solid rgba(61,219,130,0.3);border-radius:12px;padding:12px;text-align:center">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Mejor marca</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:#3DDB82;line-height:1">${best}<span style="font-size:13px"> ${cfg.unit}</span></div>
+    </div>
+    <div style="flex:1;background:rgba(61,219,130,0.08);border:1px solid rgba(61,219,130,0.3);border-radius:12px;padding:12px;text-align:center">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Último</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;line-height:1">${last}<span style="font-size:13px"> ${cfg.unit}</span></div>
+    </div>
+    <div style="flex:1;background:rgba(181,123,255,0.08);border:1px solid rgba(181,123,255,0.3);border-radius:12px;padding:12px;text-align:center">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Mejora total</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:#B57BFF;line-height:1">${improvSign}${improv}<span style="font-size:13px"> ${cfg.unit}</span></div>
+    </div>`;
+
+  document.getElementById('ft-detail-history').innerHTML='<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Historial completo</div>'+
+    results.slice().reverse().map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+      <div><div style="font-size:13px">${fmtDate(r.date)}</div>${r.notes?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${r.notes}</div>`:''}</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:16px;font-weight:700;color:${r.value===best?'#3DDB82':'var(--text)'}">${r.value} ${cfg.unit}</span>
+        ${r.value===best?'<span style="font-size:9px;font-weight:700;color:#3DDB82;letter-spacing:1px">MEJOR</span>':''}
+        <button onclick="deleteFitTest(${r.id});closeFtDetail();renderFitness()" style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:11px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center">✕</button>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('ft-detail-overlay').classList.remove('hidden');
+
+  if(ftDetailChart){ftDetailChart.destroy();ftDetailChart=null;}
+  const ctx=document.getElementById('ft-detail-chart').getContext('2d');
+  ftDetailChart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:results.map(r=>fmtDate(r.date)),
+      datasets:[{
+        data:vals,
+        borderColor:'#3DDB82',
+        backgroundColor:'rgba(61,219,130,0.08)',
+        borderWidth:2.5,
+        pointBackgroundColor:vals.map(v=>v===best?'#3DDB82':'rgba(61,219,130,0.5)'),
+        pointRadius:vals.map(v=>v===best?6:4),
+        fill:true,
+        tension:0.3
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y} ${cfg.unit}`}}},
+      scales:{
+        x:{ticks:{color:'rgba(255,255,255,0.4)',font:{size:10}},grid:{color:'rgba(255,255,255,0.05)'}},
+        y:{ticks:{color:'rgba(255,255,255,0.4)',font:{size:10}},grid:{color:'rgba(255,255,255,0.05)'},reverse:cfg.lb}
+      }
+    }
+  });
+}
+function closeFtDetail(){
+  document.getElementById('ft-detail-overlay').classList.add('hidden');
+  if(ftDetailChart){ftDetailChart.destroy();ftDetailChart=null;}
 }
 
 // ═══════════════════════════════════════════════════════════════
