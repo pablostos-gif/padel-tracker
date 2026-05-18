@@ -434,6 +434,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
       <div class="data-badge"><div class="data-badge-dot"></div><span id="home-data-info">—</span></div>
     </div>
   </div>
+  <div id="home-elo-widget"></div>
   <div id="home-habit-widget"></div>
   <div class="home-buttons">
     <div class="home-section-label">Partidos</div>
@@ -811,6 +812,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
         <div id="donut-legend" style="display:flex;flex-direction:column;gap:10px"></div>
       </div>
     </div>
+    <div id="elo-card-stats"></div>
     <div class="chart-card"><div class="chart-title">Últimos partidos</div><div id="streak-bar" class="streak-bar"></div><div id="streak-label" class="streak-label"></div></div>
     <div class="chart-card"><div class="chart-title">Rendimiento por rival</div><div id="rivals-table"></div></div>
     <div class="chart-card"><div class="chart-title">Detalle de golpes</div><div id="shot-detail-table"></div></div>
@@ -1521,6 +1523,81 @@ function showScreen(id){
 // ═══════════════════════════════════════════════════════════════
 // HOME
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// ELO / NIVEL DINÁMICO
+// ═══════════════════════════════════════════════════════════════
+const ELO_TIERS=[
+  {min:0,   max:799,  name:'Iniciación',  icon:'🌱', color:'#64748b'},
+  {min:800, max:999,  name:'Bronce',      icon:'🥉', color:'#b45309'},
+  {min:1000,max:1199, name:'Plata',       icon:'🥈', color:'#94a3b8'},
+  {min:1200,max:1449, name:'Oro',         icon:'🥇', color:'#f0dc50'},
+  {min:1450,max:1699, name:'Platino',     icon:'💎', color:'#38bdf8'},
+  {min:1700,max:1999, name:'Diamante',    icon:'💠', color:'#818cf8'},
+  {min:2000,max:9999, name:'Élite',       icon:'🏆', color:'#3DDB82'},
+];
+function calcElo(){
+  const matches=[...(app.history||[])].sort((a,b)=>new Date(a.date)-new Date(b.date));
+  let elo=1000;
+  const history=[{elo,date:null}];
+  matches.forEach(m=>{
+    // bonus por calidad de golpe (winners vs errores)
+    let shotBonus=0;
+    if(m.shots){const src=hasShotData(m.shots.player)?m.shots.player:m.shots.my;if(src){const tw=Object.values(src.winners||{}).reduce((a,b)=>a+b,0);const te=Object.values(src.enf||{}).reduce((a,b)=>a+b,0);if(tw+te>0)shotBonus=Math.round((tw-te)/(tw+te)*15);}}
+    // cambio base: +30/-20 ajustado por racha
+    const base=m.isWin?30:-20;
+    elo=Math.max(0,elo+base+shotBonus);
+    history.push({elo,date:m.date});
+  });
+  return{elo,history};
+}
+function eloTier(elo){return ELO_TIERS.find(t=>elo>=t.min&&elo<=t.max)||ELO_TIERS[ELO_TIERS.length-1];}
+function renderEloWidget(containerId){
+  const el=document.getElementById(containerId);if(!el)return;
+  const matches=app.history||[];
+  if(!matches.length){el.innerHTML='';return;}
+  const {elo,history}=calcElo();
+  const tier=eloTier(elo);
+  const nextTier=ELO_TIERS.find(t=>t.min>elo);
+  const pct=nextTier?Math.round((elo-tier.min)/(nextTier.min-tier.min)*100):100;
+  const prev=history.length>1?history[history.length-2].elo:elo;
+  const diff=elo-prev;
+  const diffStr=diff>0?`<span style="color:#3DDB82;font-size:12px">▲${diff}</span>`:diff<0?`<span style="color:#FF5E3A;font-size:12px">▼${Math.abs(diff)}</span>`:'';
+  el.innerHTML=`<div style="background:var(--card);border-radius:16px;padding:16px;border:1px solid ${tier.color}40;border-left:3px solid ${tier.color};margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Nivel estimado</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:2px;color:${tier.color}">${tier.icon} ${tier.name}</div></div>
+      <div style="text-align:right"><div style="font-family:'Bebas Neue',sans-serif;font-size:32px;line-height:1;color:${tier.color}">${elo}</div><div style="font-size:11px;color:var(--muted)">puntos ${diffStr}</div></div>
+    </div>
+    ${nextTier?`<div><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:10px;color:var(--muted)">Progreso hacia ${nextTier.icon} ${nextTier.name}</span><span style="font-size:10px;color:var(--muted)">${pct}%</span></div><div style="height:6px;background:rgba(255,255,255,0.08);border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${tier.color};border-radius:4px;transition:width 0.6s ease"></div></div></div>`:`<div style="font-size:12px;color:${tier.color};text-align:center;margin-top:4px">🏆 Nivel máximo alcanzado</div>`}
+  </div>`;
+}
+function renderEloStatsCard(){
+  const el=document.getElementById('elo-card-stats');if(!el)return;
+  const matches=app.history||[];
+  if(!matches.length){el.innerHTML='';return;}
+  const {elo,history}=calcElo();
+  const tier=eloTier(elo);
+  const nextTier=ELO_TIERS.find(t=>t.min>elo);
+  const pct=nextTier?Math.round((elo-tier.min)/(nextTier.min-tier.min)*100):100;
+  // sparkline de evolución elo
+  const pts=history.filter(h=>h.date).slice(-20);
+  const minE=Math.min(...pts.map(p=>p.elo)),maxE=Math.max(...pts.map(p=>p.elo)),range=maxE-minE||1;
+  const W=12,H=40;
+  const svgPts=pts.map((p,i)=>({x:i*W,y:(1-(p.elo-minE)/range)*(H-8)+4}));
+  const line=svgPts.length>1?svgPts.map((p,i)=>`${i===0?'M':'L'}${p.x},${p.y}`).join(' '):'';
+  const spark=pts.length>1?`<svg viewBox="0 0 ${(pts.length-1)*W} ${H}" width="${(pts.length-1)*W}" height="${H}" style="overflow:visible"><path d="${line}" stroke="${tier.color}" stroke-width="2" fill="none"/><circle cx="${svgPts[svgPts.length-1].x}" cy="${svgPts[svgPts.length-1].y}" r="4" fill="${tier.color}"/></svg>`:'';
+  el.innerHTML=`<div class="chart-card" style="border-left:3px solid ${tier.color}"><div class="chart-title">Nivel Estimado · ELO</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div><div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:${tier.color}">${tier.icon} ${tier.name}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Basado en ${matches.length} partido${matches.length!==1?'s':''}</div></div>
+      <div style="text-align:right"><div style="font-family:'Bebas Neue',sans-serif;font-size:38px;line-height:1;color:${tier.color}">${elo}</div><div style="font-size:10px;color:var(--muted)">puntos</div></div>
+    </div>
+    <div style="margin-bottom:12px">${spark}</div>
+    ${nextTier?`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11px;color:var(--muted)">Hacia ${nextTier.icon} ${nextTier.name} (${nextTier.min} pts)</span><span style="font-size:11px;color:var(--muted)">${pct}%</span></div><div style="height:8px;background:rgba(255,255,255,0.08);border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${tier.color};border-radius:4px"></div></div></div>`:''}
+    <div style="display:flex;gap:6px;flex-wrap:wrap">${ELO_TIERS.map(t=>`<div style="padding:4px 10px;border-radius:8px;font-size:11px;font-weight:600;background:${elo>=t.min&&elo<=t.max?t.color+'25':'rgba(255,255,255,0.04)'};color:${elo>=t.min&&elo<=t.max?t.color:'var(--muted)'};border:1px solid ${elo>=t.min&&elo<=t.max?t.color+'60':'transparent'}">${t.icon} ${t.name}</div>`).join('')}
+    </div>
+  </div>`;
+}
 function renderHome(){
   const card=document.getElementById('home-player-card');
   if(app.playerName){
@@ -1531,6 +1608,7 @@ function renderHome(){
     const trains=app.trainings.length;
     document.getElementById('home-data-info').textContent=`${total} partido${total!==1?'s':''} · ${trains} entreno${trains!==1?'s':''}`;
   }else{card.style.display='none';}
+  renderEloWidget('home-elo-widget');
   const goals=app.goals||[],done=goals.filter(g=>g.achieved||(g.type==='mejora'&&autoCheckMejora(g)===true)).length;
   const badge=document.getElementById('home-goals-badge');
   if(badge)badge.textContent=goals.length?`${done}/${goals.length} conseguidos`:'Sin objetivos';
@@ -2184,7 +2262,7 @@ function renderMatchStats(){
   const dw=data.filter(m=>m.isWin).length,dl=data.length-dw,dp=data.length?Math.round(dw/data.length*100):0;
   mkChart('chart-donut','doughnut',{labels:['V','D'],datasets:[{data:[dw,dl],backgroundColor:['rgba(61,219,130,0.85)','rgba(255,94,58,0.7)'],borderWidth:0,hoverOffset:4}]},{responsive:true,maintainAspectRatio:false,cutout:'68%',plugins:{legend:{display:false},tooltip:{...CD.tooltip}}});
   document.getElementById('donut-legend').innerHTML=`<div class="donut-row"><span class="donut-dot" style="background:#3DDB82"></span><span>${dw} victorias (${dp}%)</span></div><div class="donut-row"><span class="donut-dot" style="background:#FF5E3A"></span><span>${dl} derrotas</span></div><div class="donut-row" style="margin-top:4px"><span style="font-size:11px;color:var(--muted)">${data.length} partidos</span></div>`;
-  renderStreakBar(sorted);renderRivals(data);renderShotDetailTable(agg,tw,te);
+  renderStreakBar(sorted);renderRivals(data);renderShotDetailTable(agg,tw,te);renderEloStatsCard();
 }
 function buildMonthly(data){const map={};data.forEach(m=>{const d=new Date(m.date+'T12:00:00');const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;if(!map[k])map[k]={wins:0,losses:0};if(m.isWin)map[k].wins++;else map[k].losses++;});return Object.keys(map).sort().map(k=>{const[y,mo]=k.split('-');const d=new Date(parseInt(y),parseInt(mo)-1,1);const lbl=d.toLocaleDateString('es-ES',{month:'short',year:'2-digit'});const t=map[k].wins+map[k].losses;return{label:lbl,wins:map[k].wins,losses:map[k].losses,total:t,pct:Math.round(map[k].wins/t*100)};});}
 function renderStreakBar(sorted){const r=sorted.slice(0,15),bar=document.getElementById('streak-bar'),lbl=document.getElementById('streak-label');if(!r.length){bar.innerHTML='<span style="font-size:13px;color:var(--muted)">Sin partidos aún</span>';lbl.textContent='';return;}bar.innerHTML=r.map(m=>`<div class="streak-dot ${m.isWin?'sd-win':'sd-loss'}" title="${fmtDate(m.date)}">${m.isWin?'V':'D'}</div>`).join('');let cur=1,t=r[0].isWin;for(let i=1;i<r.length;i++){if(r[i].isWin===t)cur++;else break;}lbl.textContent=`Racha: ${cur} ${t?'victoria':'derrota'}${cur>1?'s':''} · Últimos ${r.length}`;}
