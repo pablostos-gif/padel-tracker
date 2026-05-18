@@ -637,8 +637,55 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   <div class="screen-header">
     <button class="back-btn" onclick="showScreen('history-screen')">←</button>
     <h2>Detalle del Partido</h2>
+    <button class="back-btn" style="color:var(--my);font-size:18px" onclick="editMatch(currentMatchDetailIdx)" title="Editar">✎</button>
+    <button class="back-btn" style="color:var(--rival);font-size:18px" onclick="deleteMatch(currentMatchDetailIdx)" title="Eliminar">🗑</button>
   </div>
   <div class="scrollable" id="match-detail-content" style="padding-bottom:20px"></div>
+</div>
+
+<!-- MATCH EDIT -->
+<div id="match-edit-screen" class="screen">
+  <div class="screen-header">
+    <button class="back-btn" onclick="showScreen('match-detail-screen')">←</button>
+    <h2>Editar Partido</h2>
+  </div>
+  <div class="scrollable" style="padding:16px;padding-bottom:80px">
+    <div class="form-section">
+      <div class="color-bar my-bar"></div>
+      <div class="section-label">Tu equipo</div>
+      <div class="form-row">
+        <div class="input-group"><label>Jugador</label><input id="edit-myname" type="text" maxlength="20"></div>
+        <div class="input-group"><label>Pareja (opcional)</label><input id="edit-partner" type="text" maxlength="20"></div>
+      </div>
+    </div>
+    <div class="form-section">
+      <div class="color-bar rival-bar"></div>
+      <div class="section-label">Rivales</div>
+      <div class="form-row">
+        <div class="input-group"><label>Rival 1</label><input id="edit-rival1" type="text" maxlength="20"></div>
+        <div class="input-group"><label>Rival 2 (opcional)</label><input id="edit-rival2" type="text" maxlength="20"></div>
+      </div>
+    </div>
+    <div class="form-section">
+      <div class="section-label">Detalles</div>
+      <div class="form-row">
+        <div class="input-group"><label>Torneo / Liga</label><input id="edit-tournament" type="text" maxlength="30"></div>
+        <div class="input-group"><label>Fecha</label><input id="edit-date" type="date"></div>
+      </div>
+    </div>
+    <div class="form-section">
+      <div class="section-label">Resultado (sets)</div>
+      <div id="edit-sets-container" style="display:flex;flex-direction:column;gap:8px;margin-top:8px"></div>
+    </div>
+    <div class="notes-section" style="padding-top:0">
+      <div class="notes-label">Notas del partido</div>
+      <textarea id="edit-notes" placeholder="Notas..." rows="3"></textarea>
+    </div>
+  </div>
+  <div class="end-footer">
+    <button class="btn btn-primary" onclick="saveMatchEdit()">✓ &nbsp;Guardar cambios</button>
+    <button class="btn btn-ghost" onclick="showScreen('match-detail-screen')">Cancelar</button>
+  </div>
 </div>
 
 <!-- TRAINING HISTORY -->
@@ -921,6 +968,7 @@ let charts={};
 let currentTrainType='tec';
 let exercises=[];
 let editingTrainingId=null;
+let currentMatchDetailIdx=null;
 let shotTimerInterval=null;
 let pendingShot={team:null,outcome:null,shot:null,pointPlayer:null};
 let firstTime=false;
@@ -1555,7 +1603,52 @@ function buildPlayerShotBlock(rawShots, playerLabel, colorVar){
     ${tw>0||te>0?`<div style="display:flex;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">${bw?`<div style="flex:1;background:rgba(0,200,120,0.08);border-radius:8px;padding:6px;text-align:center"><div style="font-size:9px;color:var(--my);font-weight:700;letter-spacing:1px;text-transform:uppercase">Mejor golpe</div><div style="font-size:12px;font-weight:600;color:var(--text);margin-top:2px">${SHOT_LABELS[bw]}</div></div>`:''} ${be?`<div style="flex:1;background:rgba(220,50,50,0.08);border-radius:8px;padding:6px;text-align:center"><div style="font-size:9px;color:var(--rival);font-weight:700;letter-spacing:1px;text-transform:uppercase">Más errores</div><div style="font-size:12px;font-weight:600;color:var(--text);margin-top:2px">${SHOT_LABELS[be]}</div></div>`:''}</div>`:''}
   </div>`;
 }
+function deleteMatch(idx){
+  if(idx===null||idx===undefined)return;
+  if(!confirm('¿Eliminar este partido del historial?'))return;
+  app.history.splice(idx,1);
+  saveApp();renderHistory();showScreen('history-screen');
+}
+function editMatch(idx){
+  if(idx===null||idx===undefined)return;
+  const m=app.history[idx];if(!m)return;
+  document.getElementById('edit-myname').value=m.myName||'';
+  document.getElementById('edit-partner').value=m.myPartner||'';
+  document.getElementById('edit-rival1').value=m.rival1||'';
+  document.getElementById('edit-rival2').value=m.rival2||'';
+  document.getElementById('edit-tournament').value=m.tournament||'';
+  document.getElementById('edit-date').value=m.date||'';
+  document.getElementById('edit-notes').value=m.notes||'';
+  document.getElementById('edit-sets-container').innerHTML=m.sets.map((s,i)=>`
+    <div style="display:flex;gap:10px;align-items:center">
+      <span style="font-size:12px;color:var(--muted);width:42px">Set ${i+1}</span>
+      <div class="input-group" style="flex:1"><input id="edit-set-${i}-my" type="number" min="0" max="9" value="${s.my}" style="text-align:center"></div>
+      <span style="color:var(--muted)">–</span>
+      <div class="input-group" style="flex:1"><input id="edit-set-${i}-ri" type="number" min="0" max="9" value="${s.ri}" style="text-align:center"></div>
+    </div>`).join('');
+  showScreen('match-edit-screen');
+}
+function saveMatchEdit(){
+  if(currentMatchDetailIdx===null)return;
+  const m=app.history[currentMatchDetailIdx];if(!m)return;
+  m.myName=document.getElementById('edit-myname').value.trim()||m.myName;
+  m.myPartner=document.getElementById('edit-partner').value.trim();
+  m.rival1=document.getElementById('edit-rival1').value.trim()||m.rival1;
+  m.rival2=document.getElementById('edit-rival2').value.trim();
+  m.tournament=document.getElementById('edit-tournament').value.trim();
+  m.date=document.getElementById('edit-date').value||m.date;
+  m.notes=document.getElementById('edit-notes').value.trim();
+  m.sets.forEach((s,i)=>{
+    s.my=parseInt(document.getElementById(`edit-set-${i}-my`).value)||0;
+    s.ri=parseInt(document.getElementById(`edit-set-${i}-ri`).value)||0;
+  });
+  m.mySets=m.sets.filter(s=>s.my>s.ri).length;
+  m.rivSets=m.sets.filter(s=>s.ri>s.my).length;
+  m.isWin=m.mySets>m.rivSets;
+  saveApp();renderHistory();viewMatchDetail(currentMatchDetailIdx);
+}
 function viewMatchDetail(idx){
+  currentMatchDetailIdx=idx;
   const m=app.history[idx];
   if(!m)return;
   const content=document.getElementById('match-detail-content');
