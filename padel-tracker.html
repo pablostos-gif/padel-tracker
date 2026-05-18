@@ -735,7 +735,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 <div id="stats-screen" class="screen">
   <div class="screen-header">
     <button class="back-btn" onclick="showScreen('home')">←</button>
-    <h2>Evolución</h2>
+    <h2>Evolución · <span id="stats-player-name">—</span></h2>
   </div>
   <div class="stats-tabs">
     <button class="stats-tab active" onclick="switchStatsTab('partidos',this)">Partidos</button>
@@ -1850,7 +1850,7 @@ let activeStatsTab='partidos';
 function switchStatsTab(tab,el){activeStatsTab=tab;document.querySelectorAll('.stats-tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');document.querySelectorAll('.stats-panel').forEach(p=>p.classList.remove('active'));document.getElementById('panel-'+tab).classList.add('active');if(tab==='partidos')renderMatchStats();if(tab==='tecnica')renderTechStats();if(tab==='fisico')renderFisStats();}
 function setPeriod(p,el){statsPeriod=p;document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderMatchStats();}
 function filterHistory(){if(statsPeriod==='all')return app.history;const now=new Date(),cutoff=new Date();if(statsPeriod==='year')cutoff.setFullYear(now.getFullYear(),0,1);if(statsPeriod==='6m')cutoff.setMonth(now.getMonth()-6);if(statsPeriod==='3m')cutoff.setMonth(now.getMonth()-3);if(statsPeriod==='month')cutoff.setDate(1);cutoff.setHours(0,0,0,0);return app.history.filter(m=>new Date(m.date+'T12:00:00')>=cutoff);}
-function renderStats(){renderMatchStats();}
+function renderStats(){const el=document.getElementById('stats-player-name');if(el)el.textContent=app.playerName||'—';renderMatchStats();}
 function renderMatchStats(){
   const data=filterHistory();
   const wins=data.filter(m=>m.isWin).length,losses=data.length-wins,pct=data.length?Math.round(wins/data.length*100):null;
@@ -1867,7 +1867,7 @@ function renderMatchStats(){
   const sk=document.getElementById('kpi-streak');sk.textContent=data.length?(curType?'+':'-')+curLen:'—';sk.className='kpi-val '+(curType?'kpi-green':'kpi-red');
   document.getElementById('kpi-best').textContent=data.length?bestLen:'—';
   const agg={winners:{},enf:{},ef:0};SHOT_KEYS.forEach(k=>{agg.winners[k]=0;agg.enf[k]=0;});
-  data.forEach(m=>{if(!m.shots)return;SHOT_KEYS.forEach(k=>{agg.winners[k]+=(m.shots.my.winners[k]||0);agg.enf[k]+=(m.shots.my.enf[k]||0);});agg.ef+=m.shots.my.ef||0;});
+  data.forEach(m=>{if(!m.shots)return;const src=hasShotData(m.shots.player)?m.shots.player:m.shots.my;if(!src)return;SHOT_KEYS.forEach(k=>{agg.winners[k]+=(src.winners[k]||0);agg.enf[k]+=(src.enf[k]||0);});agg.ef+=src.ef||0;});
   const tw=Object.values(agg.winners).reduce((a,b)=>a+b,0),te=Object.values(agg.enf).reduce((a,b)=>a+b,0),gt=tw+te+agg.ef||1;
   document.getElementById('cr-pg').textContent=tw?Math.round(tw/gt*100)+'%':'—';document.getElementById('cr-enf').textContent=te?Math.round(te/gt*100)+'%':'—';document.getElementById('cr-ef').textContent=agg.ef?Math.round(agg.ef/gt*100)+'%':'—';
   if(!data.length){['chart-coef','chart-shots-win','chart-shots-err','chart-monthly','chart-bar','chart-donut'].forEach(destroyChart);renderStreakBar([]);renderRivals([]);renderShotDetailTable(null,0,0);return;}
