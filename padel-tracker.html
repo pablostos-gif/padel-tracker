@@ -2278,7 +2278,7 @@ function renderMatchStats(){
   const data=filterHistory();
   const wins=data.filter(m=>m.isWin).length,losses=data.length-wins,pct=data.length?Math.round(wins/data.length*100):null;
   document.getElementById('kpi-wins').textContent=wins;document.getElementById('kpi-losses').textContent=losses;document.getElementById('kpi-pct').textContent=pct!==null?pct+'%':'—';document.getElementById('kpi-total').textContent=data.length;
-  const avgSets=data.length?Math.round(data.reduce((a,m)=>{const s=(m.sets1||0)+(m.sets2||0);return a+s;},0)/data.length*10)/10:null;
+  const avgSets=data.length?Math.round(data.reduce((a,m)=>{const s=(m.sets||[]).length;return a+s;},0)/data.length*10)/10:null;
   document.getElementById('kpi-avg-sets').textContent=avgSets?avgSets:'—';
   const rivals=new Set(data.map(m=>m.rival1||''));
   document.getElementById('kpi-rivals-count').textContent=rivals.size;
@@ -2345,7 +2345,7 @@ function renderParejaDetail(){
   mkChart('chart-pj-donut','doughnut',{labels:['V','D'],datasets:[{data:[wins,losses],backgroundColor:['rgba(61,219,130,0.85)','rgba(255,94,58,0.7)'],borderWidth:0}]},{responsive:true,maintainAspectRatio:false,cutout:'68%',plugins:{legend:{display:false},tooltip:{...CD.tooltip}}});
   document.getElementById('pj-match-list').innerHTML=matches.map(m=>{
     const rival=[m.rival1,m.rival2].filter(Boolean).join(' / ');
-    const sets=[[m.sets1,m.sets2],[m.sets3,m.sets4],[m.sets5,m.sets6]].filter(([a,b])=>a!=null&&b!=null&&(a+b)>0).map(([a,b])=>`<span style="font-size:12px;color:${a>b?'#3DDB82':'#FF5E3A'}">${a}</span><span style="font-size:11px;color:var(--muted)">-</span><span style="font-size:12px;color:${b>a?'#3DDB82':'#FF5E3A'}">${b}</span>`).join('<span style="font-size:11px;color:var(--border);margin:0 4px">/</span>');
+    const sets=(m.sets||[]).map(s=>`<span style="font-size:12px;color:${s.my>s.ri?'#3DDB82':'#FF5E3A'}">${s.my}</span><span style="font-size:11px;color:var(--muted)">-</span><span style="font-size:12px;color:${s.ri>s.my?'#3DDB82':'#FF5E3A'}">${s.ri}</span>`).join('<span style="font-size:11px;color:var(--border);margin:0 4px">/</span>');
     return`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
       <div><div style="font-size:12px;color:var(--muted)">${fmtDate(m.date)}</div>${rival?`<div style="font-size:11px;color:var(--muted);margin-top:2px">vs ${esc(rival)}</div>`:''}</div>
       <div style="display:flex;align-items:center;gap:10px">${sets?`<div style="display:flex;align-items:center;gap:3px">${sets}</div>`:''}<span style="font-size:11px;font-weight:700;letter-spacing:1px;padding:3px 8px;border-radius:8px;background:${m.isWin?'rgba(61,219,130,0.15)':'rgba(255,94,58,0.15)'};color:${m.isWin?'#3DDB82':'#FF5E3A'}">${m.isWin?'V':'D'}</span></div>
@@ -2389,7 +2389,7 @@ function renderRivalDetail(){
   mkChart('chart-rv-enf','bar',{labels:lbl,datasets:[{data:SHOT_KEYS.map(k=>agg.enf[k]),backgroundColor:'rgba(255,94,58,0.75)',borderRadius:4}]},{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{...CD.tooltip}},scales:{x:{ticks:{color:CD.tick,font:{size:11}},grid:{color:CD.grid},border:{display:false}},y:{ticks:{color:CD.tick,font:{size:11}},grid:{display:false},border:{display:false}}}});
   // match list
   document.getElementById('rv-match-list').innerHTML=matches.map(m=>{
-    const sets=[[m.sets1,m.sets2],[m.sets3,m.sets4],[m.sets5,m.sets6]].filter(([a,b])=>a!=null&&b!=null&&(a+b)>0).map(([a,b])=>`<span style="font-size:12px;color:${a>b?'#3DDB82':'#FF5E3A'}">${a}</span><span style="font-size:11px;color:var(--muted)">-</span><span style="font-size:12px;color:${b>a?'#3DDB82':'#FF5E3A'}">${b}</span>`).join('<span style="font-size:11px;color:var(--border);margin:0 4px">/</span>');
+    const sets=(m.sets||[]).map(s=>`<span style="font-size:12px;color:${s.my>s.ri?'#3DDB82':'#FF5E3A'}">${s.my}</span><span style="font-size:11px;color:var(--muted)">-</span><span style="font-size:12px;color:${s.ri>s.my?'#3DDB82':'#FF5E3A'}">${s.ri}</span>`).join('<span style="font-size:11px;color:var(--border);margin:0 4px">/</span>');
     return`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
       <div><div style="font-size:12px;color:var(--muted)">${fmtDate(m.date)}</div>${m.surface?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${m.surface}</div>`:''}</div>
       <div style="display:flex;align-items:center;gap:10px">${sets?`<div style="display:flex;align-items:center;gap:3px">${sets}</div>`:''}<span style="font-size:11px;font-weight:700;letter-spacing:1px;padding:3px 8px;border-radius:8px;background:${m.isWin?'rgba(61,219,130,0.15)':'rgba(255,94,58,0.15)'};color:${m.isWin?'#3DDB82':'#FF5E3A'}">${m.isWin?'V':'D'}</span></div>
@@ -2566,7 +2566,7 @@ function renderCoachView(data){
     <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Últimos ${recent.length} partidos</div>
     ${recent.map(m=>{
       const rival=[m.rival1,m.rival2].filter(Boolean).join('/');
-      const sets=[[m.sets1,m.sets2],[m.sets3,m.sets4],[m.sets5,m.sets6]].filter(([a,b])=>a!=null&&b!=null&&(a+b)>0).map(([a,b])=>`${a}-${b}`).join(' ');
+      const sets=(m.sets||[]).map(s=>`${s.my}-${s.ri}`).join(' ');
       return`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
         <div><div style="font-size:12px">${rival?`vs ${esc(rival)}`:fmtDate(m.date)}</div><div style="font-size:11px;color:var(--muted)">${fmtDate(m.date)}${sets?' · '+sets:''}</div></div>
         <div style="display:flex;align-items:center;gap:8px">
@@ -2617,9 +2617,9 @@ function _renderCoachMatch(m,playerName){
   const myTeam=[playerName,m.myPartner].filter(Boolean).join(' / ');
   document.getElementById('cv-subtitle').textContent=`${myTeam} vs ${rival||'Rival'} · ${fmtDate(m.date)}`;
 
-  const sets=[[m.sets1,m.sets2],[m.sets3,m.sets4],[m.sets5,m.sets6]].filter(([a,b])=>a!=null&&b!=null&&(a+b)>0);
-  const mySetsWon=sets.filter(([a,b])=>a>b).length;
-  const rivSetsWon=sets.filter(([a,b])=>b>a).length;
+  const sets=(m.sets||[]);
+  const mySetsWon=sets.filter(s=>s.my>s.ri).length;
+  const rivSetsWon=sets.filter(s=>s.ri>s.my).length;
 
   // HEADER — resultado grande + equipos + sets + superficie + torneo
   document.getElementById('cv-elo').innerHTML=`
@@ -2629,11 +2629,11 @@ function _renderCoachMatch(m,playerName){
       <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin:14px 0">
         <div style="font-size:13px;color:var(--text);font-weight:600">${esc(myTeam)}</div>
         <div style="display:flex;gap:6px">
-          ${sets.map(([a,b])=>`<div style="background:var(--card2);border-radius:8px;padding:6px 12px;text-align:center">
+          ${sets.map(s=>`<div style="background:var(--card2);border-radius:8px;padding:6px 12px;text-align:center">
             <div style="display:flex;align-items:center;gap:6px">
-              <span style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:${a>b?'#3DDB82':'#FF5E3A'}">${a}</span>
+              <span style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:${s.my>s.ri?'#3DDB82':'#FF5E3A'}">${s.my}</span>
               <span style="color:var(--muted);font-size:14px">-</span>
-              <span style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:${b>a?'#3DDB82':'#FF5E3A'}">${b}</span>
+              <span style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:${s.ri>s.my?'#3DDB82':'#FF5E3A'}">${s.ri}</span>
             </div>
           </div>`).join('')}
         </div>
