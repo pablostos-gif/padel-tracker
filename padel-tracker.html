@@ -1385,7 +1385,8 @@ function renderEndScreen(){
   const myLabel=m.myPartner?`${esc(m.myName)} / ${esc(m.myPartner)}`:esc(m.myName);
   const riLabel=m.rival2?`${esc(m.rival1)} / ${esc(m.rival2)}`:esc(m.rival1);
   document.getElementById('shot-summary').style.display='block';
-  document.getElementById('shot-summary').innerHTML=`<div class="shot-sum-title">Análisis de golpes</div>${buildPlayerShotBlock(my,'Mi equipo · '+myLabel,'var(--my)')}${buildPlayerShotBlock(ri,'Rivales · '+riLabel,'var(--rival)')}`;
+  document.getElementById('shot-summary').innerHTML=`<div class="shot-sum-title">Análisis del partido</div>${buildChartsSection({my,ri},myLabel,riLabel,'ec')}${buildPlayerShotBlock(my,'Mi equipo · '+myLabel,'var(--my)')}${buildPlayerShotBlock(ri,'Rivales · '+riLabel,'var(--rival)')}`;
+  requestAnimationFrame(()=>renderMatchCharts({my,ri},myLabel,riLabel,'ec'));
 }
 
 function saveMatch(){
@@ -1404,6 +1405,112 @@ function discardMatch(){app.match=null;stateStack=[];document.getElementById('ma
 // ═══════════════════════════════════════════════════════════════
 // MATCH HISTORY
 // ═══════════════════════════════════════════════════════════════
+function buildChartsSection(shots, myLabel, riLabel, prefix){
+  const my=shots.my,ri=shots.ri;
+  const tw=Object.values(my.winners).reduce((a,b)=>a+b,0);
+  const te=Object.values(my.enf).reduce((a,b)=>a+b,0);
+  const rw=Object.values(ri.winners).reduce((a,b)=>a+b,0);
+  const re=Object.values(ri.enf).reduce((a,b)=>a+b,0);
+  if(tw+te+my.ef+rw+re+ri.ef===0)return'';
+  const myEff=Math.round(tw/(tw+te+my.ef||1)*100);
+  const riEff=Math.round(rw/(rw+re+ri.ef||1)*100);
+  const domW=Math.round(tw/(tw+rw||1)*100);
+  return `<div style="margin-bottom:14px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <div style="background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(16,185,129,0.04));border:1px solid rgba(16,185,129,0.25);border-radius:14px;padding:12px 8px;text-align:center">
+        <div style="font-size:9px;color:var(--my);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${myLabel}</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:38px;color:var(--my);line-height:1">${tw}</div>
+        <div style="font-size:9px;color:var(--muted);margin-bottom:6px;letter-spacing:1px">WINNERS</div>
+        <div style="display:flex;justify-content:center;gap:6px;font-size:11px">
+          <span style="color:var(--rival)">${te} ENF</span>
+          <span style="color:rgba(255,255,255,0.15)">|</span>
+          <span style="color:var(--yellow)">${my.ef} EF</span>
+        </div>
+        <div style="margin-top:8px;background:rgba(16,185,129,0.12);border-radius:6px;padding:4px 6px">
+          <span style="font-size:10px;color:var(--muted)">Eficiencia </span>
+          <span style="font-size:12px;font-weight:700;color:${myEff>=50?'var(--my)':'var(--rival)'}">${myEff}%</span>
+        </div>
+      </div>
+      <div style="background:linear-gradient(135deg,rgba(239,68,68,0.12),rgba(239,68,68,0.04));border:1px solid rgba(239,68,68,0.25);border-radius:14px;padding:12px 8px;text-align:center">
+        <div style="font-size:9px;color:var(--rival);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${riLabel}</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:38px;color:var(--rival);line-height:1">${rw}</div>
+        <div style="font-size:9px;color:var(--muted);margin-bottom:6px;letter-spacing:1px">WINNERS</div>
+        <div style="display:flex;justify-content:center;gap:6px;font-size:11px">
+          <span style="color:var(--rival)">${re} ENF</span>
+          <span style="color:rgba(255,255,255,0.15)">|</span>
+          <span style="color:var(--yellow)">${ri.ef} EF</span>
+        </div>
+        <div style="margin-top:8px;background:rgba(239,68,68,0.12);border-radius:6px;padding:4px 6px">
+          <span style="font-size:10px;color:var(--muted)">Eficiencia </span>
+          <span style="font-size:12px;font-weight:700;color:${riEff>=50?'var(--my)':'var(--rival)'}">${riEff}%</span>
+        </div>
+      </div>
+    </div>
+    ${tw+rw>0?`<div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:4px">
+        <span style="color:var(--my);font-weight:600">${tw} W</span>
+        <span style="color:var(--muted);letter-spacing:1px;text-transform:uppercase;font-size:9px">Dominio winners</span>
+        <span style="color:var(--rival);font-weight:600">${rw} W</span>
+      </div>
+      <div style="height:10px;border-radius:5px;background:rgba(239,68,68,0.5);overflow:hidden">
+        <div style="height:100%;border-radius:5px;background:var(--my);width:${domW}%"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-top:3px">
+        <span>${domW}%</span><span>${100-domW}%</span>
+      </div>
+    </div>`:''}
+    <div style="background:var(--card2);border-radius:12px;padding:12px;margin-bottom:8px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Comparativa total</div>
+      <div style="position:relative;height:110px"><canvas id="${prefix}-cmp"></canvas></div>
+    </div>
+    <div id="${prefix}-win-wrap" style="display:none;background:var(--card2);border-radius:12px;padding:12px;margin-bottom:8px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--my);margin-bottom:10px">Winners por golpe</div>
+      <div style="position:relative;height:130px"><canvas id="${prefix}-win"></canvas></div>
+    </div>
+    <div id="${prefix}-err-wrap" style="display:none;background:var(--card2);border-radius:12px;padding:12px;margin-bottom:12px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--yellow);margin-bottom:10px">Errores no forzados por golpe</div>
+      <div style="position:relative;height:130px"><canvas id="${prefix}-err"></canvas></div>
+    </div>
+  </div>`;
+}
+function renderMatchCharts(shots, myLabel, riLabel, prefix){
+  const my=shots.my,ri=shots.ri;
+  const tw=Object.values(my.winners).reduce((a,b)=>a+b,0);
+  const te=Object.values(my.enf).reduce((a,b)=>a+b,0);
+  const rw=Object.values(ri.winners).reduce((a,b)=>a+b,0);
+  const re=Object.values(ri.enf).reduce((a,b)=>a+b,0);
+  const leg={labels:{color:'#f1f5f9',font:{size:10},boxWidth:10,padding:8}};
+  const sc={x:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'rgba(255,255,255,0.05)'}},y:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'rgba(255,255,255,0.05)'}}};
+  mkChart(prefix+'-cmp','bar',{
+    labels:['Winners','Error NFo','Error Fo'],
+    datasets:[
+      {label:myLabel,data:[tw,te,my.ef],backgroundColor:'rgba(16,185,129,0.85)',borderRadius:6,borderSkipped:false},
+      {label:riLabel,data:[rw,re,ri.ef],backgroundColor:'rgba(239,68,68,0.85)',borderRadius:6,borderSkipped:false}
+    ]
+  },{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:leg},scales:{x:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'rgba(255,255,255,0.05)'}},y:{ticks:{color:'#f1f5f9',font:{size:11}},grid:{display:false}}}});
+  const wKeys=SHOT_KEYS.filter(k=>my.winners[k]>0||ri.winners[k]>0);
+  if(wKeys.length>0){
+    const w=document.getElementById(prefix+'-win-wrap');if(w)w.style.display='block';
+    mkChart(prefix+'-win','bar',{
+      labels:wKeys.map(k=>SHOT_LABELS[k]),
+      datasets:[
+        {label:myLabel,data:wKeys.map(k=>my.winners[k]),backgroundColor:'rgba(16,185,129,0.85)',borderRadius:5,borderSkipped:false},
+        {label:riLabel,data:wKeys.map(k=>ri.winners[k]),backgroundColor:'rgba(239,68,68,0.85)',borderRadius:5,borderSkipped:false}
+      ]
+    },{responsive:true,maintainAspectRatio:false,plugins:{legend:leg},scales:sc});
+  }
+  const eKeys=SHOT_KEYS.filter(k=>my.enf[k]>0||ri.enf[k]>0);
+  if(eKeys.length>0){
+    const w=document.getElementById(prefix+'-err-wrap');if(w)w.style.display='block';
+    mkChart(prefix+'-err','bar',{
+      labels:eKeys.map(k=>SHOT_LABELS[k]),
+      datasets:[
+        {label:myLabel,data:eKeys.map(k=>my.enf[k]),backgroundColor:'rgba(251,191,36,0.85)',borderRadius:5,borderSkipped:false},
+        {label:riLabel,data:eKeys.map(k=>ri.enf[k]),backgroundColor:'rgba(239,68,68,0.7)',borderRadius:5,borderSkipped:false}
+      ]
+    },{responsive:true,maintainAspectRatio:false,plugins:{legend:leg},scales:sc});
+  }
+}
 function buildPlayerShotBlock(shots, playerLabel, colorVar){
   const tw=Object.values(shots.winners).reduce((a,b)=>a+b,0);
   const te=Object.values(shots.enf).reduce((a,b)=>a+b,0);
@@ -1437,11 +1544,13 @@ function viewMatchDetail(idx){
   const sh=m.sets.map((s,i)=>`<div style="display:flex;gap:8px;font-weight:700;font-size:20px"><span style="color:var(--my)">${s.my}</span><span style="color:var(--muted)">–</span><span style="color:var(--rival)">${s.ri}</span></div>`).join('');
   const shots=m.shots?m.shots:null;
   let shotHtml='';
+  let myLabel='',riLabel='';
   if(shots){
-    const myLabel=m.myPartner?`${esc(m.myName)} / ${esc(m.myPartner)}`:esc(m.myName);
-    const riLabel=m.rival2?`${esc(m.rival1)} / ${esc(m.rival2)}`:esc(m.rival1);
+    myLabel=m.myPartner?`${esc(m.myName)} / ${esc(m.myPartner)}`:esc(m.myName);
+    riLabel=m.rival2?`${esc(m.rival1)} / ${esc(m.rival2)}`:esc(m.rival1);
     shotHtml=`<div style="margin:0 16px 12px">
-      <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Estadísticas de golpes</div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Análisis del partido</div>
+      ${buildChartsSection(shots,myLabel,riLabel,'hd')}
       ${buildPlayerShotBlock(shots.my,'Mi equipo · '+myLabel,'var(--my)')}
       ${buildPlayerShotBlock(shots.ri,'Rivales · '+riLabel,'var(--rival)')}
     </div>`;
@@ -1465,6 +1574,7 @@ function viewMatchDetail(idx){
     ${m.notes?`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);margin:0 16px"><div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Notas</div><div style="font-size:13px;color:var(--text);line-height:1.6">${esc(m.notes)}</div></div>`:''}
   `;
   showScreen('match-detail-screen');
+  if(shots) requestAnimationFrame(()=>renderMatchCharts(shots,myLabel,riLabel,'hd'));
 }
 
 function renderHistory(){
