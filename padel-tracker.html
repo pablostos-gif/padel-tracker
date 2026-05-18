@@ -43,6 +43,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .form-footer{padding:14px 18px 28px;display:flex;flex-direction:column;gap:9px}
 .f-section{display:flex;flex-direction:column;gap:10px}
 .f-label{font-size:10px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted)}
+.f-section-title{font-size:14px;font-weight:700;letter-spacing:1px;color:var(--text);margin-bottom:2px}
 .color-bar{height:2px;border-radius:2px;margin-bottom:2px}
 .my-bar{background:linear-gradient(90deg,var(--my),#00C9A7)}
 .rival-bar{background:linear-gradient(90deg,var(--rival),#FF9060)}
@@ -585,10 +586,11 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
           <div class="f-group"><label>Fecha</label><input id="t-date" type="date"></div>
           <div class="f-group"><label>Duración (min)</label><input id="t-duration" type="number" min="15" max="300" placeholder="90"></div>
         </div>
+        <div class="f-group"><label>Entrenador</label><input id="t-coach" type="text" maxlength="50" placeholder="Nombre del entrenador"></div>
       </div>
       <div id="t-technical-section" class="f-section">
         <div class="color-bar purple-bar"></div>
-        <div class="f-label">🎾 Golpes técnicos — puntúa del 1 al 5 ⭐</div>
+        <div class="f-section-title">🎾 Golpes técnicos — puntúa del 1 al 5 ⭐</div>
         <div class="shots-quality-grid" id="shots-quality-grid"></div>
         <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08)">
           <div class="f-label" style="margin-bottom:8px">+ Añadir golpe personalizado</div>
@@ -601,7 +603,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
       </div>
       <div id="t-physical-section" class="f-section">
         <div class="color-bar" style="background:linear-gradient(90deg,var(--blue),#7EC8FF)"></div>
-        <div class="f-label">💪 Ejercicios realizados</div>
+        <div class="f-section-title">💪 Ejercicios realizados de físico</div>
         <div class="exercise-list" id="exercise-list"></div>
         <div class="add-ex-row">
           <input id="ex-name-inp" type="text" placeholder="Ej: Sprints 30m · 6 series" maxlength="50">
@@ -609,7 +611,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
         </div>
       </div>
       <div class="f-section">
-        <div class="f-label">Estado físico y mental</div>
+        <div class="f-section-title">🧠 Estado físico y mental</div>
         <div class="state-sliders">
           <div class="state-row">
             <div class="state-row-top"><div class="state-row-label">⚡ Energía</div><div class="state-row-val kpi-green" id="sl-energia-val">3</div></div>
@@ -1741,6 +1743,7 @@ function goToTraining(){
   editingTrainingId=null;
   document.getElementById('t-date').value=new Date().toISOString().split('T')[0];
   document.getElementById('t-duration').value='';
+  document.getElementById('t-coach').value='';
   document.getElementById('t-notes').value='';
   document.getElementById('sl-energia').value=3;document.getElementById('sl-energia-val').textContent=3;
   document.getElementById('sl-humor').value=3;document.getElementById('sl-humor-val').textContent=3;
@@ -1755,6 +1758,7 @@ function editTraining(id){
   customShots=[...(t.customShots||[])];
   document.getElementById('t-date').value=t.date||'';
   document.getElementById('t-duration').value=t.duration||'';
+  document.getElementById('t-coach').value=t.coach||'';
   document.getElementById('t-notes').value=t.notes||'';
   document.getElementById('sl-energia').value=t.energia||3;document.getElementById('sl-energia-val').textContent=t.energia||3;
   document.getElementById('sl-humor').value=t.humor||3;document.getElementById('sl-humor-val').textContent=t.humor||3;
@@ -1804,6 +1808,7 @@ function saveTraining(){
     date:document.getElementById('t-date').value||new Date().toISOString().split('T')[0],
     type:'both',
     duration:parseInt(document.getElementById('t-duration').value)||null,
+    coach:document.getElementById('t-coach').value.trim()||null,
     shotQuality:sq,
     customShots:[...customShots],
     customShotRatings:customShotRatings,
@@ -1838,8 +1843,9 @@ function renderTrainHistory(){
     const shots=t.shotQuality?Object.entries(t.shotQuality).filter(([,v])=>v>0):[];
     const sc=shots.slice(0,5).map(([k,v])=>`<div class="ts-chip">${ALL_SHOT_LABELS[k]||k}<span class="stars">${'★'.repeat(v)}</span></div>`).join('');
     const dur=t.duration?`${t.duration}min · `:'';
+    const coachStr=t.coach?`<span style="font-size:11px;color:var(--muted)">🎓 ${esc(t.coach)}</span>`:'';
     const sr=`<div class="train-state-row"><div>⚡${'●'.repeat(t.energia||0)}</div><div>😊${'●'.repeat(t.humor||0)}</div><div>🔥${'●'.repeat(t.intensidad||0)}</div></div>`;
-    return`<div class="hist-card ${isTec?'train-card':'train-card fis'}" style="cursor:pointer" onclick="editTraining(${t.id})"><div class="hist-top"><div><div class="hist-date">${dur}${fmtDate(t.date)}</div></div><span class="hist-badge ${isTec?'badge-train':'badge-train-fis'}">${t.type==='both'?'TÉCNICO + FÍSICO':isTec?'TÉCNICO':'FÍSICO'}</span><div onclick="event.stopPropagation();deleteTraining(${t.id})" style="cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--rival);font-size:18px;opacity:0.6;hover:opacity:1">✕</div></div>${shots.length?`<div class="train-shots-row">${sc}${shots.length>5?`<span style="font-size:11px;color:var(--muted)">+${shots.length-5} más</span>`:''}</div>`:''}${t.exercises&&t.exercises.length?`<div style="font-size:12px;color:var(--muted);margin-top:6px">${t.exercises.slice(0,3).map(e=>esc(e)).join(' · ')}</div>`:''}${sr}${t.notes?`<div class="hist-notes">${esc(t.notes)}</div>`:''}</div>`;
+    return`<div class="hist-card ${isTec?'train-card':'train-card fis'}" style="cursor:pointer" onclick="editTraining(${t.id})"><div class="hist-top"><div><div class="hist-date">${dur}${fmtDate(t.date)}</div>${coachStr}</div><span class="hist-badge ${isTec?'badge-train':'badge-train-fis'}">${t.type==='both'?'TÉCNICO + FÍSICO':isTec?'TÉCNICO':'FÍSICO'}</span><div onclick="event.stopPropagation();deleteTraining(${t.id})" style="cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--rival);font-size:18px;opacity:0.6;hover:opacity:1">✕</div></div>${shots.length?`<div class="train-shots-row">${sc}${shots.length>5?`<span style="font-size:11px;color:var(--muted)">+${shots.length-5} más</span>`:''}</div>`:''}${t.exercises&&t.exercises.length?`<div style="font-size:12px;color:var(--muted);margin-top:6px">${t.exercises.slice(0,3).map(e=>esc(e)).join(' · ')}</div>`:''}${sr}${t.notes?`<div class="hist-notes">${esc(t.notes)}</div>`:''}</div>`;
   }).join('');
 }
 
