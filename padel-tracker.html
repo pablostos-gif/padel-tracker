@@ -450,6 +450,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <div class="home-section-label">Análisis y exportar</div>
     <button class="btn btn-accent"     onclick="showScreen('stats-screen')">◈ &nbsp;Evolución y estadísticas</button>
     <button class="btn btn-save"       onclick="triggerDownload()">💾 &nbsp;Guardar app con mis datos</button>
+    <button class="btn btn-blue"       onclick="copyCoachLink()">🔗 &nbsp;Compartir con entrenador/padres</button>
     <button class="btn btn-ghost"      onclick="changePlayerName()">✎ &nbsp;Cambiar nombre del jugador</button>
   </div>
   <p class="home-footer">Hecho con ❤️ para tu campeón</p>
@@ -933,6 +934,21 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
       <div class="chart-card"><div class="chart-title">Historial de partidos</div><div id="pj-match-list"></div></div>
     </div>
   </div>
+
+<!-- COACH VIEW (full-page, shown when ?coach in URL) -->
+<div id="coach-view" style="display:none;min-height:100vh;background:var(--bg);padding:20px 16px 40px;max-width:480px;margin:0 auto">
+  <div style="text-align:center;margin-bottom:24px">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:4px;color:var(--my)">PÁDEL TRACKER</div>
+    <div id="cv-subtitle" style="font-size:13px;color:var(--muted);margin-top:4px"></div>
+  </div>
+  <div id="cv-elo" style="margin-bottom:16px"></div>
+  <div id="cv-kpis" style="margin-bottom:16px"></div>
+  <div id="cv-recent" style="margin-bottom:16px"></div>
+  <div id="cv-shots" style="margin-bottom:16px"></div>
+  <div id="cv-fitness" style="margin-bottom:16px"></div>
+  <div id="cv-goals" style="margin-bottom:16px"></div>
+  <div style="text-align:center;font-size:11px;color:var(--muted);margin-top:24px">Vista de solo lectura · Pádel Tracker</div>
+</div>
 
 <!-- FITNESS TESTS -->
 <div id="fitness-screen" class="screen">
@@ -2474,8 +2490,123 @@ function esc(s){if(!s)return'';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;
 // ═══════════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// COACH / PARENT VIEW
+// ═══════════════════════════════════════════════════════════════
+const IS_COACH_VIEW=new URLSearchParams(window.location.search).has('coach');
+
+function copyCoachLink(){
+  const url=window.location.origin+window.location.pathname+'?coach';
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(url).then(()=>showToast('🔗 Enlace copiado al portapapeles'));
+  } else {
+    prompt('Copia este enlace:',url);
+  }
+}
+
+function showToast(msg){
+  let t=document.getElementById('save-toast');
+  if(!t){t=document.createElement('div');t.id='save-toast';document.body.appendChild(t);}
+  t.textContent=msg;t.className='save-toast show';
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+function renderCoachView(data){
+  // Hide normal app, show coach view
+  document.querySelectorAll('.screen').forEach(s=>s.style.display='none');
+  document.getElementById('coach-view').style.display='block';
+  document.title='Informe · '+data.playerName;
+
+  const h=data.history||[],tr=data.trainings||[],ft=data.fitnessTests||[],gl=data.goals||[];
+  const wins=h.filter(m=>m.isWin).length,losses=h.length-wins,pct=h.length?Math.round(wins/h.length*100):0;
+  const recent=[...h].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
+
+  // subtitle
+  document.getElementById('cv-subtitle').textContent=`Informe de ${data.playerName} · ${new Date().toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})}`;
+
+  // ELO
+  app.history=h;app.trainings=tr;app.fitnessTests=ft;app.goals=gl;app.playerName=data.playerName;
+  const {elo}=calcElo();const tier=eloTier(elo);
+  document.getElementById('cv-elo').innerHTML=`<div style="background:var(--card);border-radius:16px;padding:16px;border:1px solid ${tier.color}40;border-left:3px solid ${tier.color};text-align:center">
+    <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Nivel estimado</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:${tier.color}">${tier.icon} ${tier.name}</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:${tier.color};opacity:0.8">${elo} puntos</div>
+  </div>`;
+
+  // KPIs
+  document.getElementById('cv-kpis').innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">
+    <div style="background:var(--card);border-radius:12px;padding:12px;text-align:center"><div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:#3DDB82">${wins}</div><div style="font-size:10px;color:var(--muted)">Victorias</div></div>
+    <div style="background:var(--card);border-radius:12px;padding:12px;text-align:center"><div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:#FF5E3A">${losses}</div><div style="font-size:10px;color:var(--muted)">Derrotas</div></div>
+    <div style="background:var(--card);border-radius:12px;padding:12px;text-align:center"><div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--yellow)">${pct}%</div><div style="font-size:10px;color:var(--muted)">% victorias</div></div>
+    <div style="background:var(--card);border-radius:12px;padding:12px;text-align:center"><div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--blue)">${tr.length}</div><div style="font-size:10px;color:var(--muted)">Entrenos</div></div>
+  </div>`;
+
+  // Recent matches
+  document.getElementById('cv-recent').innerHTML=`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border)">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Últimos ${recent.length} partidos</div>
+    ${recent.map(m=>{
+      const rival=[m.rival1,m.rival2].filter(Boolean).join('/');
+      const sets=[[m.sets1,m.sets2],[m.sets3,m.sets4],[m.sets5,m.sets6]].filter(([a,b])=>a!=null&&b!=null&&(a+b)>0).map(([a,b])=>`${a}-${b}`).join(' ');
+      return`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+        <div><div style="font-size:12px">${rival?`vs ${esc(rival)}`:fmtDate(m.date)}</div><div style="font-size:11px;color:var(--muted)">${fmtDate(m.date)}${sets?' · '+sets:''}</div></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          ${m.tactica?`<div style="font-size:10px;color:var(--blue);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🎯 ${esc(m.tactica)}</div>`:''}
+          <span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:8px;background:${m.isWin?'rgba(61,219,130,0.15)':'rgba(255,94,58,0.15)'};color:${m.isWin?'#3DDB82':'#FF5E3A'}">${m.isWin?'V':'D'}</span>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+
+  // Shot stats
+  const agg={winners:{},enf:{}};SHOT_KEYS.forEach(k=>{agg.winners[k]=0;agg.enf[k]=0;});
+  h.forEach(m=>{if(!m.shots)return;const src=hasShotData(m.shots.player)?m.shots.player:m.shots.my;if(!src)return;SHOT_KEYS.forEach(k=>{agg.winners[k]+=(src.winners[k]||0);agg.enf[k]+=(src.enf[k]||0);});});
+  const topW=SHOT_KEYS.filter(k=>agg.winners[k]>0).sort((a,b)=>agg.winners[b]-agg.winners[a]).slice(0,3);
+  const topE=SHOT_KEYS.filter(k=>agg.enf[k]>0).sort((a,b)=>agg.enf[b]-agg.enf[a]).slice(0,3);
+  document.getElementById('cv-shots').innerHTML=topW.length||topE.length?`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border)">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Golpes destacados</div>
+    ${topW.length?`<div style="margin-bottom:8px"><div style="font-size:11px;color:#3DDB82;margin-bottom:6px">✅ Top Winners</div>${topW.map(k=>`<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="font-size:12px">${SHOT_LABELS[k]}</span><span style="font-size:12px;font-weight:700;color:#3DDB82">${agg.winners[k]}</span></div>`).join('')}</div>`:''}
+    ${topE.length?`<div style="border-top:1px solid var(--border);padding-top:8px"><div style="font-size:11px;color:#FF5E3A;margin-bottom:6px">⚠️ Errores a trabajar</div>${topE.map(k=>`<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="font-size:12px">${SHOT_LABELS[k]}</span><span style="font-size:12px;font-weight:700;color:#FF5E3A">${agg.enf[k]}</span></div>`).join('')}</div>`:''}
+  </div>`:'';
+
+  // Fitness tests bests
+  if(ft.length){
+    const byType={};ft.forEach(t=>{const k=t.testType==='custom'?'custom__'+(t.customLabel||'?'):t.testType;if(!byType[k])byType[k]=[];byType[k].push(t);});
+    const rows=Object.keys(byType).map(k=>{
+      const res=byType[k];const isC=k.startsWith('custom__');
+      const cfg=isC?{label:res[0].customLabel||k,icon:'✏️',unit:res[0].customUnit||'',lb:!!res[0].customLb}:(FT_CFG[k]||{label:k,icon:'📊',unit:'',lb:false});
+      const vals=res.map(r=>r.value);const best=cfg.lb?Math.min(...vals):Math.max(...vals);const last=vals[vals.length-1];
+      const trend=vals.length>1?(cfg.lb?(last<vals[vals.length-2]?'↑':last>vals[vals.length-2]?'↓':'→'):(last>vals[vals.length-2]?'↑':last<vals[vals.length-2]?'↓':'→')):'';
+      return`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)"><span style="font-size:12px">${cfg.icon} ${cfg.label}</span><span style="font-size:13px;font-weight:700;color:#3DDB82">${best} ${cfg.unit} ${trend}</span></div>`;
+    }).join('');
+    document.getElementById('cv-fitness').innerHTML=`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border)"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Tests Físicos · Mejores marcas</div>${rows}</div>`;
+  }
+
+  // Active goals
+  const activeGoals=gl.filter(g=>!g.achieved).slice(0,5);
+  if(activeGoals.length){
+    document.getElementById('cv-goals').innerHTML=`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border)"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Objetivos activos</div>${activeGoals.map(g=>`<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)"><div style="font-size:12px;font-weight:600">${g.title}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${g.type==='hito'?'🏆 Hito':g.type==='habito'?'🔁 Hábito':'🎾 Técnica'} · ${g.pillar||''}</div></div>`).join('')}</div>`;
+  }
+}
+
 // initFirebase ya hace loadApp+renderHome internamente
 initFirebase();
+
+// Si es vista coach, cargar datos de Firestore y renderizar
+if(IS_COACH_VIEW){
+  document.querySelectorAll('.screen').forEach(s=>s.style.display='none');
+  document.getElementById('coach-view').style.display='block';
+  document.getElementById('cv-subtitle').textContent='Cargando datos...';
+  // Esperar a que Firebase esté listo
+  const waitFirebase=setInterval(()=>{
+    if(fsDb){
+      clearInterval(waitFirebase);
+      fsDb.collection('datos').doc(FS_DOC).get().then(snap=>{
+        if(snap.exists){renderCoachView(snap.data());}
+        else{document.getElementById('cv-subtitle').textContent='Sin datos disponibles.';}
+      }).catch(()=>{document.getElementById('cv-subtitle').textContent='Error al cargar datos.';});
+    }
+  },200);
+}
 
 // ═══════════════════════════════════════════════════════════════
 // SIMULADOR 3D
