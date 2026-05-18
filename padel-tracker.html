@@ -857,7 +857,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 </div>
 
 <style>
-#simulator-screen{display:flex;flex-direction:column}
+#simulator-screen.active{display:flex;flex-direction:column}
 .s3-pill{background:#252d38;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;color:#f1f5f9;cursor:pointer;font-family:inherit;transition:all 0.2s;white-space:nowrap}
 .s3-pill:active{transform:scale(0.95)}
 .s3-pill.s3-active{background:#10b981;color:#fff;border-color:#10b981}
@@ -871,7 +871,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   .tac-court{padding:6px}
 }
 @media(max-width:768px){
-  #simulator-screen{display:flex;flex-direction:column}
+  #simulator-screen.active{display:flex;flex-direction:column}
   #simulator-screen > div:nth-child(2){flex-direction:column}
   .tac-sidebar{width:100%;border-right:none;border-bottom:1px solid var(--tac-border);min-height:auto;max-height:40vh;overflow-y:auto;padding:8px;font-size:10px}
   .tac-court{min-height:60vh;padding:4px;justify-content:flex-start}
