@@ -399,6 +399,17 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .pv-footer{font-size:10px;color:#ccc;text-align:center;margin-top:28px;padding-top:10px;border-top:1px solid #f0f0f0}
 
 @media(min-width:600px){body{background:#030810}.screen{width:100%;margin:0;background:var(--bg);min-height:100dvh}.tz-point{font-size:88px}.scoring-area{min-height:280px}#shot-sheet{width:100%;left:0;transform:translateY(100%)}#shot-sheet.open{transform:translateY(0)}#save-toast{width:100%;left:0;transform:translateY(100%)}#save-toast.show{transform:translateY(0)}}
+/* ═══ GOALS ═══ */
+.goals-body{flex:1;overflow-y:auto;padding:14px 16px 40px;display:flex;flex-direction:column;gap:12px}
+.goals-filter-row{display:flex;gap:6px;flex-wrap:wrap}
+.gf-tab{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;background:var(--card);border:1px solid var(--border);color:var(--muted);font-family:inherit;transition:all 0.15s}
+.gf-tab.active{background:var(--my);color:#060D1A;border-color:var(--my)}
+.goal-card{background:var(--card);border-radius:14px;padding:14px 16px;border:1px solid var(--border);border-left:3px solid var(--border);transition:all 0.2s}
+.goal-card.achieved{opacity:0.55}
+.goal-pillar-btn{padding:10px 8px;background:var(--card);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;font-family:inherit;cursor:pointer;transition:all 0.15s;font-weight:600;text-align:center}
+.goal-pillar-btn.selected{border-width:2px}
+.goal-inp{width:100%;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;font-family:inherit;outline:none;box-sizing:border-box}
+.goal-inp:focus{border-color:var(--my)}
 </style>
 </head>
 <body>
@@ -422,6 +433,8 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <button class="btn btn-purple"     onclick="goToTraining()">⊕ &nbsp;Nuevo Entrenamiento</button>
     <button class="btn btn-secondary"  onclick="showScreen('train-history-screen')">⊞ &nbsp;Historial de entrenos</button>
     <button class="btn btn-blue"       onclick="openSimFrom('home')">🎮 &nbsp;Simulador Táctico</button>
+    <div class="home-section-label">Desarrollo</div>
+    <button class="btn btn-accent"     onclick="showScreen('goals-screen')">🎯 &nbsp;Objetivos · <span id="home-goals-badge">—</span></button>
     <div class="home-section-label">Análisis y exportar</div>
     <button class="btn btn-accent"     onclick="showScreen('stats-screen')">◈ &nbsp;Evolución y estadísticas</button>
     <button class="btn btn-save"       onclick="triggerDownload()">💾 &nbsp;Guardar app con mis datos</button>
@@ -822,6 +835,58 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   </div>
 </div>
 
+<!-- GOALS -->
+<div id="goals-screen" class="screen">
+  <div class="screen-header">
+    <button class="back-btn" onclick="showScreen('home')">←</button>
+    <h2>Objetivos · <span id="goals-player-name">—</span></h2>
+    <button class="back-btn" style="color:var(--my);font-size:26px;font-weight:300;line-height:1" onclick="openAddGoal()" title="Nuevo objetivo">+</button>
+  </div>
+  <div class="goals-body">
+    <div id="goals-progress-wrap"></div>
+    <div class="goals-filter-row">
+      <button class="gf-tab active" onclick="filterGoals('all',this)">Todos</button>
+      <button class="gf-tab" onclick="filterGoals('tecnico',this)">🎾 Técnico</button>
+      <button class="gf-tab" onclick="filterGoals('tactico',this)">🧠 Táctico</button>
+      <button class="gf-tab" onclick="filterGoals('fisico',this)">💪 Físico</button>
+      <button class="gf-tab" onclick="filterGoals('mental',this)">🧘 Mental</button>
+    </div>
+    <div id="goals-list"></div>
+  </div>
+</div>
+
+<!-- ADD GOAL OVERLAY -->
+<div id="add-goal-overlay" class="confirm-overlay hidden">
+  <div class="confirm-box" style="max-width:360px;width:90%;max-height:90vh;overflow-y:auto">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;margin-bottom:16px">Nuevo Objetivo</div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px">Objetivo</label>
+      <input id="goal-title-inp" class="goal-inp" type="text" maxlength="80" placeholder="Ej: Mejorar la bandeja defensiva">
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:8px">Pilar</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button class="goal-pillar-btn" data-pillar="tecnico" onclick="selectPillar('tecnico')">🎾 Técnico</button>
+        <button class="goal-pillar-btn" data-pillar="tactico" onclick="selectPillar('tactico')">🧠 Táctico</button>
+        <button class="goal-pillar-btn" data-pillar="fisico" onclick="selectPillar('fisico')">💪 Físico</button>
+        <button class="goal-pillar-btn" data-pillar="mental" onclick="selectPillar('mental')">🧘 Mental</button>
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px">Fecha límite (opcional)</label>
+      <input id="goal-deadline-inp" class="goal-inp" type="date">
+    </div>
+    <div style="margin-bottom:16px">
+      <label style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px">Notas (opcional)</label>
+      <textarea id="goal-notes-inp" class="goal-inp" rows="2" style="resize:none" placeholder="¿Cómo vas a conseguirlo?"></textarea>
+    </div>
+    <div class="confirm-btns">
+      <button class="btn btn-primary" onclick="saveGoal()">✓ &nbsp;Guardar</button>
+      <button class="btn btn-ghost" onclick="closeAddGoal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <!-- TACTICS BOARD 3D -->
 <div id="simulator-screen" class="screen" style="padding:0;overflow:hidden">
   <div class="screen-header" style="background:#0f1419;border-bottom:1px solid rgba(255,255,255,0.08)">
@@ -985,7 +1050,7 @@ const CD={tooltip:{backgroundColor:'#1C2840',borderColor:'rgba(255,255,255,0.08)
 // ═══════════════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════════════
-let app={playerName:'',match:null,history:[],trainings:[]};
+let app={playerName:'',match:null,history:[],trainings:[],goals:[]};
 let stateStack=[];
 let statsPeriod='all';
 let charts={};
@@ -1072,6 +1137,7 @@ function loadApp(){
       Object.assign(app,parsed);
       if(!app.trainings)app.trainings=[];
       if(!app.history)app.history=[];
+      if(!app.goals)app.goals=[];
       return;
     }
   }catch(e){}
@@ -1082,6 +1148,7 @@ function loadApp(){
       Object.assign(app,embedded);
       if(!app.trainings)app.trainings=[];
       if(!app.history)app.history=[];
+      if(!app.goals)app.goals=[];
       return;
     }
   }catch(e){}
@@ -1090,7 +1157,7 @@ function loadApp(){
 }
 
 function saveApp(){
-  const data={playerName:app.playerName,history:app.history,trainings:app.trainings,lastSync:app.lastSync||''};
+  const data={playerName:app.playerName,history:app.history,trainings:app.trainings,goals:app.goals||[],lastSync:app.lastSync||''};
   const json=JSON.stringify(data);
   try{localStorage.setItem(DB_KEY,json);}catch(e){}
   try{document.getElementById('__ptd').textContent=json;}catch(e){}
@@ -1227,6 +1294,7 @@ function showScreen(id){
   if(id==='home')renderHome();
   if(id==='stats-screen')renderStats();
   if(id==='train-history-screen')renderTrainHistory();
+  if(id==='goals-screen')renderGoals();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1242,6 +1310,9 @@ function renderHome(){
     const trains=app.trainings.length;
     document.getElementById('home-data-info').textContent=`${total} partido${total!==1?'s':''} · ${trains} entreno${trains!==1?'s':''}`;
   }else{card.style.display='none';}
+  const goals=app.goals||[],done=goals.filter(g=>g.achieved).length,pending=goals.length-done;
+  const badge=document.getElementById('home-goals-badge');
+  if(badge)badge.textContent=goals.length?`${done}/${goals.length} conseguidos`:(pending===0&&goals.length===0?'Sin objetivos':pending+' pendientes');
 }
 function changePlayerName(){const n=prompt('Nombre del jugador:',app.playerName||'');if(n!==null&&n.trim()){app.playerName=n.trim();saveApp();renderHome();}}
 
@@ -1998,6 +2069,73 @@ initFirebase();
 // ═══════════════════════════════════════════════════════════════
 // SIMULADOR 3D
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// GOALS
+// ═══════════════════════════════════════════════════════════════
+const PILLAR_CFG={tecnico:{label:'Técnico',emoji:'🎾',color:'#B57BFF'},tactico:{label:'Táctico',emoji:'🧠',color:'#06B6D4'},fisico:{label:'Físico',emoji:'💪',color:'#3B82F6'},mental:{label:'Mental',emoji:'🧘',color:'#F0DC50'}};
+let activeGoalFilter='all',selectedPillar=null;
+
+function renderGoals(){
+  const el=document.getElementById('goals-player-name');if(el)el.textContent=app.playerName||'—';
+  const goals=app.goals||[];
+  const total=goals.length,done=goals.filter(g=>g.achieved).length,pct=total?Math.round(done/total*100):0;
+  document.getElementById('goals-progress-wrap').innerHTML=total?`<div style="background:var(--card);border-radius:14px;padding:14px 16px;border:1px solid var(--border)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:13px;font-weight:600">Progreso general</div><div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--my)">${done}/${total}</div></div><div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden"><div style="width:${pct}%;height:100%;background:var(--my);border-radius:4px;transition:width 0.5s ease"></div></div><div style="font-size:11px;color:var(--muted);margin-top:6px">${pct}% conseguidos · ${total-done} pendiente${total-done!==1?'s':''}</div></div>`:'';
+  const filtered=goals.filter(g=>activeGoalFilter==='all'||g.pillar===activeGoalFilter);
+  const pending=[...filtered.filter(g=>!g.achieved)].sort((a,b)=>{if(!a.deadline&&!b.deadline)return 0;if(!a.deadline)return 1;if(!b.deadline)return -1;return new Date(a.deadline)-new Date(b.deadline);});
+  const achieved=[...filtered.filter(g=>g.achieved)].sort((a,b)=>new Date(b.achievedDate||0)-new Date(a.achievedDate||0));
+  const sorted=[...pending,...achieved];
+  const list=document.getElementById('goals-list');
+  if(!sorted.length){list.innerHTML=`<div class="empty-state"><div class="empty-icon">🎯</div><p>Sin objetivos aún.<br>Pulsa + para añadir el primero.</p></div>`;return;}
+  list.innerHTML=sorted.map(g=>{
+    const cfg=PILLAR_CFG[g.pillar]||{label:g.pillar,emoji:'🎯',color:'var(--my)'};
+    let deadlineHtml='';
+    if(g.deadline&&!g.achieved){const days=Math.ceil((new Date(g.deadline+'T12:00:00')-new Date())/(1000*60*60*24));const col=days<0?'var(--rival)':days<=7?'#F0DC50':'var(--muted)';const txt=days<0?`Vencido hace ${-days}d`:days===0?'Hoy':`${days} días`;deadlineHtml=`<span style="font-size:10px;color:${col};font-weight:600">⏱ ${txt}</span>`;}
+    else if(g.achievedDate){deadlineHtml=`<span style="font-size:10px;color:var(--my);font-weight:600">✓ Conseguido ${fmtDate(g.achievedDate)}</span>`;}
+    return`<div class="goal-card${g.achieved?' achieved':''}" style="border-left-color:${cfg.color}"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div style="flex:1"><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${cfg.color};margin-bottom:5px">${cfg.emoji} ${cfg.label}</div><div style="font-size:14px;font-weight:600;line-height:1.3;${g.achieved?'text-decoration:line-through;color:var(--muted)':''}">${esc(g.title)}</div>${g.notes?`<div style="font-size:12px;color:var(--muted);margin-top:5px;line-height:1.5">${esc(g.notes)}</div>`:''}<div style="margin-top:7px">${deadlineHtml}</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0"><button onclick="toggleGoal(${g.id})" style="width:34px;height:34px;border-radius:50%;border:2px solid ${g.achieved?'var(--my)':'var(--border)'};background:${g.achieved?'var(--my)':'transparent'};color:${g.achieved?'#060D1A':'var(--muted)'};font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;font-family:inherit" title="${g.achieved?'Marcar pendiente':'Marcar conseguido'}">${g.achieved?'✓':'○'}</button><button onclick="deleteGoal(${g.id})" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit">✕</button></div></div></div>`;
+  }).join('');
+}
+
+function filterGoals(pillar,el){activeGoalFilter=pillar;document.querySelectorAll('.gf-tab').forEach(t=>t.classList.remove('active'));if(el)el.classList.add('active');renderGoals();}
+
+function openAddGoal(){
+  selectedPillar=null;
+  document.getElementById('goal-title-inp').value='';
+  document.getElementById('goal-deadline-inp').value='';
+  document.getElementById('goal-notes-inp').value='';
+  document.querySelectorAll('.goal-pillar-btn').forEach(b=>{b.classList.remove('selected');b.style.background='var(--card)';b.style.color='var(--text)';});
+  document.getElementById('add-goal-overlay').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('goal-title-inp').focus(),100);
+}
+function closeAddGoal(){document.getElementById('add-goal-overlay').classList.add('hidden');}
+function selectPillar(p){
+  selectedPillar=p;
+  document.querySelectorAll('.goal-pillar-btn').forEach(b=>{
+    const active=b.dataset.pillar===p;
+    b.classList.toggle('selected',active);
+    b.style.background=active?(PILLAR_CFG[p].color+'22'):'var(--card)';
+    b.style.border=active?`2px solid ${PILLAR_CFG[p].color}`:'1.5px solid var(--border)';
+    b.style.color=active?PILLAR_CFG[p].color:'var(--text)';
+  });
+}
+function saveGoal(){
+  const title=document.getElementById('goal-title-inp').value.trim();
+  if(!title){document.getElementById('goal-title-inp').focus();return;}
+  if(!selectedPillar){alert('Selecciona un pilar');return;}
+  if(!app.goals)app.goals=[];
+  app.goals.unshift({id:Date.now(),pillar:selectedPillar,title,deadline:document.getElementById('goal-deadline-inp').value||null,notes:document.getElementById('goal-notes-inp').value.trim(),achieved:false,achievedDate:null});
+  saveApp();closeAddGoal();renderGoals();renderHome();
+}
+function toggleGoal(id){
+  const g=(app.goals||[]).find(x=>x.id===id);if(!g)return;
+  g.achieved=!g.achieved;g.achievedDate=g.achieved?new Date().toISOString().split('T')[0]:null;
+  saveApp();renderGoals();renderHome();
+}
+function deleteGoal(id){
+  if(!confirm('¿Eliminar este objetivo?'))return;
+  app.goals=(app.goals||[]).filter(x=>x.id!==id);
+  saveApp();renderGoals();renderHome();
+}
+
 // ═══════════════════════════════════════════════════════════════
 // PDF PRINT
 // ═══════════════════════════════════════════════════════════════
