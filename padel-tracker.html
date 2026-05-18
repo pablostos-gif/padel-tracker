@@ -1405,8 +1405,9 @@ function discardMatch(){app.match=null;stateStack=[];document.getElementById('ma
 // ═══════════════════════════════════════════════════════════════
 // MATCH HISTORY
 // ═══════════════════════════════════════════════════════════════
+function normShots(s){const e=()=>({remate:0,bandeja:0,vibora:0,volea_der:0,volea_rev:0,fondo_der:0,fondo_rev:0,globo:0});return{winners:Object.assign(e(),s&&s.winners||{}),enf:Object.assign(e(),s&&s.enf||{}),ef:(s&&s.ef)||0};}
 function buildChartsSection(shots, myLabel, riLabel, prefix){
-  const my=shots.my,ri=shots.ri;
+  const my=normShots(shots&&shots.my),ri=normShots(shots&&shots.ri);
   const tw=Object.values(my.winners).reduce((a,b)=>a+b,0);
   const te=Object.values(my.enf).reduce((a,b)=>a+b,0);
   const rw=Object.values(ri.winners).reduce((a,b)=>a+b,0);
@@ -1474,7 +1475,7 @@ function buildChartsSection(shots, myLabel, riLabel, prefix){
   </div>`;
 }
 function renderMatchCharts(shots, myLabel, riLabel, prefix){
-  const my=shots.my,ri=shots.ri;
+  const my=normShots(shots&&shots.my),ri=normShots(shots&&shots.ri);
   const tw=Object.values(my.winners).reduce((a,b)=>a+b,0);
   const te=Object.values(my.enf).reduce((a,b)=>a+b,0);
   const rw=Object.values(ri.winners).reduce((a,b)=>a+b,0);
@@ -1511,7 +1512,8 @@ function renderMatchCharts(shots, myLabel, riLabel, prefix){
     },{responsive:true,maintainAspectRatio:false,plugins:{legend:leg},scales:sc});
   }
 }
-function buildPlayerShotBlock(shots, playerLabel, colorVar){
+function buildPlayerShotBlock(rawShots, playerLabel, colorVar){
+  const shots=normShots(rawShots);
   const tw=Object.values(shots.winners).reduce((a,b)=>a+b,0);
   const te=Object.values(shots.enf).reduce((a,b)=>a+b,0);
   const ef=shots.ef;
@@ -1542,18 +1544,20 @@ function viewMatchDetail(idx){
   const content=document.getElementById('match-detail-content');
   const mn=[m.myName,m.myPartner].filter(Boolean).join(' / '),rn=[m.rival1,m.rival2].filter(Boolean).join(' / ');
   const sh=m.sets.map((s,i)=>`<div style="display:flex;gap:8px;font-weight:700;font-size:20px"><span style="color:var(--my)">${s.my}</span><span style="color:var(--muted)">–</span><span style="color:var(--rival)">${s.ri}</span></div>`).join('');
-  const shots=m.shots?m.shots:null;
+  const shots=m.shots||null;
   let shotHtml='';
   let myLabel='',riLabel='';
   if(shots){
     myLabel=m.myPartner?`${esc(m.myName)} / ${esc(m.myPartner)}`:esc(m.myName);
     riLabel=m.rival2?`${esc(m.rival1)} / ${esc(m.rival2)}`:esc(m.rival1);
-    shotHtml=`<div style="margin:0 16px 12px">
-      <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Análisis del partido</div>
-      ${buildChartsSection(shots,myLabel,riLabel,'hd')}
-      ${buildPlayerShotBlock(shots.my,'Mi equipo · '+myLabel,'var(--my)')}
-      ${buildPlayerShotBlock(shots.ri,'Rivales · '+riLabel,'var(--rival)')}
-    </div>`;
+    try{
+      shotHtml=`<div style="margin:0 16px 12px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Análisis del partido</div>
+        ${buildChartsSection(shots,myLabel,riLabel,'hd')}
+        ${buildPlayerShotBlock(shots.my,'Mi equipo · '+myLabel,'var(--my)')}
+        ${buildPlayerShotBlock(shots.ri,'Rivales · '+riLabel,'var(--rival)')}
+      </div>`;
+    }catch(e){console.error('shotHtml error',e);}
   }
   content.innerHTML=`
     <div style="background:var(--card);border-radius:18px;padding:16px;border:1px solid var(--border);margin:12px 16px 12px">
