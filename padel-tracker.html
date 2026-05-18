@@ -131,6 +131,8 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .set-chip.current{border-color:rgba(255,255,255,0.15);color:var(--text)}
 .set-chip .my{color:var(--my);font-weight:700}.set-chip .ri{color:var(--rival);font-weight:700}
 .tb-badge{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;background:rgba(240,220,80,0.12);border:1px solid rgba(240,220,80,0.3);color:var(--yellow);border-radius:6px;padding:3px 8px}
+.serve-ball{font-size:22px;margin-top:2px;display:none;animation:serveBounce 0.9s ease-in-out infinite;}
+@keyframes serveBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
 .match-menu-btn{background:var(--card);border:1px solid var(--border);border-radius:10px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;color:var(--muted)}
 .game-score{text-align:center;padding:6px 20px 2px}
 .game-score-row{display:flex;justify-content:center;align-items:center;gap:14px}
@@ -491,6 +493,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <div class="tap-zone my-zone" id="zone-my" onclick="scorePoint('my')">
       <div class="tz-label">Mi equipo</div>
       <div id="names-my" class="tz-names">—</div>
+      <div id="serve-my" class="serve-ball">🎾</div>
       <div id="pt-my" class="tz-point">0</div>
       <div id="badges-my" class="tz-shot-badges"></div>
       <div class="tz-hint">TOCA PARA PUNTO</div>
@@ -498,6 +501,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <div class="tap-zone rival-zone" id="zone-ri" onclick="scorePoint('rival')">
       <div class="tz-label">Rivales</div>
       <div id="names-ri" class="tz-names">—</div>
+      <div id="serve-ri" class="serve-ball">🎾</div>
       <div id="pt-ri" class="tz-point">0</div>
       <div id="badges-ri" class="tz-shot-badges"></div>
       <div class="tz-hint">TOCA PARA PUNTO</div>
@@ -905,8 +909,21 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 <div id="menu-overlay" class="overlay hidden" onclick="closeMenuBg(event)">
   <div class="bottom-sheet">
     <div class="sheet-label">Partido en curso</div>
+    <button class="btn btn-ghost" onclick="showServeOverlay();closeMenu()">🎾 &nbsp;Cambiar saque</button>
     <button class="btn btn-danger" onclick="askEndMatch();closeMenu()">✕ &nbsp;Terminar partido ahora</button>
     <button class="btn btn-ghost"  onclick="closeMenu()">Cancelar</button>
+  </div>
+</div>
+<div id="serve-overlay" class="confirm-overlay hidden">
+  <div class="confirm-box">
+    <div style="font-size:32px;margin-bottom:6px">🎾</div>
+    <h3 style="margin-bottom:6px">¿Quién saca primero?</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:18px">Elige el equipo que tiene el saque</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn btn-primary" id="serve-btn-my" onclick="setServing('my')">—</button>
+      <button class="btn" id="serve-btn-ri" onclick="setServing('ri')" style="background:rgba(239,68,68,0.1);color:var(--rival);border:1px solid rgba(239,68,68,0.2)">—</button>
+      <button class="btn btn-ghost" onclick="setServing(null)" style="font-size:12px;opacity:0.6;margin-top:4px">No sé / saltar</button>
+    </div>
   </div>
 </div>
 <div id="confirm-overlay" class="confirm-overlay hidden">
@@ -1248,8 +1265,8 @@ function startMatch(){
   else if(format==='1-1'){bestOf=1;startGame={my:1,ri:1};}
 
   const startTime=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
-  app.match={myName,myPartner,rival1,rival2,bestOf,tournament,date,format,puntoDeOro,tiebreakMax:0,sets:[],currentSet:startGame,currentGame:{my:0,ri:0},tiebreak:false,winner:null,notes:'',shots:emptyShots(),startTime,endTime:null};
-  stateStack=[];showScreen('match');renderMatch();
+  app.match={myName,myPartner,rival1,rival2,bestOf,tournament,date,format,puntoDeOro,serving:null,tiebreakMax:0,sets:[],currentSet:startGame,currentGame:{my:0,ri:0},tiebreak:false,winner:null,notes:'',shots:emptyShots(),startTime,endTime:null};
+  stateStack=[];showScreen('match');renderMatch();showServeOverlay();
 }
 function emptyShots(){
   const b=()=>({winners:{remate:0,bandeja:0,vibora:0,volea_der:0,volea_rev:0,fondo_der:0,fondo_rev:0,globo:0},enf:{remate:0,bandeja:0,vibora:0,volea_der:0,volea_rev:0,fondo_der:0,fondo_rev:0,globo:0},ef:0});
@@ -1287,6 +1304,7 @@ function winGame(w){
   m.currentGame={my:0,ri:0};
   m.tiebreak=false;
   if(w==='my')m.currentSet.my++;else m.currentSet.ri++;
+  if(m.serving)m.serving=m.serving==='my'?'ri':'my';
   checkSetWin();
 }
 function checkSetWin(){
@@ -1351,6 +1369,7 @@ function renderMatch(){
   const zm=document.getElementById('zone-my'),zr=document.getElementById('zone-ri');
   if(pts.deuce){zm.classList.add('deuce-state');zr.classList.add('deuce-state');}else{zm.classList.remove('deuce-state');zr.classList.remove('deuce-state');}
   document.getElementById('undo-btn').disabled=stateStack.length===0;
+  ['my','ri'].forEach(t=>{const el=document.getElementById('serve-'+t);if(el)el.style.display=(m.serving===t)?'block':'none';});
   renderShotBadges();
 }
 function getPoints(g,tb){
@@ -1939,6 +1958,17 @@ function destroyChart(id){if(charts[id]){try{charts[id].destroy();}catch(e){}cha
 function toggleMenu(){document.getElementById('menu-overlay').classList.toggle('hidden');}
 function closeMenu(){document.getElementById('menu-overlay').classList.add('hidden');}
 function closeMenuBg(e){if(e.target===document.getElementById('menu-overlay'))closeMenu();}
+function showServeOverlay(){
+  const m=app.match;if(!m)return;
+  document.getElementById('serve-btn-my').textContent=[m.myName,m.myPartner].filter(Boolean).join(' / ')||'Mi equipo';
+  document.getElementById('serve-btn-ri').textContent=[m.rival1,m.rival2].filter(Boolean).join(' / ')||'Rivales';
+  document.getElementById('serve-overlay').classList.remove('hidden');
+}
+function setServing(team){
+  document.getElementById('serve-overlay').classList.add('hidden');
+  if(app.match)app.match.serving=team;
+  renderMatch();
+}
 function askEndMatch(){document.getElementById('confirm-overlay').classList.remove('hidden');document.getElementById('conf-ok').onclick=()=>{closeConfirm();closeShot();goToEndScreen();};}
 function closeConfirm(){document.getElementById('confirm-overlay').classList.add('hidden');}
 
