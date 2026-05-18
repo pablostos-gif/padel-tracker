@@ -1382,11 +1382,10 @@ function renderEndScreen(){
   const tw=Object.values(my.winners).reduce((a,b)=>a+b,0),te=Object.values(my.enf).reduce((a,b)=>a+b,0);
   const rw=Object.values(ri.winners).reduce((a,b)=>a+b,0),re=Object.values(ri.enf).reduce((a,b)=>a+b,0);
   if(tw+te+my.ef+rw+re+ri.ef===0){document.getElementById('shot-summary').style.display='none';return;}
-  const bw=SHOT_KEYS.reduce((a,k)=>my.winners[k]>my.winners[a]?k:a,'remate');
-  const be=SHOT_KEYS.reduce((a,k)=>my.enf[k]>my.enf[a]?k:a,'fondo_der');
-  const tot=tw+te+my.ef+rw+re+ri.ef||1;
+  const myLabel=m.myPartner?`${esc(m.myName)} / ${esc(m.myPartner)}`:esc(m.myName);
+  const riLabel=m.rival2?`${esc(m.rival1)} / ${esc(m.rival2)}`:esc(m.rival1);
   document.getElementById('shot-summary').style.display='block';
-  document.getElementById('shot-summary').innerHTML=`<div class="shot-sum-title">Análisis de golpes</div><div class="shot-sum-grid"><div class="shot-sum-col"><div class="shot-sum-col-label my">${esc(m.myName)}</div><div class="shot-sum-row"><span>Winners</span><span class="val" style="color:var(--my)">${tw}</span></div><div class="shot-sum-row"><span>Errores NFo</span><span class="val" style="color:var(--rival)">${te}</span></div><div class="shot-sum-row"><span>Errores Fo</span><span class="val" style="color:var(--yellow)">${my.ef}</span></div>${tw>0?`<div class="shot-sum-row"><span>Mejor golpe</span><span class="val">${SHOT_LABELS[bw]}</span></div>`:''}${te>0?`<div class="shot-sum-row"><span>Más errores</span><span class="val" style="color:var(--rival)">${SHOT_LABELS[be]}</span></div>`:''}</div><div class="shot-sum-col"><div class="shot-sum-col-label ri">${esc(m.rival1)}</div><div class="shot-sum-row"><span>Winners</span><span class="val" style="color:var(--my)">${rw}</span></div><div class="shot-sum-row"><span>Errores NFo</span><span class="val" style="color:var(--rival)">${re}</span></div><div class="shot-sum-row"><span>Errores Fo</span><span class="val" style="color:var(--yellow)">${ri.ef}</span></div></div></div><div class="coef-block"><div class="coef-item"><div class="coef-val" style="color:var(--my)">${Math.round(tw/tot*100)}%</div><div class="coef-label">PG/tot</div></div><div class="coef-item"><div class="coef-val" style="color:var(--rival)">${Math.round(te/tot*100)}%</div><div class="coef-label">ENF/tot</div></div></div>`;
+  document.getElementById('shot-summary').innerHTML=`<div class="shot-sum-title">Análisis de golpes</div>${buildPlayerShotBlock(my,'Mi equipo · '+myLabel,'var(--my)')}${buildPlayerShotBlock(ri,'Rivales · '+riLabel,'var(--rival)')}`;
 }
 
 function saveMatch(){
@@ -1405,31 +1404,46 @@ function discardMatch(){app.match=null;stateStack=[];document.getElementById('ma
 // ═══════════════════════════════════════════════════════════════
 // MATCH HISTORY
 // ═══════════════════════════════════════════════════════════════
+function buildPlayerShotBlock(shots, playerLabel, colorVar){
+  const tw=Object.values(shots.winners).reduce((a,b)=>a+b,0);
+  const te=Object.values(shots.enf).reduce((a,b)=>a+b,0);
+  const ef=shots.ef;
+  const total=tw+te+ef||1;
+  const bw=tw>0?SHOT_KEYS.reduce((a,k)=>shots.winners[k]>shots.winners[a]?k:a,'remate'):null;
+  const be=te>0?SHOT_KEYS.reduce((a,k)=>shots.enf[k]>shots.enf[a]?k:a,'fondo_der'):null;
+  const wRows=SHOT_KEYS.filter(k=>shots.winners[k]>0).map(k=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border)"><span style="font-size:12px;color:var(--text)">${SHOT_LABELS[k]}</span><span style="font-size:12px;font-weight:600;color:var(--my)">${shots.winners[k]}</span></div>`).join('');
+  const eRows=SHOT_KEYS.filter(k=>shots.enf[k]>0).map(k=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border)"><span style="font-size:12px;color:var(--text)">${SHOT_LABELS[k]}</span><span style="font-size:12px;font-weight:600;color:var(--rival)">${shots.enf[k]}</span></div>`).join('');
+  return `<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:700;color:${colorVar}">${playerLabel}</div>
+      <div style="display:flex;gap:10px;font-size:11px">
+        <span style="color:var(--my);font-weight:600">${tw}W</span>
+        <span style="color:var(--rival);font-weight:600">${te}ENF</span>
+        <span style="color:var(--yellow);font-weight:600">${ef}EF</span>
+      </div>
+    </div>
+    ${tw>0?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--my);margin-bottom:6px">Winners (${tw})</div>${wRows}</div>`:''}
+    ${te>0?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--rival);margin-bottom:6px">Errores No-Fuerza (${te})</div>${eRows}</div>`:''}
+    ${ef>0?`<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="font-size:12px;color:var(--text)">Errores Forzados</span><span style="font-size:12px;font-weight:600;color:var(--yellow)">${ef}</span></div>`:''}
+    ${tw===0&&te===0&&ef===0?`<div style="font-size:12px;color:var(--muted);text-align:center;padding:8px 0">Sin datos de golpes</div>`:''}
+    ${tw>0||te>0?`<div style="display:flex;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">${bw?`<div style="flex:1;background:rgba(0,200,120,0.08);border-radius:8px;padding:6px;text-align:center"><div style="font-size:9px;color:var(--my);font-weight:700;letter-spacing:1px;text-transform:uppercase">Mejor golpe</div><div style="font-size:12px;font-weight:600;color:var(--text);margin-top:2px">${SHOT_LABELS[bw]}</div></div>`:''} ${be?`<div style="flex:1;background:rgba(220,50,50,0.08);border-radius:8px;padding:6px;text-align:center"><div style="font-size:9px;color:var(--rival);font-weight:700;letter-spacing:1px;text-transform:uppercase">Más errores</div><div style="font-size:12px;font-weight:600;color:var(--text);margin-top:2px">${SHOT_LABELS[be]}</div></div>`:''}</div>`:''}
+  </div>`;
+}
 function viewMatchDetail(idx){
   const m=app.history[idx];
   if(!m)return;
   const content=document.getElementById('match-detail-content');
   const mn=[m.myName,m.myPartner].filter(Boolean).join(' / '),rn=[m.rival1,m.rival2].filter(Boolean).join(' / ');
-  const sh=m.sets.map((s,i)=>`<div style="display:flex;gap:8px;font-weight:600"><span style="color:var(--my)">${s.my}</span><span style="color:var(--muted)">–</span><span style="color:var(--rival)">${s.ri}</span></div>`).join('');
+  const sh=m.sets.map((s,i)=>`<div style="display:flex;gap:8px;font-weight:700;font-size:20px"><span style="color:var(--my)">${s.my}</span><span style="color:var(--muted)">–</span><span style="color:var(--rival)">${s.ri}</span></div>`).join('');
   const shots=m.shots?m.shots:null;
   let shotHtml='';
   if(shots){
-    shotHtml=`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);margin-bottom:12px">
+    const myLabel=m.myPartner?`${esc(m.myName)} / ${esc(m.myPartner)}`:esc(m.myName);
+    const riLabel=m.rival2?`${esc(m.rival1)} / ${esc(m.rival2)}`:esc(m.rival1);
+    shotHtml=`<div style="margin:0 16px 12px">
       <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Estadísticas de golpes</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div>
-          <div style="font-size:10px;color:var(--my);margin-bottom:6px;font-weight:600">Mi equipo</div>
-          <div style="font-size:12px;color:var(--text);margin-bottom:4px">Winners: ${Object.values(shots.my.winners).reduce((a,b)=>a+b,0)}</div>
-          <div style="font-size:12px;color:var(--text);margin-bottom:4px">Error No-Fuerza: ${Object.values(shots.my.enf).reduce((a,b)=>a+b,0)}</div>
-          <div style="font-size:12px;color:var(--text)">Error Fuerza: ${shots.my.ef}</div>
-        </div>
-        <div>
-          <div style="font-size:10px;color:var(--rival);margin-bottom:6px;font-weight:600">Rivales</div>
-          <div style="font-size:12px;color:var(--text);margin-bottom:4px">Winners: ${Object.values(shots.ri.winners).reduce((a,b)=>a+b,0)}</div>
-          <div style="font-size:12px;color:var(--text);margin-bottom:4px">Error No-Fuerza: ${Object.values(shots.ri.enf).reduce((a,b)=>a+b,0)}</div>
-          <div style="font-size:12px;color:var(--text)">Error Fuerza: ${shots.ri.ef}</div>
-        </div>
-      </div>
+      ${buildPlayerShotBlock(shots.my,'Mi equipo · '+myLabel,'var(--my)')}
+      ${buildPlayerShotBlock(shots.ri,'Rivales · '+riLabel,'var(--rival)')}
     </div>`;
   }
   content.innerHTML=`
@@ -1442,9 +1456,9 @@ function viewMatchDetail(idx){
         <span class="hist-badge ${m.isWin?'badge-win':'badge-loss'}">${m.isWin?'VICTORIA':'DERROTA'}</span>
       </div>
       <div style="border-top:1px solid var(--border);padding-top:12px">
-        <div style="font-size:14px;font-weight:600;margin-bottom:8px">${esc(mn)}</div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:4px">${esc(mn)}</div>
         <div style="font-size:13px;color:var(--muted);margin-bottom:12px">vs ${esc(rn)}</div>
-        <div style="display:flex;gap:8px">${sh}</div>
+        <div style="display:flex;gap:12px;align-items:center">${sh}</div>
       </div>
     </div>
     ${shotHtml}
