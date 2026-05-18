@@ -458,6 +458,10 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
           <option value="1">1 set único (0-0)</option>
           <option value="1-1">1 set (1-1)</option>
         </select></div>
+        <div class="input-group"><label>Puntos en juego</label><select id="inp-game-format">
+          <option value="ventaja">Con ventaja</option>
+          <option value="oro">Punto de oro</option>
+        </select></div>
         <div class="input-group"><label>Torneo / Liga</label><input id="inp-tournament" type="text" placeholder="Amistoso" maxlength="30"></div>
       </div>
       <div class="input-group"><label>Fecha</label><input id="inp-date" type="date"></div>
@@ -1235,6 +1239,7 @@ function startMatch(){
   const rival1=document.getElementById('inp-rival1').value.trim()||'Rival';
   const rival2=document.getElementById('inp-rival2').value.trim();
   const format=document.getElementById('inp-best-of').value;
+  const puntoDeOro=document.getElementById('inp-game-format').value==='oro';
   const tournament=document.getElementById('inp-tournament').value.trim();
   const date=document.getElementById('inp-date').value||new Date().toISOString().split('T')[0];
 
@@ -1243,7 +1248,7 @@ function startMatch(){
   else if(format==='1-1'){bestOf=1;startGame={my:1,ri:1};}
 
   const startTime=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
-  app.match={myName,myPartner,rival1,rival2,bestOf,tournament,date,format,tiebreakMax:0,sets:[],currentSet:startGame,currentGame:{my:0,ri:0},tiebreak:false,winner:null,notes:'',shots:emptyShots(),startTime,endTime:null};
+  app.match={myName,myPartner,rival1,rival2,bestOf,tournament,date,format,puntoDeOro,tiebreakMax:0,sets:[],currentSet:startGame,currentGame:{my:0,ri:0},tiebreak:false,winner:null,notes:'',shots:emptyShots(),startTime,endTime:null};
   stateStack=[];showScreen('match');renderMatch();
 }
 function emptyShots(){
@@ -1273,7 +1278,10 @@ function scorePoint(team){
   else{if(team==='my')g.my++;else g.ri++;const w=gameWinner(g);if(w){winGame(w);openShotSheet(team);return;}}
   renderMatch();popAnim(team==='my'?'pt-my':'pt-ri');openShotSheet(team);
 }
-function gameWinner(g){if(g.my>=4&&g.my-g.ri>=2)return'my';if(g.ri>=4&&g.ri-g.my>=2)return'ri';return null;}
+function gameWinner(g){
+  if(app.match&&app.match.puntoDeOro&&g.my>=3&&g.ri>=3){if(g.my>g.ri)return'my';if(g.ri>g.my)return'ri';return null;}
+  if(g.my>=4&&g.my-g.ri>=2)return'my';if(g.ri>=4&&g.ri-g.my>=2)return'ri';return null;
+}
 function winGame(w){
   const m=app.match;
   m.currentGame={my:0,ri:0};
@@ -1348,7 +1356,9 @@ function renderMatch(){
 function getPoints(g,tb){
   if(tb)return{my:String(g.my),ri:String(g.ri),deuce:false};
   const d=g.my>=3&&g.ri>=3;if(!d)return{my:PT[Math.min(g.my,3)],ri:PT[Math.min(g.ri,3)],deuce:false};
-  const diff=g.my-g.ri;if(diff===0)return{my:'40',ri:'40',deuce:true};
+  const diff=g.my-g.ri;
+  const isOro=app.match&&app.match.puntoDeOro;
+  if(diff===0)return{my:isOro?'ORO':'40',ri:isOro?'ORO':'40',deuce:true};
   return diff>0?{my:'AD',ri:'',deuce:false}:{my:'',ri:'AD',deuce:false};
 }
 function popAnim(id){const el=document.getElementById(id);el.classList.remove('pop');void el.offsetWidth;el.classList.add('pop');setTimeout(()=>el.classList.remove('pop'),320);}
