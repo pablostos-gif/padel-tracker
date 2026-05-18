@@ -410,6 +410,15 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .goal-pillar-btn.selected{border-width:2px}
 .goal-inp{width:100%;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;font-family:inherit;outline:none;box-sizing:border-box}
 .goal-inp:focus{border-color:var(--my)}
+.goal-lbl{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px}
+.goal-type-btn{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--card);border:1.5px solid var(--border);border-radius:12px;color:var(--text);font-family:inherit;cursor:pointer;transition:all 0.15s;text-align:left;width:100%}
+.goal-type-btn.selected{border-color:var(--my);background:rgba(61,219,130,0.07)}
+.goal-type-sub{font-size:11px;color:var(--muted);margin-top:1px}
+.goal-freq-btn{padding:8px 6px;background:var(--card);border:1.5px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;transition:all 0.15s;flex:1;text-align:center}
+.goal-freq-btn.selected{background:var(--my);color:#060D1A;border-color:var(--my)}
+.habit-widget{background:rgba(240,220,80,0.06);border:1px solid rgba(240,220,80,0.22);border-radius:14px;padding:12px 14px;width:100%;max-width:320px;box-sizing:border-box}
+.habit-checkin-row{display:flex;align-items:center;gap:7px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
+.habit-checkin-row:last-child{border-bottom:none}
 </style>
 </head>
 <body>
@@ -425,6 +434,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
       <div class="data-badge"><div class="data-badge-dot"></div><span id="home-data-info">—</span></div>
     </div>
   </div>
+  <div id="home-habit-widget"></div>
   <div class="home-buttons">
     <div class="home-section-label">Partidos</div>
     <button class="btn btn-primary"    onclick="goToSetup()">⊕ &nbsp;Nuevo Partido</button>
@@ -846,10 +856,9 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <div id="goals-progress-wrap"></div>
     <div class="goals-filter-row">
       <button class="gf-tab active" onclick="filterGoals('all',this)">Todos</button>
-      <button class="gf-tab" onclick="filterGoals('tecnico',this)">🎾 Técnico</button>
-      <button class="gf-tab" onclick="filterGoals('tactico',this)">🧠 Táctico</button>
-      <button class="gf-tab" onclick="filterGoals('fisico',this)">💪 Físico</button>
-      <button class="gf-tab" onclick="filterGoals('mental',this)">🧘 Mental</button>
+      <button class="gf-tab" onclick="filterGoals('hito',this)">🎯 Hitos</button>
+      <button class="gf-tab" onclick="filterGoals('habito',this)">🔁 Hábitos</button>
+      <button class="gf-tab" onclick="filterGoals('mejora',this)">📈 Técnico</button>
     </div>
     <div id="goals-list"></div>
   </div>
@@ -858,13 +867,21 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 <!-- ADD GOAL OVERLAY -->
 <div id="add-goal-overlay" class="confirm-overlay hidden">
   <div class="confirm-box" style="max-width:360px;width:90%;max-height:90vh;overflow-y:auto">
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;margin-bottom:16px">Nuevo Objetivo</div>
-    <div style="margin-bottom:12px">
-      <label style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px">Objetivo</label>
-      <input id="goal-title-inp" class="goal-inp" type="text" maxlength="80" placeholder="Ej: Mejorar la bandeja defensiva">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;margin-bottom:14px">Nuevo Objetivo</div>
+    <div style="margin-bottom:14px">
+      <label class="goal-lbl">Tipo de objetivo</label>
+      <div style="display:flex;flex-direction:column;gap:7px">
+        <button class="goal-type-btn" data-type="hito" onclick="selectGoalType('hito')"><span style="font-size:20px">🎯</span><div><div style="font-weight:700;font-size:13px">Hito puntual</div><div class="goal-type-sub">Lo consigues una vez y lo marcas</div></div></button>
+        <button class="goal-type-btn" data-type="habito" onclick="selectGoalType('habito')"><span style="font-size:20px">🔁</span><div><div style="font-weight:700;font-size:13px">Hábito semanal</div><div class="goal-type-sub">La app te pregunta cada semana si lo has cumplido</div></div></button>
+        <button class="goal-type-btn" data-type="mejora" onclick="selectGoalType('mejora')"><span style="font-size:20px">📈</span><div><div style="font-weight:700;font-size:13px">Mejora técnica</div><div class="goal-type-sub">Se actualiza solo con tus datos de entrenos y partidos</div></div></button>
+      </div>
     </div>
     <div style="margin-bottom:12px">
-      <label style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:8px">Pilar</label>
+      <label class="goal-lbl">Descripción</label>
+      <input id="goal-title-inp" class="goal-inp" type="text" maxlength="80" placeholder="Ej: Correr 3 veces por semana">
+    </div>
+    <div style="margin-bottom:12px">
+      <label class="goal-lbl">Pilar</label>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <button class="goal-pillar-btn" data-pillar="tecnico" onclick="selectPillar('tecnico')">🎾 Técnico</button>
         <button class="goal-pillar-btn" data-pillar="tactico" onclick="selectPillar('tactico')">🧠 Táctico</button>
@@ -872,12 +889,54 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
         <button class="goal-pillar-btn" data-pillar="mental" onclick="selectPillar('mental')">🧘 Mental</button>
       </div>
     </div>
-    <div style="margin-bottom:12px">
-      <label style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px">Fecha límite (opcional)</label>
+    <div id="goal-habito-fields" style="display:none">
+      <div style="margin-bottom:10px">
+        <label class="goal-lbl">¿Cuántas veces por semana?</label>
+        <div style="display:flex;gap:7px">
+          <button class="goal-freq-btn" data-n="1" onclick="selectFreq(1)">1x</button>
+          <button class="goal-freq-btn" data-n="2" onclick="selectFreq(2)">2x</button>
+          <button class="goal-freq-btn" data-n="3" onclick="selectFreq(3)">3x</button>
+          <button class="goal-freq-btn" data-n="4" onclick="selectFreq(4)">4x</button>
+          <button class="goal-freq-btn" data-n="5" onclick="selectFreq(5)">5x</button>
+          <button class="goal-freq-btn" data-n="7" onclick="selectFreq(7)">7x</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div><label class="goal-lbl">Fecha inicio</label><input id="goal-start-inp" class="goal-inp" type="date"></div>
+        <div><label class="goal-lbl">Fecha fin</label><input id="goal-end-inp" class="goal-inp" type="date"></div>
+      </div>
+    </div>
+    <div id="goal-mejora-fields" style="display:none">
+      <div style="margin-bottom:10px">
+        <label class="goal-lbl">Golpe / métrica</label>
+        <select id="goal-shot-sel" class="goal-inp" onchange="updateMejoraTarget()">
+          <option value="">— Seleccionar —</option>
+          <option value="bandeja">Bandeja</option>
+          <option value="vibora">Víbora</option>
+          <option value="remate">Remate</option>
+          <option value="volea_der">Volea derecha</option>
+          <option value="volea_rev">Volea revés</option>
+          <option value="fondo_der">Fondo derecha</option>
+          <option value="fondo_rev">Fondo revés</option>
+          <option value="globo">Globo</option>
+          <option value="win_rate">% victorias en partidos</option>
+        </select>
+      </div>
+      <div style="margin-bottom:12px">
+        <label class="goal-lbl" id="goal-target-lbl">Nota objetivo (1-5 ⭐)</label>
+        <div style="display:flex;gap:7px" id="goal-rating-btns">
+          <button class="goal-freq-btn" data-r="3" onclick="selectRating(3)">3 ⭐</button>
+          <button class="goal-freq-btn" data-r="4" onclick="selectRating(4)">4 ⭐</button>
+          <button class="goal-freq-btn" data-r="5" onclick="selectRating(5)">5 ⭐</button>
+        </div>
+      </div>
+    </div>
+    <div id="goal-hito-deadline" style="margin-bottom:12px">
+      <label class="goal-lbl">Fecha límite (opcional)</label>
       <input id="goal-deadline-inp" class="goal-inp" type="date">
     </div>
     <div style="margin-bottom:16px">
-      <label style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px">Notas (opcional)</label>
+      <label class="goal-lbl">Notas (opcional)</label>
       <textarea id="goal-notes-inp" class="goal-inp" rows="2" style="resize:none" placeholder="¿Cómo vas a conseguirlo?"></textarea>
     </div>
     <div class="confirm-btns">
@@ -1310,9 +1369,10 @@ function renderHome(){
     const trains=app.trainings.length;
     document.getElementById('home-data-info').textContent=`${total} partido${total!==1?'s':''} · ${trains} entreno${trains!==1?'s':''}`;
   }else{card.style.display='none';}
-  const goals=app.goals||[],done=goals.filter(g=>g.achieved).length,pending=goals.length-done;
+  const goals=app.goals||[],done=goals.filter(g=>g.achieved||(g.type==='mejora'&&autoCheckMejora(g)===true)).length;
   const badge=document.getElementById('home-goals-badge');
-  if(badge)badge.textContent=goals.length?`${done}/${goals.length} conseguidos`:(pending===0&&goals.length===0?'Sin objetivos':pending+' pendientes');
+  if(badge)badge.textContent=goals.length?`${done}/${goals.length} conseguidos`:'Sin objetivos';
+  renderHomeHabitWidget();
 }
 function changePlayerName(){const n=prompt('Nombre del jugador:',app.playerName||'');if(n!==null&&n.trim()){app.playerName=n.trim();saveApp();renderHome();}}
 
@@ -2073,57 +2133,142 @@ initFirebase();
 // GOALS
 // ═══════════════════════════════════════════════════════════════
 const PILLAR_CFG={tecnico:{label:'Técnico',emoji:'🎾',color:'#B57BFF'},tactico:{label:'Táctico',emoji:'🧠',color:'#06B6D4'},fisico:{label:'Físico',emoji:'💪',color:'#3B82F6'},mental:{label:'Mental',emoji:'🧘',color:'#F0DC50'}};
-let activeGoalFilter='all',selectedPillar=null;
+let activeGoalFilter='all',selectedPillar=null,selectedGoalType=null,selectedFreq=null,selectedRating=null;
+
+function getWeekKey(d){const dt=new Date(d||Date.now());const day=dt.getDay();const diff=dt.getDate()-day+(day===0?-6:1);const mon=new Date(new Date(dt).setDate(diff));return mon.toISOString().split('T')[0];}
+function currentWeekKey(){return getWeekKey(new Date());}
+function getHabitCheckinThisWeek(g){const wk=currentWeekKey();return(g.checkins||[]).find(c=>c.week===wk);}
+function getPendingHabits(){
+  const now=new Date();
+  return(app.goals||[]).filter(g=>{
+    if(g.type!=='habito')return false;
+    if(g.endDate&&new Date(g.endDate+'T23:59:59')<now)return false;
+    if(g.startDate&&new Date(g.startDate+'T00:00:00')>now)return false;
+    return !getHabitCheckinThisWeek(g);
+  });
+}
+function autoCheckMejora(g){
+  if(!g.linkedShot)return null;
+  if(g.linkedShot==='win_rate'){const m=app.history.slice(0,10);if(!m.length)return null;return(m.filter(x=>x.isWin).length/m.length*100)>=g.targetRating;}
+  const sessions=app.trainings.filter(t=>(t.shotQuality||{})[g.linkedShot]>0);
+  if(!sessions.length)return null;
+  const recent=sessions.sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,3);
+  return recent.reduce((s,t)=>s+(t.shotQuality[g.linkedShot]||0),0)/recent.length>=g.targetRating;
+}
+
+function renderHomeHabitWidget(){
+  const el=document.getElementById('home-habit-widget');if(!el)return;
+  const pending=getPendingHabits();
+  if(!pending.length){el.innerHTML='';return;}
+  el.innerHTML=`<div class="habit-widget" style="margin-bottom:4px"><div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#F0DC50;margin-bottom:10px">⚠️ Registra esta semana</div>${pending.map(g=>`<div class="habit-checkin-row"><div style="flex:1;font-size:12px;font-weight:600">${esc(g.title)}<span style="font-size:10px;color:var(--muted);margin-left:5px">${g.targetFreq}x/sem</span></div><button onclick="checkinHabit(${g.id},'yes')" style="padding:5px 8px;border-radius:7px;border:1px solid #3DDB82;background:rgba(61,219,130,0.1);color:#3DDB82;font-size:13px;cursor:pointer;font-family:inherit">✅</button><button onclick="checkinHabit(${g.id},'partial')" style="padding:5px 8px;border-radius:7px;border:1px solid #F0DC50;background:rgba(240,220,80,0.1);color:#F0DC50;font-size:13px;cursor:pointer;font-family:inherit">⚠️</button><button onclick="checkinHabit(${g.id},'no')" style="padding:5px 8px;border-radius:7px;border:1px solid #FF5E3A;background:rgba(255,94,58,0.1);color:#FF5E3A;font-size:13px;cursor:pointer;font-family:inherit">❌</button></div>`).join('')}</div>`;
+}
+
+function checkinHabit(id,status){
+  const g=(app.goals||[]).find(x=>x.id===id);if(!g)return;
+  if(!g.checkins)g.checkins=[];
+  const wk=currentWeekKey();
+  if(status===null){g.checkins=g.checkins.filter(c=>c.week!==wk);}
+  else{const ex=g.checkins.find(c=>c.week===wk);if(ex){ex.status=status;}else{g.checkins.push({week:wk,status});}}
+  saveApp();renderHomeHabitWidget();
+  if(document.getElementById('goals-screen').classList.contains('active'))renderGoals();
+}
 
 function renderGoals(){
   const el=document.getElementById('goals-player-name');if(el)el.textContent=app.playerName||'—';
   const goals=app.goals||[];
-  const total=goals.length,done=goals.filter(g=>g.achieved).length,pct=total?Math.round(done/total*100):0;
+  const total=goals.length,done=goals.filter(g=>g.achieved||(g.type==='mejora'&&autoCheckMejora(g)===true)).length,pct=total?Math.round(done/total*100):0;
   document.getElementById('goals-progress-wrap').innerHTML=total?`<div style="background:var(--card);border-radius:14px;padding:14px 16px;border:1px solid var(--border)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:13px;font-weight:600">Progreso general</div><div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--my)">${done}/${total}</div></div><div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden"><div style="width:${pct}%;height:100%;background:var(--my);border-radius:4px;transition:width 0.5s ease"></div></div><div style="font-size:11px;color:var(--muted);margin-top:6px">${pct}% conseguidos · ${total-done} pendiente${total-done!==1?'s':''}</div></div>`:'';
-  const filtered=goals.filter(g=>activeGoalFilter==='all'||g.pillar===activeGoalFilter);
-  const pending=[...filtered.filter(g=>!g.achieved)].sort((a,b)=>{if(!a.deadline&&!b.deadline)return 0;if(!a.deadline)return 1;if(!b.deadline)return -1;return new Date(a.deadline)-new Date(b.deadline);});
-  const achieved=[...filtered.filter(g=>g.achieved)].sort((a,b)=>new Date(b.achievedDate||0)-new Date(a.achievedDate||0));
-  const sorted=[...pending,...achieved];
+  const filtered=goals.filter(g=>activeGoalFilter==='all'||g.type===activeGoalFilter);
   const list=document.getElementById('goals-list');
-  if(!sorted.length){list.innerHTML=`<div class="empty-state"><div class="empty-icon">🎯</div><p>Sin objetivos aún.<br>Pulsa + para añadir el primero.</p></div>`;return;}
-  list.innerHTML=sorted.map(g=>{
-    const cfg=PILLAR_CFG[g.pillar]||{label:g.pillar,emoji:'🎯',color:'var(--my)'};
-    let deadlineHtml='';
-    if(g.deadline&&!g.achieved){const days=Math.ceil((new Date(g.deadline+'T12:00:00')-new Date())/(1000*60*60*24));const col=days<0?'var(--rival)':days<=7?'#F0DC50':'var(--muted)';const txt=days<0?`Vencido hace ${-days}d`:days===0?'Hoy':`${days} días`;deadlineHtml=`<span style="font-size:10px;color:${col};font-weight:600">⏱ ${txt}</span>`;}
-    else if(g.achievedDate){deadlineHtml=`<span style="font-size:10px;color:var(--my);font-weight:600">✓ Conseguido ${fmtDate(g.achievedDate)}</span>`;}
-    return`<div class="goal-card${g.achieved?' achieved':''}" style="border-left-color:${cfg.color}"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div style="flex:1"><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${cfg.color};margin-bottom:5px">${cfg.emoji} ${cfg.label}</div><div style="font-size:14px;font-weight:600;line-height:1.3;${g.achieved?'text-decoration:line-through;color:var(--muted)':''}">${esc(g.title)}</div>${g.notes?`<div style="font-size:12px;color:var(--muted);margin-top:5px;line-height:1.5">${esc(g.notes)}</div>`:''}<div style="margin-top:7px">${deadlineHtml}</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0"><button onclick="toggleGoal(${g.id})" style="width:34px;height:34px;border-radius:50%;border:2px solid ${g.achieved?'var(--my)':'var(--border)'};background:${g.achieved?'var(--my)':'transparent'};color:${g.achieved?'#060D1A':'var(--muted)'};font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;font-family:inherit" title="${g.achieved?'Marcar pendiente':'Marcar conseguido'}">${g.achieved?'✓':'○'}</button><button onclick="deleteGoal(${g.id})" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit">✕</button></div></div></div>`;
-  }).join('');
+  if(!filtered.length){list.innerHTML=`<div class="empty-state"><div class="empty-icon">🎯</div><p>Sin objetivos aún.<br>Pulsa + para añadir el primero.</p></div>`;return;}
+  list.innerHTML=filtered.map(g=>renderGoalCard(g)).join('');
+}
+function renderGoalCard(g){
+  const cfg=PILLAR_CFG[g.pillar]||{label:g.pillar||'',emoji:'🎯',color:'var(--my)'};
+  if(g.type==='habito')return renderHabitoCard(g,cfg);
+  if(g.type==='mejora')return renderMejoraCard(g,cfg);
+  return renderHitoCard(g,cfg);
+}
+function renderHitoCard(g,cfg){
+  let dl='';
+  if(g.deadline&&!g.achieved){const days=Math.ceil((new Date(g.deadline+'T12:00:00')-new Date())/864e5);const col=days<0?'var(--rival)':days<=7?'#F0DC50':'var(--muted)';dl=`<span style="font-size:10px;color:${col};font-weight:600">⏱ ${days<0?`Vencido hace ${-days}d`:days===0?'Hoy':days+' días'}</span>`;}
+  else if(g.achievedDate){dl=`<span style="font-size:10px;color:var(--my);font-weight:600">✓ Conseguido ${fmtDate(g.achievedDate)}</span>`;}
+  return`<div class="goal-card${g.achieved?' achieved':''}" style="border-left-color:${cfg.color}"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div style="flex:1"><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${cfg.color};margin-bottom:5px">🎯 Hito · ${cfg.emoji} ${cfg.label}</div><div style="font-size:14px;font-weight:600;line-height:1.3;${g.achieved?'text-decoration:line-through;color:var(--muted)':''}">${esc(g.title)}</div>${g.notes?`<div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.4">${esc(g.notes)}</div>`:''}<div style="margin-top:7px">${dl}</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0"><button onclick="toggleGoal(${g.id})" style="width:34px;height:34px;border-radius:50%;border:2px solid ${g.achieved?'var(--my)':'var(--border)'};background:${g.achieved?'var(--my)':'transparent'};color:${g.achieved?'#060D1A':'var(--muted)'};font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;font-family:inherit">${g.achieved?'✓':'○'}</button><button onclick="deleteGoal(${g.id})" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit">✕</button></div></div></div>`;
+}
+function renderHabitoCard(g,cfg){
+  const checkins=g.checkins||[];const wk=currentWeekKey();const thisWeek=checkins.find(c=>c.week===wk);
+  const weeks=[];for(let i=9;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i*7);weeks.push(getWeekKey(d));}
+  const dots=weeks.map(w=>{const c=checkins.find(x=>x.week===w);if(!c)return`<div style="width:13px;height:13px;border-radius:50%;background:var(--border)" title="${w}"></div>`;const col=c.status==='yes'?'#3DDB82':c.status==='partial'?'#F0DC50':'#FF5E3A';return`<div style="width:13px;height:13px;border-radius:50%;background:${col}" title="${c.status}"></div>`;}).join('');
+  const yes=checkins.filter(c=>c.status==='yes').length,part=checkins.filter(c=>c.status==='partial').length;
+  let streak=0;for(const c of [...checkins].sort((a,b)=>b.week.localeCompare(a.week))){if(c.status==='yes'||c.status==='partial')streak++;else break;}
+  let checkinHtml=thisWeek
+    ?`<div style="display:flex;align-items:center;gap:8px;margin-top:8px"><div style="font-size:11px;font-weight:700;color:${thisWeek.status==='yes'?'#3DDB82':thisWeek.status==='partial'?'#F0DC50':'#FF5E3A'}">${thisWeek.status==='yes'?'✅ Cumplido esta semana':thisWeek.status==='partial'?'⚠️ Parcial esta semana':'❌ No cumplido esta semana'}</div><button onclick="checkinHabit(${g.id},null)" style="font-size:10px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-family:inherit">cambiar</button></div>`
+    :`<div style="margin-top:9px"><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#F0DC50;margin-bottom:7px">¿Esta semana?</div><div style="display:flex;gap:7px"><button onclick="checkinHabit(${g.id},'yes')" style="flex:1;padding:8px 4px;border-radius:8px;border:1px solid #3DDB82;background:rgba(61,219,130,0.1);color:#3DDB82;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer">✅ Sí</button><button onclick="checkinHabit(${g.id},'partial')" style="flex:1;padding:8px 4px;border-radius:8px;border:1px solid #F0DC50;background:rgba(240,220,80,0.1);color:#F0DC50;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer">⚠️ Parcial</button><button onclick="checkinHabit(${g.id},'no')" style="flex:1;padding:8px 4px;border-radius:8px;border:1px solid #FF5E3A;background:rgba(255,94,58,0.1);color:#FF5E3A;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer">❌ No</button></div></div>`;
+  return`<div class="goal-card" style="border-left-color:${cfg.color}"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px"><div><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${cfg.color};margin-bottom:4px">🔁 Hábito · ${cfg.emoji} ${cfg.label}</div><div style="font-size:14px;font-weight:600">${esc(g.title)}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Meta: ${g.targetFreq||1}x/semana · Racha: ${streak} sem · ${yes}✅ ${part}⚠️</div></div><button onclick="deleteGoal(${g.id})" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:inherit">✕</button></div><div style="display:flex;gap:3px;align-items:center;margin-bottom:4px">${dots}<span style="font-size:9px;color:var(--muted);margin-left:4px">últimas 10 sem.</span></div>${checkinHtml}</div>`;
+}
+function renderMejoraCard(g,cfg){
+  const achieved=autoCheckMejora(g);
+  let currentVal='—';
+  if(g.linkedShot==='win_rate'){const m=app.history.slice(0,10);if(m.length)currentVal=Math.round(m.filter(x=>x.isWin).length/m.length*100)+'%';}
+  else{const s=app.trainings.filter(t=>(t.shotQuality||{})[g.linkedShot]>0).sort((a,b)=>new Date(b.date)-new Date(a.date));if(s.length)currentVal=(s[0].shotQuality[g.linkedShot])+'⭐';}
+  const targetTxt=g.linkedShot==='win_rate'?g.targetRating+'%':g.targetRating+'⭐';
+  const statusCol=achieved===true?'#3DDB82':achieved===false?'#FF5E3A':'var(--muted)';
+  const statusTxt=achieved===true?'✓ OBJETIVO CONSEGUIDO':achieved===null?'Sin datos aún':'En progreso...';
+  return`<div class="goal-card${achieved===true?' achieved':''}" style="border-left-color:${cfg.color}"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div style="flex:1"><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${cfg.color};margin-bottom:5px">📈 Mejora · ${cfg.emoji} ${cfg.label}</div><div style="font-size:14px;font-weight:600;${achieved===true?'text-decoration:line-through;color:var(--muted)':''}">${esc(g.title)}</div><div style="display:flex;gap:10px;align-items:center;margin-top:10px"><div style="background:var(--bg);border-radius:8px;padding:8px 12px;flex:1;text-align:center"><div style="font-size:10px;color:var(--muted);margin-bottom:2px">Actual</div><div style="font-size:18px;font-weight:700">${currentVal}</div></div><div style="font-size:20px;color:var(--muted)">→</div><div style="background:var(--bg);border-radius:8px;padding:8px 12px;flex:1;text-align:center"><div style="font-size:10px;color:var(--muted);margin-bottom:2px">Objetivo</div><div style="font-size:18px;font-weight:700;color:var(--my)">${targetTxt}</div></div></div><div style="font-size:11px;font-weight:700;color:${statusCol};margin-top:8px">${statusTxt}</div></div><button onclick="deleteGoal(${g.id})" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:inherit">✕</button></div></div>`;
 }
 
-function filterGoals(pillar,el){activeGoalFilter=pillar;document.querySelectorAll('.gf-tab').forEach(t=>t.classList.remove('active'));if(el)el.classList.add('active');renderGoals();}
+function filterGoals(type,el){activeGoalFilter=type;document.querySelectorAll('.gf-tab').forEach(t=>t.classList.remove('active'));if(el)el.classList.add('active');renderGoals();}
 
 function openAddGoal(){
-  selectedPillar=null;
-  document.getElementById('goal-title-inp').value='';
-  document.getElementById('goal-deadline-inp').value='';
-  document.getElementById('goal-notes-inp').value='';
-  document.querySelectorAll('.goal-pillar-btn').forEach(b=>{b.classList.remove('selected');b.style.background='var(--card)';b.style.color='var(--text)';});
+  selectedPillar=null;selectedGoalType=null;selectedFreq=null;selectedRating=null;
+  ['goal-title-inp','goal-deadline-inp','goal-notes-inp'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('goal-start-inp').value=today;
+  const end=new Date();end.setMonth(end.getMonth()+3);
+  document.getElementById('goal-end-inp').value=end.toISOString().split('T')[0];
+  document.querySelectorAll('.goal-pillar-btn').forEach(b=>{b.classList.remove('selected');b.style.cssText='';});
+  document.querySelectorAll('.goal-type-btn').forEach(b=>{b.classList.remove('selected');b.style.borderColor='';b.style.background='';});
+  document.querySelectorAll('.goal-freq-btn').forEach(b=>b.classList.remove('selected'));
+  document.getElementById('goal-habito-fields').style.display='none';
+  document.getElementById('goal-mejora-fields').style.display='none';
+  document.getElementById('goal-hito-deadline').style.display='block';
   document.getElementById('add-goal-overlay').classList.remove('hidden');
   setTimeout(()=>document.getElementById('goal-title-inp').focus(),100);
 }
 function closeAddGoal(){document.getElementById('add-goal-overlay').classList.add('hidden');}
+function selectGoalType(t){
+  selectedGoalType=t;
+  document.querySelectorAll('.goal-type-btn').forEach(b=>{const a=b.dataset.type===t;b.classList.toggle('selected',a);b.style.borderColor=a?'var(--my)':'';b.style.background=a?'rgba(61,219,130,0.07)':'';});
+  document.getElementById('goal-habito-fields').style.display=t==='habito'?'block':'none';
+  document.getElementById('goal-mejora-fields').style.display=t==='mejora'?'block':'none';
+  document.getElementById('goal-hito-deadline').style.display=t==='hito'?'block':'none';
+}
 function selectPillar(p){
   selectedPillar=p;
-  document.querySelectorAll('.goal-pillar-btn').forEach(b=>{
-    const active=b.dataset.pillar===p;
-    b.classList.toggle('selected',active);
-    b.style.background=active?(PILLAR_CFG[p].color+'22'):'var(--card)';
-    b.style.border=active?`2px solid ${PILLAR_CFG[p].color}`:'1.5px solid var(--border)';
-    b.style.color=active?PILLAR_CFG[p].color:'var(--text)';
-  });
+  document.querySelectorAll('.goal-pillar-btn').forEach(b=>{const a=b.dataset.pillar===p;b.classList.toggle('selected',a);b.style.background=a?(PILLAR_CFG[p].color+'22'):'var(--card)';b.style.border=a?`2px solid ${PILLAR_CFG[p].color}`:'1.5px solid var(--border)';b.style.color=a?PILLAR_CFG[p].color:'var(--text)';});
+}
+function selectFreq(n){selectedFreq=n;document.querySelectorAll('.goal-freq-btn[data-n]').forEach(b=>b.classList.toggle('selected',parseInt(b.dataset.n)===n));}
+function selectRating(r){selectedRating=r;document.querySelectorAll('#goal-rating-btns .goal-freq-btn').forEach(b=>b.classList.toggle('selected',parseInt(b.dataset.r)===r||b.dataset.r==r));}
+function updateMejoraTarget(){
+  const v=document.getElementById('goal-shot-sel').value;
+  document.getElementById('goal-target-lbl').textContent=v==='win_rate'?'% victorias objetivo':'Nota objetivo (1-5 ⭐)';
+  document.getElementById('goal-rating-btns').innerHTML=v==='win_rate'
+    ?'<button class="goal-freq-btn" data-r="50" onclick="selectRating(50)">50%</button><button class="goal-freq-btn" data-r="60" onclick="selectRating(60)">60%</button><button class="goal-freq-btn" data-r="70" onclick="selectRating(70)">70%</button><button class="goal-freq-btn" data-r="80" onclick="selectRating(80)">80%</button>'
+    :'<button class="goal-freq-btn" data-r="3" onclick="selectRating(3)">3 ⭐</button><button class="goal-freq-btn" data-r="4" onclick="selectRating(4)">4 ⭐</button><button class="goal-freq-btn" data-r="5" onclick="selectRating(5)">5 ⭐</button>';
+  selectedRating=null;
 }
 function saveGoal(){
   const title=document.getElementById('goal-title-inp').value.trim();
   if(!title){document.getElementById('goal-title-inp').focus();return;}
+  if(!selectedGoalType){alert('Selecciona el tipo de objetivo');return;}
   if(!selectedPillar){alert('Selecciona un pilar');return;}
   if(!app.goals)app.goals=[];
-  app.goals.unshift({id:Date.now(),pillar:selectedPillar,title,deadline:document.getElementById('goal-deadline-inp').value||null,notes:document.getElementById('goal-notes-inp').value.trim(),achieved:false,achievedDate:null});
-  saveApp();closeAddGoal();renderGoals();renderHome();
+  const base={id:Date.now(),type:selectedGoalType,pillar:selectedPillar,title,notes:document.getElementById('goal-notes-inp').value.trim()};
+  if(selectedGoalType==='hito'){Object.assign(base,{deadline:document.getElementById('goal-deadline-inp').value||null,achieved:false,achievedDate:null});}
+  else if(selectedGoalType==='habito'){if(!selectedFreq){alert('Selecciona las veces por semana');return;}Object.assign(base,{targetFreq:selectedFreq,startDate:document.getElementById('goal-start-inp').value,endDate:document.getElementById('goal-end-inp').value,checkins:[]});}
+  else if(selectedGoalType==='mejora'){const shot=document.getElementById('goal-shot-sel').value;if(!shot){alert('Selecciona el golpe o métrica');return;}if(!selectedRating){alert('Selecciona el objetivo');return;}Object.assign(base,{linkedShot:shot,targetRating:selectedRating});}
+  app.goals.unshift(base);
+  saveApp();closeAddGoal();renderGoals();renderHome();renderHomeHabitWidget();
 }
 function toggleGoal(id){
   const g=(app.goals||[]).find(x=>x.id===id);if(!g)return;
@@ -2133,7 +2278,7 @@ function toggleGoal(id){
 function deleteGoal(id){
   if(!confirm('¿Eliminar este objetivo?'))return;
   app.goals=(app.goals||[]).filter(x=>x.id!==id);
-  saveApp();renderGoals();renderHome();
+  saveApp();renderGoals();renderHome();renderHomeHabitWidget();
 }
 
 // ═══════════════════════════════════════════════════════════════
