@@ -1200,7 +1200,7 @@ function startMatch(){
 }
 function emptyShots(){
   const b=()=>({winners:{remate:0,bandeja:0,vibora:0,volea_der:0,volea_rev:0,fondo_der:0,fondo_rev:0,globo:0},enf:{remate:0,bandeja:0,vibora:0,volea_der:0,volea_rev:0,fondo_der:0,fondo_rev:0,globo:0},ef:0});
-  return{my:b(),ri:b()};
+  return{my:b(),ri:b(),player:b(),partner:b(),rival1:b(),rival2:b()};
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1358,12 +1358,16 @@ function selOutcome(o){
 }
 function selShot(s){pendingShot.shot=s;document.querySelectorAll('.st-btn').forEach(b=>b.classList.remove('sel'));document.querySelector(`.st-btn[data-shot="${s}"]`).classList.add('sel');startShotTimer();}
 function saveShot(){
-  const{team,outcome,shot}=pendingShot;if(!team||!outcome){closeShot();return;}
+  const{team,outcome,shot,pointPlayer}=pendingShot;if(!team||!outcome){closeShot();return;}
   const m=app.match;if(!m){closeShot();return;}
-  const s=m.shots[team];
-  if(outcome==='win'){const k=shot||'remate';s.winners[k]=(s.winners[k]||0)+1;}
-  else if(outcome==='enf'){const k=shot||'fondo_der';s.enf[k]=(s.enf[k]||0)+1;}
-  else if(outcome==='ef')s.ef=(s.ef||0)+1;
+  const recordTo=(obj)=>{
+    if(!obj)return;
+    if(outcome==='win'){const k=shot||'remate';obj.winners[k]=(obj.winners[k]||0)+1;}
+    else if(outcome==='enf'){const k=shot||'fondo_der';obj.enf[k]=(obj.enf[k]||0)+1;}
+    else if(outcome==='ef')obj.ef=(obj.ef||0)+1;
+  };
+  recordTo(m.shots[team]);
+  if(pointPlayer&&m.shots[pointPlayer])recordTo(m.shots[pointPlayer]);
   renderShotBadges();closeShot();
 }
 
@@ -1385,7 +1389,7 @@ function renderEndScreen(){
   const myLabel=m.myPartner?`${esc(m.myName)} / ${esc(m.myPartner)}`:esc(m.myName);
   const riLabel=m.rival2?`${esc(m.rival1)} / ${esc(m.rival2)}`:esc(m.rival1);
   document.getElementById('shot-summary').style.display='block';
-  document.getElementById('shot-summary').innerHTML=`<div class="shot-sum-title">Análisis del partido</div>${buildChartsSection({my,ri},myLabel,riLabel,'ec')}${buildPlayerShotBlock(my,'Mi equipo · '+myLabel,'var(--my)')}${buildPlayerShotBlock(ri,'Rivales · '+riLabel,'var(--rival)')}`;
+  document.getElementById('shot-summary').innerHTML=`<div class="shot-sum-title">Análisis del partido</div>${buildChartsSection({my,ri},myLabel,riLabel,'ec')}${buildSideStats(m.shots,'MI EQUIPO',esc(m.myName),esc(m.myPartner),'player','partner','var(--my)')}${buildSideStats(m.shots,'RIVALES',esc(m.rival1),esc(m.rival2),'rival1','rival2','var(--rival)')}`;
   requestAnimationFrame(()=>renderMatchCharts({my,ri},myLabel,riLabel,'ec'));
 }
 
@@ -1406,6 +1410,19 @@ function discardMatch(){app.match=null;stateStack=[];document.getElementById('ma
 // MATCH HISTORY
 // ═══════════════════════════════════════════════════════════════
 function normShots(s){const e=()=>({remate:0,bandeja:0,vibora:0,volea_der:0,volea_rev:0,fondo_der:0,fondo_rev:0,globo:0});return{winners:Object.assign(e(),s&&s.winners||{}),enf:Object.assign(e(),s&&s.enf||{}),ef:(s&&s.ef)||0};}
+function hasShotData(s){if(!s)return false;const n=normShots(s);return Object.values(n.winners).some(v=>v>0)||Object.values(n.enf).some(v=>v>0)||n.ef>0;}
+function sectionDivider(label,colorVar){return`<div style="display:flex;align-items:center;gap:8px;margin:14px 0 8px"><div style="flex:1;height:1px;background:var(--border)"></div><div style="font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${colorVar};white-space:nowrap">${label}</div><div style="flex:1;height:1px;background:var(--border)"></div></div>`;}
+function buildSideStats(shots, totalLabel, p1Name, p2Name, p1Key, p2Key, colorVar){
+  const hasTotals=hasShotData(shots[p1Key==='player'?'my':'ri']);
+  const hasP1=hasShotData(shots[p1Key]);
+  const hasP2=p2Name&&hasShotData(shots[p2Key]);
+  if(!hasTotals&&!hasP1&&!hasP2)return'';
+  let h=sectionDivider(totalLabel,colorVar);
+  if(hasTotals)h+=buildPlayerShotBlock(shots[p1Key==='player'?'my':'ri'],'Total pareja',colorVar);
+  if(hasP1)h+=buildPlayerShotBlock(shots[p1Key],p1Name,colorVar);
+  if(hasP2)h+=buildPlayerShotBlock(shots[p2Key],p2Name,colorVar);
+  return h;
+}
 function buildChartsSection(shots, myLabel, riLabel, prefix){
   const my=normShots(shots&&shots.my),ri=normShots(shots&&shots.ri);
   const tw=Object.values(my.winners).reduce((a,b)=>a+b,0);
@@ -1554,8 +1571,8 @@ function viewMatchDetail(idx){
       shotHtml=`<div style="margin:0 16px 12px">
         <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Análisis del partido</div>
         ${buildChartsSection(shots,myLabel,riLabel,'hd')}
-        ${buildPlayerShotBlock(shots.my,'Mi equipo · '+myLabel,'var(--my)')}
-        ${buildPlayerShotBlock(shots.ri,'Rivales · '+riLabel,'var(--rival)')}
+        ${buildSideStats(shots,'MI EQUIPO',esc(m.myName),esc(m.myPartner),'player','partner','var(--my)')}
+        ${buildSideStats(shots,'RIVALES',esc(m.rival1),esc(m.rival2),'rival1','rival2','var(--rival)')}
       </div>`;
     }catch(e){console.error('shotHtml error',e);}
   }
