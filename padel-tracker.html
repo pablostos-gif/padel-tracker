@@ -769,6 +769,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <button class="stats-tab" onclick="switchStatsTab('tecnica',this)">Técnica</button>
     <button class="stats-tab" onclick="switchStatsTab('fisico',this)">Físico</button>
     <button class="stats-tab" onclick="switchStatsTab('rivales',this)">Rivales</button>
+    <button class="stats-tab" onclick="switchStatsTab('pareja',this)">Pareja</button>
   </div>
   <div id="panel-partidos" class="stats-panel active">
     <div class="filter-tabs">
@@ -884,6 +885,36 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     </div>
   </div>
 </div>
+
+  <div id="panel-pareja" class="stats-panel">
+    <div style="padding:4px 0 12px">
+      <select id="pareja-selector" class="goal-inp" onchange="renderParejaDetail()" style="font-size:14px">
+        <option value="">— Seleccionar pareja —</option>
+      </select>
+    </div>
+    <!-- ranking global -->
+    <div id="pareja-ranking"></div>
+    <div id="pareja-detail-empty" style="display:none;text-align:center;padding:32px 0;color:var(--muted)">
+      <div style="font-size:40px;margin-bottom:12px">🤝</div>
+      <div style="font-size:14px">Selecciona una pareja para ver el detalle</div>
+    </div>
+    <div id="pareja-detail-content" style="display:none;flex-direction:column;gap:14px">
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-val kpi-green" id="pj-wins">—</div><div class="kpi-label">Victorias</div></div>
+        <div class="kpi-card"><div class="kpi-val kpi-red"   id="pj-losses">—</div><div class="kpi-label">Derrotas</div></div>
+        <div class="kpi-card"><div class="kpi-val kpi-yellow" id="pj-pct">—</div><div class="kpi-label">% victorias</div></div>
+        <div class="kpi-card"><div class="kpi-val kpi-muted" id="pj-total">—</div><div class="kpi-label">Partidos</div></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Ratio con esta pareja</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:center">
+          <div class="chart-wrap" style="height:130px"><canvas id="chart-pj-donut"></canvas></div>
+          <div id="pj-donut-legend" style="display:flex;flex-direction:column;gap:10px"></div>
+        </div>
+      </div>
+      <div class="chart-card"><div class="chart-title">Historial de partidos</div><div id="pj-match-list"></div></div>
+    </div>
+  </div>
 
 <!-- FITNESS TESTS -->
 <div id="fitness-screen" class="screen">
@@ -2119,7 +2150,7 @@ function renderTrainHistory(){
 // STATS
 // ═══════════════════════════════════════════════════════════════
 let activeStatsTab='partidos';
-function switchStatsTab(tab,el){activeStatsTab=tab;document.querySelectorAll('.stats-tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');document.querySelectorAll('.stats-panel').forEach(p=>p.classList.remove('active'));document.getElementById('panel-'+tab).classList.add('active');if(tab==='partidos')renderMatchStats();if(tab==='tecnica')renderTechStats();if(tab==='fisico')renderFisStats();if(tab==='rivales')renderRivalesTab();}
+function switchStatsTab(tab,el){activeStatsTab=tab;document.querySelectorAll('.stats-tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');document.querySelectorAll('.stats-panel').forEach(p=>p.classList.remove('active'));document.getElementById('panel-'+tab).classList.add('active');if(tab==='partidos')renderMatchStats();if(tab==='tecnica')renderTechStats();if(tab==='fisico')renderFisStats();if(tab==='rivales')renderRivalesTab();if(tab==='pareja')renderParejaTab();}
 function setPeriod(p,el){statsPeriod=p;document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderMatchStats();}
 function filterHistory(){if(statsPeriod==='all')return app.history;const now=new Date(),cutoff=new Date();if(statsPeriod==='year')cutoff.setFullYear(now.getFullYear(),0,1);if(statsPeriod==='6m')cutoff.setMonth(now.getMonth()-6);if(statsPeriod==='3m')cutoff.setMonth(now.getMonth()-3);if(statsPeriod==='month')cutoff.setDate(1);cutoff.setHours(0,0,0,0);return app.history.filter(m=>new Date(m.date+'T12:00:00')>=cutoff);}
 function renderStats(){const el=document.getElementById('stats-player-name');if(el)el.textContent=app.playerName||'—';renderMatchStats();}
@@ -2160,6 +2191,47 @@ function renderStreakBar(sorted){const r=sorted.slice(0,15),bar=document.getElem
 function renderRivals(data){const map={};data.forEach(m=>{const r=m.rival1||'Rival';if(!map[r])map[r]={wins:0,losses:0};if(m.isWin)map[r].wins++;else map[r].losses++;});const rivals=Object.entries(map).sort((a,b)=>(b[1].wins+b[1].losses)-(a[1].wins+a[1].losses));const el=document.getElementById('rivals-table');if(!rivals.length){el.innerHTML='<span style="font-size:13px;color:var(--muted)">Sin datos</span>';return;}el.innerHTML=rivals.map(([n,r])=>{const t=r.wins+r.losses,p=Math.round(r.wins/t*100);return`<div class="rival-row"><div class="rival-name">${esc(n)}</div><div class="rival-wins">${r.wins}V</div><div class="rival-losses">${r.losses}D</div><div class="rival-bar-wrap"><div class="rival-bar-fill" style="width:${p}%"></div></div><div class="rival-pct">${p}%</div></div>`;}).join('');}
 function renderShotDetailTable(agg,tw,te){const el=document.getElementById('shot-detail-table');if(!agg||(!tw&&!te)){el.innerHTML='<span style="font-size:13px;color:var(--muted)">Sin datos de golpes aún</span>';return;}const rows=SHOT_KEYS.filter(k=>agg.winners[k]>0||agg.enf[k]>0).sort((a,b)=>(agg.winners[b]+agg.enf[b])-(agg.winners[a]+agg.enf[a]));const r=k=>{const w=agg.winners[k],e=agg.enf[k],t=w+e;return t?Math.round(w/t*100):0;};el.innerHTML=`<table class="shot-stat-table"><thead><tr><th>Golpe</th><th class="td-win">W</th><th class="td-enf">ENF</th><th>W/(W+E)</th></tr></thead><tbody>${rows.map(k=>`<tr><td>${SHOT_LABELS[k]}</td><td class="td-win">${agg.winners[k]}</td><td class="td-enf">${agg.enf[k]}</td><td style="color:${r(k)>=50?'#3DDB82':'#FF5E3A'}">${r(k)}%</td></tr>`).join('')}</tbody></table>`;}
 
+function renderParejaTab(){
+  const data=(app.history||[]).filter(m=>(m.myPartner||'').trim());
+  const map={};
+  data.forEach(m=>{const p=(m.myPartner||'').trim();if(!p)return;if(!map[p])map[p]={wins:0,losses:0};if(m.isWin)map[p].wins++;else map[p].losses++;});
+  const partners=Object.entries(map).sort((a,b)=>(b[1].wins+b[1].losses)-(a[1].wins+a[1].losses));
+  const sel=document.getElementById('pareja-selector');
+  const prev=sel.value;
+  sel.innerHTML='<option value="">— Seleccionar pareja —</option>'+partners.map(([n])=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  if(prev&&map[prev])sel.value=prev;
+  // ranking global
+  const ranking=document.getElementById('pareja-ranking');
+  if(!partners.length){
+    ranking.innerHTML=`<div class="empty-state"><div class="empty-icon">🤝</div><p>Aún no hay partidos con pareja registrada.<br>Añade el nombre de tu compañero al crear un partido.</p></div>`;
+  } else {
+    ranking.innerHTML=`<div class="chart-card" style="margin-bottom:0"><div class="chart-title">Ranking de parejas</div>${partners.map(([n,r],i)=>{const t=r.wins+r.losses,p=Math.round(r.wins/t*100);const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';return`<div class="rival-row" style="cursor:pointer;padding:10px 0" onclick="document.getElementById('pareja-selector').value='${esc(n)}';renderParejaDetail()"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px">${medal}</span><div class="rival-name">${esc(n)}</div></div><div style="display:flex;align-items:center;gap:10px"><span style="font-size:12px;color:#3DDB82">${r.wins}V</span><span style="font-size:12px;color:#FF5E3A">${r.losses}D</span><div class="rival-bar-wrap"><div class="rival-bar-fill" style="width:${p}%"></div></div><div class="rival-pct">${p}%</div></div></div>`;}).join('')}</div>`;
+  }
+  renderParejaDetail();
+}
+function renderParejaDetail(){
+  const partner=document.getElementById('pareja-selector').value;
+  const empty=document.getElementById('pareja-detail-empty');
+  const content=document.getElementById('pareja-detail-content');
+  if(!partner){empty.style.display='block';content.style.display='none';return;}
+  empty.style.display='none';content.style.display='flex';
+  const matches=(app.history||[]).filter(m=>(m.myPartner||'').trim()===partner).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const wins=matches.filter(m=>m.isWin).length,losses=matches.length-wins,pct=matches.length?Math.round(wins/matches.length*100):0;
+  document.getElementById('pj-wins').textContent=wins;
+  document.getElementById('pj-losses').textContent=losses;
+  document.getElementById('pj-pct').textContent=pct+'%';
+  document.getElementById('pj-total').textContent=matches.length;
+  document.getElementById('pj-donut-legend').innerHTML=`<div class="donut-row"><span class="donut-dot" style="background:#3DDB82"></span><span>${wins} victorias (${pct}%)</span></div><div class="donut-row"><span class="donut-dot" style="background:#FF5E3A"></span><span>${losses} derrotas</span></div><div class="donut-row" style="margin-top:4px"><span style="font-size:11px;color:var(--muted)">${matches.length} partido${matches.length!==1?'s':''}</span></div>`;
+  mkChart('chart-pj-donut','doughnut',{labels:['V','D'],datasets:[{data:[wins,losses],backgroundColor:['rgba(61,219,130,0.85)','rgba(255,94,58,0.7)'],borderWidth:0}]},{responsive:true,maintainAspectRatio:false,cutout:'68%',plugins:{legend:{display:false},tooltip:{...CD.tooltip}}});
+  document.getElementById('pj-match-list').innerHTML=matches.map(m=>{
+    const rival=[m.rival1,m.rival2].filter(Boolean).join(' / ');
+    const sets=[[m.sets1,m.sets2],[m.sets3,m.sets4],[m.sets5,m.sets6]].filter(([a,b])=>a!=null&&b!=null&&(a+b)>0).map(([a,b])=>`<span style="font-size:12px;color:${a>b?'#3DDB82':'#FF5E3A'}">${a}</span><span style="font-size:11px;color:var(--muted)">-</span><span style="font-size:12px;color:${b>a?'#3DDB82':'#FF5E3A'}">${b}</span>`).join('<span style="font-size:11px;color:var(--border);margin:0 4px">/</span>');
+    return`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+      <div><div style="font-size:12px;color:var(--muted)">${fmtDate(m.date)}</div>${rival?`<div style="font-size:11px;color:var(--muted);margin-top:2px">vs ${esc(rival)}</div>`:''}</div>
+      <div style="display:flex;align-items:center;gap:10px">${sets?`<div style="display:flex;align-items:center;gap:3px">${sets}</div>`:''}<span style="font-size:11px;font-weight:700;letter-spacing:1px;padding:3px 8px;border-radius:8px;background:${m.isWin?'rgba(61,219,130,0.15)':'rgba(255,94,58,0.15)'};color:${m.isWin?'#3DDB82':'#FF5E3A'}">${m.isWin?'V':'D'}</span></div>
+    </div>`;
+  }).join('');
+}
 function renderRivalesTab(){
   const data=app.history||[];
   const rivalSet=new Set(data.map(m=>(m.rival1||'').trim()).filter(Boolean));
