@@ -450,7 +450,6 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <div class="home-section-label">Análisis y exportar</div>
     <button class="btn btn-accent"     onclick="showScreen('stats-screen')">◈ &nbsp;Evolución y estadísticas</button>
     <button class="btn btn-save"       onclick="triggerDownload()">💾 &nbsp;Guardar app con mis datos</button>
-    <button class="btn btn-blue"       onclick="copyCoachLink()">🔗 &nbsp;Compartir con entrenador/padres</button>
     <button class="btn btn-ghost"      onclick="changePlayerName()">✎ &nbsp;Cambiar nombre del jugador</button>
   </div>
   <p class="home-footer">Hecho con ❤️ para tu campeón</p>
@@ -681,6 +680,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   <div class="screen-header">
     <button class="back-btn" onclick="showScreen('history-screen')">←</button>
     <h2>Detalle del Partido</h2>
+    <button class="back-btn" style="color:var(--blue);font-size:18px" onclick="shareMatch(currentMatchDetailIdx)" title="Compartir">🔗</button>
     <button class="back-btn" style="color:var(--my);font-size:16px" onclick="printMatch(currentMatchDetailIdx)" title="Descargar PDF">📄</button>
     <button class="back-btn" style="color:var(--my);font-size:18px" onclick="editMatch(currentMatchDetailIdx)" title="Editar">✎</button>
     <button class="back-btn" style="color:var(--rival);font-size:18px" onclick="deleteMatch(currentMatchDetailIdx)" title="Eliminar">🗑</button>
@@ -2262,7 +2262,7 @@ function renderTrainHistory(){
     const dur=t.duration?`${t.duration}min · `:'';
     const coachStr=t.coach?`<span style="font-size:11px;color:var(--muted)">🎓 ${esc(t.coach)}</span>`:'';
     const sr=`<div class="train-state-row"><div>⚡${'●'.repeat(t.energia||0)}</div><div>😊${'●'.repeat(t.humor||0)}</div><div>🔥${'●'.repeat(t.intensidad||0)}</div></div>`;
-    return`<div class="hist-card ${isTec?'train-card':'train-card fis'}" style="cursor:pointer" onclick="editTraining(${t.id})"><div class="hist-top"><div><div class="hist-date">${dur}${fmtDate(t.date)}</div>${coachStr}</div><span class="hist-badge ${isTec?'badge-train':'badge-train-fis'}">${t.type==='both'?'TÉCNICO + FÍSICO':isTec?'TÉCNICO':'FÍSICO'}</span><div style="display:flex;align-items:center;gap:4px"><div onclick="event.stopPropagation();printTraining(${t.id})" style="cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--my);font-size:15px;opacity:0.7" title="PDF">📄</div><div onclick="event.stopPropagation();deleteTraining(${t.id})" style="cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--rival);font-size:18px;opacity:0.6">✕</div></div></div>${shots.length?`<div class="train-shots-row">${sc}${shots.length>5?`<span style="font-size:11px;color:var(--muted)">+${shots.length-5} más</span>`:''}</div>`:''}${t.exercises&&t.exercises.length?`<div style="font-size:12px;color:var(--muted);margin-top:6px">${t.exercises.slice(0,3).map(e=>esc(e)).join(' · ')}</div>`:''}${sr}${t.notes?`<div class="hist-notes">${esc(t.notes)}</div>`:''}</div>`;
+    return`<div class="hist-card ${isTec?'train-card':'train-card fis'}" style="cursor:pointer" onclick="editTraining(${t.id})"><div class="hist-top"><div><div class="hist-date">${dur}${fmtDate(t.date)}</div>${coachStr}</div><span class="hist-badge ${isTec?'badge-train':'badge-train-fis'}">${t.type==='both'?'TÉCNICO + FÍSICO':isTec?'TÉCNICO':'FÍSICO'}</span><div style="display:flex;align-items:center;gap:4px"><div onclick="event.stopPropagation();shareTraining(${t.id})" style="cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--blue);font-size:15px;opacity:0.8" title="Compartir">🔗</div><div onclick="event.stopPropagation();printTraining(${t.id})" style="cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--my);font-size:15px;opacity:0.7" title="PDF">📄</div><div onclick="event.stopPropagation();deleteTraining(${t.id})" style="cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--rival);font-size:18px;opacity:0.6">✕</div></div></div>${shots.length?`<div class="train-shots-row">${sc}${shots.length>5?`<span style="font-size:11px;color:var(--muted)">+${shots.length-5} más</span>`:''}</div>`:''}${t.exercises&&t.exercises.length?`<div style="font-size:12px;color:var(--muted);margin-top:6px">${t.exercises.slice(0,3).map(e=>esc(e)).join(' · ')}</div>`:''}${sr}${t.notes?`<div class="hist-notes">${esc(t.notes)}</div>`:''}</div>`;
   }).join('');
 }
 
@@ -2493,15 +2493,21 @@ function esc(s){if(!s)return'';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;
 // ═══════════════════════════════════════════════════════════════
 // COACH / PARENT VIEW
 // ═══════════════════════════════════════════════════════════════
-const IS_COACH_VIEW=new URLSearchParams(window.location.search).has('coach');
+const _coachParam=new URLSearchParams(window.location.search).get('coach');
+const IS_COACH_VIEW=_coachParam!==null;
+const COACH_TYPE=_coachParam&&_coachParam.startsWith('match_')?'match':_coachParam&&_coachParam.startsWith('train_')?'train':'summary';
+const COACH_ID=_coachParam?_coachParam.replace(/^(match_|train_)/,''):null;
 
-function copyCoachLink(){
-  const url=window.location.origin+window.location.pathname+'?coach';
-  if(navigator.clipboard){
-    navigator.clipboard.writeText(url).then(()=>showToast('🔗 Enlace copiado al portapapeles'));
-  } else {
-    prompt('Copia este enlace:',url);
-  }
+function shareMatch(idx){
+  const m=(app.history||[])[idx];if(!m)return;
+  const url=window.location.origin+window.location.pathname+'?coach=match_'+m.id;
+  if(navigator.clipboard){navigator.clipboard.writeText(url).then(()=>showToast('🔗 Enlace del partido copiado'));}
+  else{prompt('Copia este enlace:',url);}
+}
+function shareTraining(id){
+  const url=window.location.origin+window.location.pathname+'?coach=train_'+id;
+  if(navigator.clipboard){navigator.clipboard.writeText(url).then(()=>showToast('🔗 Enlace del entreno copiado'));}
+  else{prompt('Copia este enlace:',url);}
 }
 
 function showToast(msg){
@@ -2512,9 +2518,23 @@ function showToast(msg){
 }
 
 function renderCoachView(data){
-  // Hide normal app, show coach view
   document.querySelectorAll('.screen').forEach(s=>s.style.display='none');
   document.getElementById('coach-view').style.display='block';
+  app.history=data.history||[];app.trainings=data.trainings||[];app.fitnessTests=data.fitnessTests||[];app.goals=data.goals||[];app.playerName=data.playerName||'';
+
+  if(COACH_TYPE==='match'){
+    const m=(data.history||[]).find(x=>String(x.id)===String(COACH_ID));
+    if(!m){document.getElementById('cv-subtitle').textContent='Partido no encontrado.';return;}
+    document.title='Partido · '+data.playerName;
+    _renderCoachMatch(m,data.playerName);return;
+  }
+  if(COACH_TYPE==='train'){
+    const t=(data.trainings||[]).find(x=>String(x.id)===String(COACH_ID));
+    if(!t){document.getElementById('cv-subtitle').textContent='Entrenamiento no encontrado.';return;}
+    document.title='Entrenamiento · '+data.playerName;
+    _renderCoachTraining(t,data.playerName);return;
+  }
+  // summary fallback
   document.title='Informe · '+data.playerName;
 
   const h=data.history||[],tr=data.trainings||[],ft=data.fitnessTests||[],gl=data.goals||[];
@@ -2586,6 +2606,91 @@ function renderCoachView(data){
   if(activeGoals.length){
     document.getElementById('cv-goals').innerHTML=`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border)"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Objetivos activos</div>${activeGoals.map(g=>`<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)"><div style="font-size:12px;font-weight:600">${g.title}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${g.type==='hito'?'🏆 Hito':g.type==='habito'?'🔁 Hábito':'🎾 Técnica'} · ${g.pillar||''}</div></div>`).join('')}</div>`;
   }
+}
+
+function _renderCoachMatch(m,playerName){
+  const rival=[m.rival1,m.rival2].filter(Boolean).join(' / ');
+  const partner=m.myPartner?` · con ${m.myPartner}`:'';
+  document.getElementById('cv-subtitle').textContent=`${playerName}${partner} vs ${rival||'Rival'} · ${fmtDate(m.date)}`;
+  const sets=[[m.sets1,m.sets2],[m.sets3,m.sets4],[m.sets5,m.sets6]].filter(([a,b])=>a!=null&&b!=null&&(a+b)>0);
+  const setsHtml=sets.map(([a,b])=>`<div style="background:var(--card2);border-radius:10px;padding:10px 18px;text-align:center"><span style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:${a>b?'#3DDB82':'#FF5E3A'}">${a}</span><span style="color:var(--muted);margin:0 6px">-</span><span style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:${b>a?'#3DDB82':'#FF5E3A'}">${b}</span></div>`).join('');
+  document.getElementById('cv-elo').innerHTML=`
+    <div style="background:var(--card);border-radius:16px;padding:16px;border:1px solid var(--border);text-align:center;margin-bottom:12px">
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Resultado</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:40px;color:${m.isWin?'#3DDB82':'#FF5E3A'};margin-bottom:10px">${m.isWin?'VICTORIA':'DERROTA'}</div>
+      <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap">${setsHtml}</div>
+      ${m.surface?`<div style="font-size:12px;color:var(--muted);margin-top:10px">${m.surface}</div>`:''}
+    </div>`;
+  const shots=m.shots?(hasShotData(m.shots.player)?m.shots.player:m.shots.my):null;
+  let shotsHtml='';
+  if(shots){
+    const tw=Object.values(shots.winners).reduce((a,b)=>a+b,0);
+    const te=Object.values(shots.enf).reduce((a,b)=>a+b,0);
+    const topW=SHOT_KEYS.filter(k=>shots.winners[k]>0).sort((a,b)=>shots.winners[b]-shots.winners[a]).slice(0,4);
+    const topE=SHOT_KEYS.filter(k=>shots.enf[k]>0).sort((a,b)=>shots.enf[b]-shots.enf[a]).slice(0,4);
+    shotsHtml=`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);margin-bottom:12px">
+      <div style="display:flex;gap:12px;margin-bottom:12px;text-align:center">
+        <div style="flex:1;background:rgba(61,219,130,0.08);border-radius:10px;padding:10px"><div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:#3DDB82">${tw}</div><div style="font-size:10px;color:var(--muted)">Winners</div></div>
+        <div style="flex:1;background:rgba(255,94,58,0.08);border-radius:10px;padding:10px"><div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:#FF5E3A">${te}</div><div style="font-size:10px;color:var(--muted)">Err. No Forz.</div></div>
+        <div style="flex:1;background:rgba(240,220,80,0.08);border-radius:10px;padding:10px"><div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--yellow)">${shots.ef||0}</div><div style="font-size:10px;color:var(--muted)">Err. Forz.</div></div>
+      </div>
+      ${topW.length?`<div style="margin-bottom:10px"><div style="font-size:11px;color:#3DDB82;font-weight:700;margin-bottom:6px">✅ Winners</div>${topW.map(k=>`<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04)"><span style="font-size:12px">${SHOT_LABELS[k]}</span><span style="font-weight:700;color:#3DDB82">${shots.winners[k]}</span></div>`).join('')}</div>`:''}
+      ${topE.length?`<div><div style="font-size:11px;color:#FF5E3A;font-weight:700;margin-bottom:6px">⚠️ Errores no forzados</div>${topE.map(k=>`<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04)"><span style="font-size:12px">${SHOT_LABELS[k]}</span><span style="font-weight:700;color:#FF5E3A">${shots.enf[k]}</span></div>`).join('')}</div>`:''}
+    </div>`;
+  }
+  document.getElementById('cv-kpis').innerHTML=shotsHtml;
+  const notesHtml=(m.notes||m.tactica||m.mejora)?`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);display:flex;flex-direction:column;gap:12px">
+    ${m.notes?`<div><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">📝 Notas</div><div style="font-size:13px;line-height:1.6">${esc(m.notes)}</div></div>`:''}
+    ${m.tactica?`<div style="${m.notes?'border-top:1px solid var(--border);padding-top:10px':''}"><div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">🎯 Táctica utilizada</div><div style="font-size:13px;line-height:1.6">${esc(m.tactica)}</div></div>`:''}
+    ${m.mejora?`<div style="${m.notes||m.tactica?'border-top:1px solid var(--border);padding-top:10px':''}"><div style="font-size:11px;font-weight:700;color:var(--yellow);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">🔄 ¿Qué cambiaríamos?</div><div style="font-size:13px;line-height:1.6">${esc(m.mejora)}</div></div>`:''}
+  </div>`:'';
+  document.getElementById('cv-recent').innerHTML=notesHtml;
+  document.getElementById('cv-shots').innerHTML='';
+  document.getElementById('cv-fitness').innerHTML='';
+  document.getElementById('cv-goals').innerHTML='';
+}
+
+function _renderCoachTraining(t,playerName){
+  const isTec=t.type==='tec'||t.type==='both';
+  const isFis=t.type==='fis'||t.type==='both';
+  document.getElementById('cv-subtitle').textContent=`${playerName} · Entrenamiento ${fmtDate(t.date)}${t.coach?' · 🎓 '+t.coach:''}`;
+  document.getElementById('cv-elo').innerHTML=`
+    <div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;color:${isTec?'var(--purple)':'var(--blue)'}">${t.type==='both'?'TÉCNICO + FÍSICO':isTec?'TÉCNICO':'FÍSICO'}</span>
+        ${t.duration?`<span style="font-size:13px;color:var(--muted)">${t.duration} min</span>`:''}
+      </div>
+      <div style="display:flex;gap:16px">
+        ${t.energia?`<div style="text-align:center"><div style="font-size:18px">${'⚡'.repeat(t.energia)}</div><div style="font-size:10px;color:var(--muted)">Energía</div></div>`:''}
+        ${t.humor?`<div style="text-align:center"><div style="font-size:18px">${'😊'.repeat(t.humor)}</div><div style="font-size:10px;color:var(--muted)">Humor</div></div>`:''}
+        ${t.intensidad?`<div style="text-align:center"><div style="font-size:18px">${'🔥'.repeat(t.intensidad)}</div><div style="font-size:10px;color:var(--muted)">Intensidad</div></div>`:''}
+      </div>
+    </div>`;
+  let html='';
+  if(isTec&&t.shotQuality&&Object.keys(t.shotQuality).length){
+    const shots=Object.entries(t.shotQuality).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+    html+=`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">🎾 Golpes técnicos</div>
+      ${shots.map(([k,v])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)"><span style="font-size:13px">${ALL_SHOT_LABELS[k]||k}</span><div style="display:flex;gap:2px">${'⭐'.repeat(v)}</div></div>`).join('')}
+    </div>`;
+  }
+  if(t.exercises&&t.exercises.length){
+    html+=`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">💪 Ejercicios físicos</div>
+      ${t.exercises.map(e=>`<div style="font-size:13px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04)">· ${esc(e)}</div>`).join('')}
+    </div>`;
+  }
+  if(t.notes){
+    html+=`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border)">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">📝 Notas</div>
+      <div style="font-size:13px;line-height:1.6">${esc(t.notes)}</div>
+    </div>`;
+  }
+  document.getElementById('cv-kpis').innerHTML=html;
+  document.getElementById('cv-recent').innerHTML='';
+  document.getElementById('cv-shots').innerHTML='';
+  document.getElementById('cv-fitness').innerHTML='';
+  document.getElementById('cv-goals').innerHTML='';
 }
 
 // initFirebase ya hace loadApp+renderHome internamente
