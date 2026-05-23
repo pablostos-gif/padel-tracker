@@ -3149,14 +3149,73 @@ function printMatch(idx){
   const mn=[m.myName,m.myPartner].filter(Boolean).join(' / '),rn=[m.rival1,m.rival2].filter(Boolean).join(' / ');
   const mySets=m.sets.filter(s=>s.my>s.ri).length,riSets=m.sets.filter(s=>s.ri>s.my).length;
   const score=m.sets.map(s=>`${s.my}-${s.ri}`).join('  |  ');
-  let shotSection='';
+
+  // Helper: shot block for one player/team (print-safe, no CSS vars)
+  const pdfShotBlock=(rawShots,label,color)=>{
+    if(!hasShotData(rawShots))return'';
+    const s=normShots(rawShots);
+    const w=Object.values(s.winners).reduce((a,b)=>a+b,0);
+    const e=Object.values(s.enf).reduce((a,b)=>a+b,0);
+    const rows=SHOT_KEYS.filter(k=>s.winners[k]>0||s.enf[k]>0).map(k=>{
+      const wv=s.winners[k]||0,ev=s.enf[k]||0,t=wv+ev,pct=t?Math.round(wv/t*100):0;
+      return`<tr style="border-bottom:1px solid #eee"><td style="font-size:11px;color:#333;padding:3px 0">${SHOT_LABELS[k]}</td><td style="font-size:11px;font-weight:700;color:#1a9e55;text-align:right;padding:3px 6px">${wv}</td><td style="font-size:11px;font-weight:700;color:#d94520;text-align:right;padding:3px 6px">${ev}</td><td style="font-size:11px;font-weight:700;text-align:right;color:${pct>=50?'#1a9e55':'#d94520'}">${t?pct+'%':'—'}</td></tr>`;
+    }).join('');
+    return`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-size:11px;font-weight:700;color:${color}">${label}</span><span style="font-size:11px;color:#555">${w}W &nbsp;${e}ENF &nbsp;${s.ef}EF</span></div>${rows?`<table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid #ddd"><th style="font-size:10px;color:#888;font-weight:400;text-align:left;padding:2px 0">Golpe</th><th style="font-size:10px;color:#1a9e55;font-weight:700;text-align:right;padding:2px 6px">W</th><th style="font-size:10px;color:#d94520;font-weight:700;text-align:right;padding:2px 6px">ENF</th><th style="font-size:10px;color:#888;font-weight:400;text-align:right">W/(W+E)</th></tr></thead><tbody>${rows}</tbody></table>`:''}</div>`;
+  };
+
+  let analysisHtml='';
   if(m.shots){
-    const src=hasShotData(m.shots.player)?m.shots.player:m.shots.my;
-    const tw=SHOT_KEYS.reduce((a,k)=>a+(src.winners[k]||0),0),te=SHOT_KEYS.reduce((a,k)=>a+(src.enf[k]||0),0),ef=src.ef||0,gt=tw+te+ef||1;
-    const rows=SHOT_KEYS.filter(k=>(src.winners[k]||0)+(src.enf[k]||0)>0).sort((a,b)=>(src.winners[b]||0)+(src.enf[b]||0)-(src.winners[a]||0)-(src.enf[a]||0)).map(k=>{const w=src.winners[k]||0,e=src.enf[k]||0,t=w+e,pct=t?Math.round(w/t*100):0;return`<tr><td>${SHOT_LABELS[k]}</td><td style="text-align:right;color:#1a9e55">${w}</td><td style="text-align:right;color:#d94520">${e}</td><td style="text-align:right;font-weight:700;color:${pct>=50?'#1a9e55':'#d94520'}">${pct}%</td></tr>`;}).join('');
-    shotSection=`<div class="pv-section"><div class="pv-section-title">Golpes · ${esc(m.myName)}</div><div class="pv-coef-row"><div class="pv-coef"><div class="pv-coef-val" style="color:#1a9e55">${tw}</div><div class="pv-coef-label">Winners</div></div><div class="pv-coef"><div class="pv-coef-val" style="color:#d94520">${te}</div><div class="pv-coef-label">Errores</div></div><div class="pv-coef"><div class="pv-coef-val" style="color:#a07800">${ef}</div><div class="pv-coef-label">EF rival</div></div><div class="pv-coef"><div class="pv-coef-val">${tw?Math.round(tw/gt*100)+'%':'—'}</div><div class="pv-coef-label">% W/(W+E)</div></div></div>${rows?`<table class="pv-shot-table"><thead><tr><th>Golpe</th><th style="text-align:right">W</th><th style="text-align:right">ENF</th><th style="text-align:right">W/(W+E)</th></tr></thead><tbody>${rows}</tbody></table>`:''}</div>`;
+    const my=normShots(m.shots.my),ri=normShots(m.shots.ri);
+    const tw=Object.values(my.winners).reduce((a,b)=>a+b,0),te=Object.values(my.enf).reduce((a,b)=>a+b,0);
+    const rw=Object.values(ri.winners).reduce((a,b)=>a+b,0),re=Object.values(ri.enf).reduce((a,b)=>a+b,0);
+    if(tw+te+my.ef+rw+re+ri.ef>0){
+      const myEff=Math.round(tw/(tw+te+my.ef||1)*100),riEff=Math.round(rw/(rw+re+ri.ef||1)*100);
+      const domW=tw+rw?Math.round(tw/(tw+rw)*100):50;
+      const maxV=Math.max(tw,rw,te,re,my.ef,ri.ef,1);
+      const barRow=(label,mv,rv)=>`<tr><td style="font-size:11px;color:#555;padding:4px 0;width:80px">${label}</td><td style="padding:4px 8px"><div style="height:9px;background:#f0f0f0;border-radius:4px;overflow:hidden"><div style="height:100%;width:${Math.round(mv/maxV*100)}%;background:#1a9e55;border-radius:4px"></div></div></td><td style="font-size:11px;font-weight:700;color:#1a9e55;text-align:right;padding:4px 4px;width:28px">${mv}</td><td style="padding:4px 8px"><div style="height:9px;background:#f0f0f0;border-radius:4px;overflow:hidden"><div style="height:100%;width:${Math.round(rv/maxV*100)}%;background:#d94520;border-radius:4px"></div></div></td><td style="font-size:11px;font-weight:700;color:#d94520;text-align:right;padding:4px 4px;width:28px">${rv}</td></tr>`;
+
+      analysisHtml+=`<div class="pv-section"><div class="pv-section-title">Análisis del Partido</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+          <div style="background:#f0faf5;border:1px solid #b2e0cc;border-radius:12px;padding:12px;text-align:center">
+            <div style="font-size:9px;font-weight:700;color:#1a9e55;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(mn)}</div>
+            <div style="font-size:36px;font-weight:900;color:#1a9e55;line-height:1">${tw}</div>
+            <div style="font-size:9px;color:#888;letter-spacing:1px;margin-bottom:4px">WINNERS</div>
+            <div style="font-size:11px;color:#555">${te} ENF &nbsp;|&nbsp; ${my.ef} EF</div>
+            <div style="margin-top:6px;font-size:11px;color:#444">Eficiencia <strong style="color:${myEff>=50?'#1a9e55':'#d94520'}">${myEff}%</strong></div>
+          </div>
+          <div style="background:#fdf2f0;border:1px solid #f0c0b0;border-radius:12px;padding:12px;text-align:center">
+            <div style="font-size:9px;font-weight:700;color:#d94520;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(rn)}</div>
+            <div style="font-size:36px;font-weight:900;color:#d94520;line-height:1">${rw}</div>
+            <div style="font-size:9px;color:#888;letter-spacing:1px;margin-bottom:4px">WINNERS</div>
+            <div style="font-size:11px;color:#555">${re} ENF &nbsp;|&nbsp; ${ri.ef} EF</div>
+            <div style="margin-top:6px;font-size:11px;color:#444">Eficiencia <strong style="color:${riEff>=50?'#1a9e55':'#d94520'}">${riEff}%</strong></div>
+          </div>
+        </div>
+        ${tw+rw>0?`<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px"><span style="color:#1a9e55;font-weight:600">${tw} W</span><span style="color:#888;letter-spacing:1px;text-transform:uppercase;font-size:9px">Dominio Winners</span><span style="color:#d94520;font-weight:600">${rw} W</span></div><div style="height:10px;border-radius:5px;background:rgba(217,69,32,0.25);overflow:hidden"><div style="height:100%;border-radius:5px;background:#1a9e55;width:${domW}%"></div></div><div style="display:flex;justify-content:space-between;font-size:9px;color:#888;margin-top:2px"><span>${domW}%</span><span>${100-domW}%</span></div></div>`:''}
+        <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:6px">Comparativa Total</div>
+          <table style="width:100%;border-collapse:collapse"><thead><tr><th style="width:80px"></th><th style="font-size:10px;color:#1a9e55;font-weight:700;text-align:center;padding:2px 8px" colspan="2">${esc(mn)}</th><th style="font-size:10px;color:#d94520;font-weight:700;text-align:center;padding:2px 8px" colspan="2">${esc(rn)}</th></tr></thead>
+          <tbody>${barRow('Winners',tw,rw)}${barRow('Error NFo',te,re)}${barRow('Error Fo',my.ef,ri.ef)}</tbody></table>
+        </div>
+      </div>`;
+
+      // Per-player shot breakdown
+      const myBlocks=[
+        hasShotData(m.shots.my)?pdfShotBlock(m.shots.my,m.myPartner?'Total MI EQUIPO':esc(m.myName),'#1a9e55'):'',
+        m.myPartner&&hasShotData(m.shots.player)?pdfShotBlock(m.shots.player,esc(m.myName),'#1a9e55'):'',
+        m.myPartner&&hasShotData(m.shots.partner)?pdfShotBlock(m.shots.partner,esc(m.myPartner),'#1a9e55'):'',
+      ].filter(Boolean).join('');
+      const riBlocks=[
+        hasShotData(m.shots.ri)?pdfShotBlock(m.shots.ri,m.rival2?'Total RIVALES':esc(m.rival1),'#d94520'):'',
+        m.rival2&&hasShotData(m.shots.rival1)?pdfShotBlock(m.shots.rival1,esc(m.rival1),'#d94520'):'',
+        m.rival2&&hasShotData(m.shots.rival2)?pdfShotBlock(m.shots.rival2,esc(m.rival2),'#d94520'):'',
+      ].filter(Boolean).join('');
+      if(myBlocks||riBlocks){
+        analysisHtml+=`<div class="pv-section"><div class="pv-section-title">Golpes Detallados</div>${myBlocks}${riBlocks?`<div style="border-top:1px solid #e5e5e5;margin:10px 0"></div>${riBlocks}`:''}</div>`;
+      }
+    }
   }
-  document.getElementById('pv-content').innerHTML=`<div class="pv-header"><div class="pv-header-top"><div><div class="pv-logo">Pádel Tracker</div><div class="pv-period">Informe de Partido</div></div><div class="pv-player"><div class="pv-player-name">${esc(m.myName)}</div><div class="pv-player-sub">${fmtDate(m.date)}${m.startTime?' · '+m.startTime+(m.endTime?' – '+m.endTime:''):''}</div></div></div></div><div style="padding:0 20px 20px"><div class="pv-section"><div class="pv-section-title">Resultado</div><div style="display:flex;justify-content:space-between;align-items:center;background:#f8f8f8;border-radius:10px;padding:14px 18px;border:1px solid #ebebeb"><div><div style="font-weight:700;font-size:15px">${esc(mn)}</div><div style="font-size:11px;color:#999;margin-top:2px">vs ${esc(rn)}</div>${m.tournament?`<div style="font-size:10px;color:#bbb;margin-top:2px">${esc(m.tournament)}</div>`:''}</div><div style="text-align:center"><div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px;color:${m.isWin?'#1a9e55':'#d94520'}">${mySets} – ${riSets}</div><div style="font-size:11px;color:#999">${score}</div></div><span class="${m.isWin?'pv-badge-w':'pv-badge-l'}" style="font-size:11px;padding:5px 14px">${m.isWin?'VICTORIA':'DERROTA'}</span></div></div>${shotSection}${m.notes?`<div class="pv-section"><div class="pv-section-title">Notas</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.notes)}</div></div>`:''}<div class="pv-footer">Generado con Pádel Tracker · ${new Date().toLocaleDateString('es-ES')}</div></div>`;
+
+  document.getElementById('pv-content').innerHTML=`<div class="pv-header"><div class="pv-header-top"><div><div class="pv-logo">Pádel Tracker</div><div class="pv-period">Informe de Partido</div></div><div class="pv-player"><div class="pv-player-name">${esc(m.myName)}</div><div class="pv-player-sub">${fmtDate(m.date)}${m.startTime?' · '+m.startTime+(m.endTime?' – '+m.endTime:''):''}</div></div></div></div><div style="padding:0 20px 20px"><div class="pv-section"><div class="pv-section-title">Resultado</div><div style="display:flex;justify-content:space-between;align-items:center;background:#f8f8f8;border-radius:10px;padding:14px 18px;border:1px solid #ebebeb"><div><div style="font-weight:700;font-size:15px">${esc(mn)}</div><div style="font-size:11px;color:#999;margin-top:2px">vs ${esc(rn)}</div>${m.tournament?`<div style="font-size:10px;color:#bbb;margin-top:2px">${esc(m.tournament)}</div>`:''}</div><div style="text-align:center"><div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px;color:${m.isWin?'#1a9e55':'#d94520'}">${mySets} – ${riSets}</div><div style="font-size:11px;color:#999">${score}</div></div><span class="${m.isWin?'pv-badge-w':'pv-badge-l'}" style="font-size:11px;padding:5px 14px">${m.isWin?'VICTORIA':'DERROTA'}</span></div></div>${analysisHtml}${m.notes||m.tactica||m.mejora?`<div class="pv-section"><div class="pv-section-title">Reflexión del Partido</div>${m.notes?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#888;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Notas</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.notes)}</div></div>`:''} ${m.tactica?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#2563eb;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Táctica utilizada</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.tactica)}</div></div>`:''} ${m.mejora?`<div><div style="font-size:10px;font-weight:700;color:#a07800;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">¿Qué cambiaríamos?</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.mejora)}</div></div>`:''}</div>`:''}    <div class="pv-footer">Generado con Pádel Tracker · ${new Date().toLocaleDateString('es-ES')}</div></div>`;
   window.print();
 }
 function printTraining(id){
