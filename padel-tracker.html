@@ -563,7 +563,9 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <div class="st-btn" data-shot="volea_rev" onclick="selShot('volea_rev')">Volea R</div>
     <div class="st-btn" data-shot="fondo_der" onclick="selShot('fondo_der')">Fondo D</div>
     <div class="st-btn" data-shot="fondo_rev" onclick="selShot('fondo_rev')">Fondo R</div>
-    <div class="st-btn" data-shot="globo"     onclick="selShot('globo')">Globo</div>
+    <div class="st-btn" data-shot="globo"        onclick="selShot('globo')">Globo</div>
+    <div class="st-btn" data-shot="bajada_pared" onclick="selShot('bajada_pared')">Bajada P</div>
+    <div class="st-btn" data-shot="saque"        onclick="selShot('saque')">Saque</div>
   </div>
   <div class="shot-sheet-actions">
     <button class="shot-save-btn" onclick="saveShot()">Guardar</button>
@@ -1290,9 +1292,9 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 // CONSTANTS
 // ═══════════════════════════════════════════════════════════════
 const DB_KEY='padel_tracker_v5';
-const SHOT_LABELS={remate:'Remate',bandeja:'Bandeja',vibora:'Víbora',volea_der:'Volea D',volea_rev:'Volea R',fondo_der:'Fondo D',fondo_rev:'Fondo R',globo:'Globo'};
+const SHOT_LABELS={remate:'Remate',bandeja:'Bandeja',vibora:'Víbora',volea_der:'Volea D',volea_rev:'Volea R',fondo_der:'Fondo D',fondo_rev:'Fondo R',globo:'Globo',bajada_pared:'Bajada P',saque:'Saque'};
 const SHOT_KEYS=Object.keys(SHOT_LABELS);
-const ALL_SHOT_LABELS={...SHOT_LABELS,saque:'Saque',resto:'Resto',contrapared:'Contrapared'};
+const ALL_SHOT_LABELS={...SHOT_LABELS,resto:'Resto',contrapared:'Contrapared'};
 const ALL_SHOT_KEYS=[...SHOT_KEYS,'saque','resto','contrapared'];
 const energiaColors=['#5A6A8A','#4A9EFF','#3DDB82','#3DDB82','#F0DC50'];
 const humorColors=['#5A6A8A','#FF5E3A','#4A9EFF','#B57BFF','#3DDB82'];
@@ -1894,7 +1896,7 @@ function discardMatch(){app.match=null;stateStack=[];document.getElementById('ma
 // ═══════════════════════════════════════════════════════════════
 // MATCH HISTORY
 // ═══════════════════════════════════════════════════════════════
-function normShots(s){const e=()=>({remate:0,bandeja:0,vibora:0,volea_der:0,volea_rev:0,fondo_der:0,fondo_rev:0,globo:0});return{winners:Object.assign(e(),s&&s.winners||{}),enf:Object.assign(e(),s&&s.enf||{}),ef:(s&&s.ef)||0};}
+function normShots(s){const e=()=>({remate:0,bandeja:0,vibora:0,volea_der:0,volea_rev:0,fondo_der:0,fondo_rev:0,globo:0,bajada_pared:0,saque:0});return{winners:Object.assign(e(),s&&s.winners||{}),enf:Object.assign(e(),s&&s.enf||{}),ef:(s&&s.ef)||0};}
 function hasShotData(s){if(!s)return false;const n=normShots(s);return Object.values(n.winners).some(v=>v>0)||Object.values(n.enf).some(v=>v>0)||n.ef>0;}
 function sectionDivider(label,colorVar){return`<div style="display:flex;align-items:center;gap:8px;margin:14px 0 8px"><div style="flex:1;height:1px;background:var(--border)"></div><div style="font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${colorVar};white-space:nowrap">${label}</div><div style="flex:1;height:1px;background:var(--border)"></div></div>`;}
 function buildSideStats(shots, totalLabel, p1Name, p2Name, p1Key, p2Key, colorVar){
