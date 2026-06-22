@@ -605,6 +605,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <h2>Historial</h2>
     <div id="hist-count" style="font-size:13px;color:var(--muted)"></div>
   </div>
+  <div id="match-month-tabs" style="display:flex;gap:6px;overflow-x:auto;padding:10px 16px 4px;scrollbar-width:none;-ms-overflow-style:none;flex-shrink:0"></div>
   <div id="history-list" class="history-list"></div>
 </div>
 
@@ -2142,11 +2143,26 @@ function viewMatchDetail(idx){
   if(shots) requestAnimationFrame(()=>renderMatchCharts(shots,myLabel,riLabel,'hd'));
 }
 
+let activeMatchMonth='all';
+function renderMatchMonthTabs(sorted){
+  const tabsEl=document.getElementById('match-month-tabs');
+  if(!tabsEl)return;
+  const months=[...new Set(sorted.map(m=>(m.date||'').slice(0,7)))].sort((a,b)=>b.localeCompare(a));
+  const MESES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const fmtMonth=m=>{const[y,mo]=m.split('-');return`${MESES[parseInt(mo)-1]} ${y}`;};
+  const tabStyle=(active)=>`cursor:pointer;white-space:nowrap;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;border:none;transition:background 0.15s;background:${active?'var(--accent)':'rgba(255,255,255,0.08)'};color:${active?'#000':'var(--muted)'};`;
+  tabsEl.innerHTML=`<button style="${tabStyle(activeMatchMonth==='all')}" onclick="setMatchMonth('all')">Todos</button>`
+    +months.map(m=>`<button style="${tabStyle(activeMatchMonth===m)}" onclick="setMatchMonth('${m}')">${fmtMonth(m)}</button>`).join('');
+}
+function setMatchMonth(m){activeMatchMonth=m;renderHistory();}
 function renderHistory(){
   const list=document.getElementById('history-list');
+  const sorted=[...app.history].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  renderMatchMonthTabs(sorted);
+  const filtered=activeMatchMonth==='all'?sorted:sorted.filter(m=>(m.date||'').startsWith(activeMatchMonth));
   document.getElementById('hist-count').textContent=app.history.length?`${app.history.length} partidos`:'';
-  if(!app.history.length){list.innerHTML=`<div class="empty-state"><div class="empty-icon">🎾</div><p>Todavía no hay partidos.<br>¡Empieza a registrar!</p></div>`;return;}
-  list.innerHTML=app.history.map(m=>{
+  if(!filtered.length){list.innerHTML=`<div class="empty-state"><div class="empty-icon">🎾</div><p>${activeMatchMonth==='all'?'Todavía no hay partidos.<br>¡Empieza a registrar!':'No hay partidos este mes.'}</p></div>`;return;}
+  list.innerHTML=filtered.map(m=>{
     const mn=[m.myName,m.myPartner].filter(Boolean).join(' / '),rn=[m.rival1,m.rival2].filter(Boolean).join(' / ');
     const sh=m.sets.map((s,i)=>{const w=s.my>s.ri,sep=i<m.sets.length-1?'<span class="set-dot">·</span>':'';return`<span class="set-score"><span class="${w?'w':'l'}">${s.my}</span>-<span class="${w?'l':'w'}">${s.ri}</span></span>${sep}`;}).join('');
     const shots=m.shots?m.shots.my:null;
