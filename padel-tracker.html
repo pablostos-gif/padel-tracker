@@ -1675,7 +1675,7 @@ function startMatch(){
   else if(format==='1-1'){bestOf=1;startGame={my:1,ri:1};}
 
   const startTime=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
-  app.match={myName,myPartner,rival1,rival2,bestOf,tournament,date,format,puntoDeOro,serving:null,tiebreakMax:0,sets:[],currentSet:startGame,currentGame:{my:0,ri:0},tiebreak:false,winner:null,notes:'',shots:emptyShots(),startTime,endTime:null};
+  app.match={myName,myPartner,rival1,rival2,bestOf,tournament,date,format,puntoDeOro,serving:null,tiebreakMax:0,sets:[],currentSet:startGame,currentGame:{my:0,ri:0},tiebreak:false,winner:null,notes:'',shots:emptyShots(),startTime,endTime:null,currentGamePoints:[],currentSetGames:[]};
   stateStack=[];showScreen('match');renderMatch();showServeOverlay();
 }
 function emptyShots(){
@@ -1689,10 +1689,13 @@ function emptyShots(){
 const PT=['0','15','30','40'];
 function scorePoint(team){
   if(!app.match)return;
-  stateStack.push(JSON.stringify({sets:JSON.parse(JSON.stringify(app.match.sets)),currentSet:{...app.match.currentSet},currentGame:{...app.match.currentGame},tiebreak:app.match.tiebreak,winner:app.match.winner,shots:JSON.parse(JSON.stringify(app.match.shots))}));
+  stateStack.push(JSON.stringify({sets:JSON.parse(JSON.stringify(app.match.sets)),currentSet:{...app.match.currentSet},currentGame:{...app.match.currentGame},tiebreak:app.match.tiebreak,winner:app.match.winner,shots:JSON.parse(JSON.stringify(app.match.shots)),currentGamePoints:[...(app.match.currentGamePoints||[])],currentSetGames:JSON.parse(JSON.stringify(app.match.currentSetGames||[]))}));
   const m=app.match,g=m.currentGame;
+  if(!m.currentGamePoints)m.currentGamePoints=[];
+  if(!m.currentSetGames)m.currentSetGames=[];
   if(m.tiebreak){
     if(team==='my')g.my++;else g.ri++;
+    m.currentGamePoints.push(team);
     const tbMax=m.tiebreakMax||7;
     if((g.my>=tbMax||g.ri>=tbMax)&&Math.abs(g.my-g.ri)>=2){
       const winner=g.my>g.ri?'my':'ri';
@@ -1702,7 +1705,7 @@ function scorePoint(team){
       return;
     }
   }
-  else{if(team==='my')g.my++;else g.ri++;const w=gameWinner(g);if(w){winGame(w);openShotSheet(team);return;}}
+  else{if(team==='my')g.my++;else g.ri++;m.currentGamePoints.push(team);const w=gameWinner(g);if(w){winGame(w);openShotSheet(team);return;}}
   renderMatch();popAnim(team==='my'?'pt-my':'pt-ri');openShotSheet(team);
 }
 function gameWinner(g){
@@ -1711,6 +1714,9 @@ function gameWinner(g){
 }
 function winGame(w){
   const m=app.match;
+  if(!m.currentSetGames)m.currentSetGames=[];
+  m.currentSetGames.push({winner:w,points:[...(m.currentGamePoints||[])]});
+  m.currentGamePoints=[];
   m.currentGame={my:0,ri:0};
   m.tiebreak=false;
   if(w==='my')m.currentSet.my++;else m.currentSet.ri++;
@@ -1727,7 +1733,8 @@ function checkSetWin(){
 
   const myW=s.my>=6&&s.my-s.ri>=2,rivW=s.ri>=6&&s.ri-s.my>=2;
   if(!myW&&!rivW){renderMatch();return;}
-  m.sets.push({...s});
+  m.sets.push({...s,games:[...(m.currentSetGames||[])]});
+  m.currentSetGames=[];
   const nextStart=m.format==='1-1'?{my:1,ri:1}:{my:0,ri:0};
   m.currentSet=nextStart;
   m.tiebreak=false;
@@ -1754,8 +1761,12 @@ function setTiebreakType(max){
 
 function winTiebreak(winner){
   const m=app.match;
+  if(!m.currentSetGames)m.currentSetGames=[];
+  m.currentSetGames.push({winner,points:[...(m.currentGamePoints||[])],isTiebreak:true});
+  m.currentGamePoints=[];
   m.tiebreak=false;
-  m.sets.push({...m.currentSet});
+  m.sets.push({...m.currentSet,games:[...m.currentSetGames]});
+  m.currentSetGames=[];
   const nextStart=m.format==='1-1'?{my:1,ri:1}:{my:0,ri:0};
   m.currentSet=nextStart;
   const need=Math.ceil(m.bestOf/2);
@@ -2092,6 +2103,75 @@ function saveMatchEdit(){
   m.isWin=m.mySets>m.rivSets;
   saveApp();renderHistory();viewMatchDetail(currentMatchDetailIdx);
 }
+function getGameScoreSeq(points,puntoDeOro){
+  const PT=['0','15','30','40'];
+  let my=0,ri=0;const seq=[];
+  for(const p of(points||[])){
+    if(p==='my')my++;else ri++;
+    let ms,rs;
+    if(my>=3&&ri>=3){
+      if(puntoDeOro){ms=my>ri?'Oro':'40';rs=ri>my?'Oro':'40';}
+      else if(my===ri){ms=rs='Ig.';}
+      else if(my>ri){ms='Vent.';rs='';}
+      else{ms='';rs='Vent.';}
+    }else{ms=PT[Math.min(my,3)];rs=PT[Math.min(ri,3)];}
+    seq.push({my:ms,ri:rs});
+  }
+  return seq;
+}
+function buildProScoreboard(m){
+  const mn=m.myName?m.myName.toUpperCase()+(m.myPartner?' / '+m.myPartner.toUpperCase():''):'MI EQUIPO';
+  const rn=m.rival1?m.rival1.toUpperCase()+(m.rival2?' / '+m.rival2.toUpperCase():''):'RIVALES';
+  const setW='color:#C9A227;font-weight:800;font-size:22px;min-width:32px;text-align:center;';
+  const setL='color:rgba(255,255,255,0.4);font-weight:600;font-size:22px;min-width:32px;text-align:center;';
+  const mySets=m.sets.map((s,i)=>`<div style="${s.my>s.ri?setW:setL}">${s.my}</div>`).join('');
+  const riSets=m.sets.map((s,i)=>`<div style="${s.ri>s.my?setW:setL}">${s.ri}</div>`).join('');
+  const setNums=m.sets.map((_,i)=>`<div style="color:rgba(255,255,255,0.25);font-size:10px;font-weight:600;min-width:32px;text-align:center;letter-spacing:1px">S${i+1}</div>`).join('');
+  return`<div style="background:#0d0d14;border-radius:14px;padding:16px;margin:12px 16px;border:1px solid rgba(201,162,39,0.25)">
+    <div style="display:flex;align-items:center;margin-bottom:6px">
+      <div style="flex:1"></div>
+      <div style="display:flex;gap:8px">${setNums}</div>
+    </div>
+    <div style="display:flex;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.07)">
+      <div style="flex:1;font-size:14px;font-weight:700;color:#fff;letter-spacing:0.5px">${esc(mn)}</div>
+      <div style="display:flex;gap:8px">${mySets}</div>
+    </div>
+    <div style="display:flex;align-items:center;padding:8px 0">
+      <div style="flex:1;font-size:14px;font-weight:700;color:rgba(255,255,255,0.6);letter-spacing:0.5px">${esc(rn)}</div>
+      <div style="display:flex;gap:8px">${riSets}</div>
+    </div>
+    <div style="margin-top:8px;text-align:center"><span style="font-size:10px;color:rgba(255,255,255,0.2);letter-spacing:2px;text-transform:uppercase">PREMIER PADEL TRACKER</span></div>
+  </div>`;
+}
+function buildSetBreakdown(m){
+  const hasGames=m.sets&&m.sets.some(s=>s.games&&s.games.length);
+  if(!hasGames)return`<div style="margin:0 16px 12px;padding:14px;background:var(--card);border-radius:12px;border:1px solid var(--border);text-align:center;color:var(--muted);font-size:12px">Los partidos futuros mostrarán el desglose juego a juego con puntuación punto por punto</div>`;
+  let html='<div style="margin:0 16px 12px">';
+  html+=`<div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">DESGLOSE POR JUEGOS</div>`;
+  m.sets.forEach((set,si)=>{
+    if(!set.games||!set.games.length)return;
+    const myWon=set.games.filter(g=>g.winner==='my').length;
+    const riWon=set.games.filter(g=>g.winner==='ri').length;
+    html+=`<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:8px;text-transform:uppercase">Set ${si+1} · ${set.my}-${set.ri}</div>`;
+    set.games.forEach((game,gi)=>{
+      const isMyWin=game.winner==='my';
+      const seq=getGameScoreSeq(game.points,m.puntoDeOro);
+      const isTB=game.isTiebreak;
+      const pts=(game.points||[]).map(p=>`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p==='my'?'#3DDB82':'#FF5E3A'};margin:0 1px;vertical-align:middle"></span>`).join('');
+      const finalScore=seq.length?`${seq[seq.length-1].my}-${seq[seq.length-1].ri}`:'';
+      const scoreLabel=isTB?`TB ${game.points?game.points.filter(p=>p==='my').length+'-'+game.points.filter(p=>p==='ri').length:''}`:finalScore;
+      html+=`<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;margin-bottom:4px;background:${isMyWin?'rgba(61,219,130,0.06)':'rgba(255,94,58,0.06)'}">
+        <div style="width:22px;height:22px;border-radius:50%;background:${isMyWin?'rgba(61,219,130,0.2)':'rgba(255,94,58,0.2)'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:${isMyWin?'#3DDB82':'#FF5E3A'};flex-shrink:0">${gi+1}</div>
+        <div style="flex:1;line-height:1.4">${pts}</div>
+        <div style="font-size:11px;font-weight:700;color:${isMyWin?'#3DDB82':'#FF5E3A'};min-width:40px;text-align:right">${scoreLabel}</div>
+        <div style="font-size:13px">${isMyWin?'✓':'✗'}</div>
+      </div>`;
+    });
+    html+='</div>';
+  });
+  html+='</div>';
+  return html;
+}
 function viewMatchDetail(idx){
   currentMatchDetailIdx=idx;
   const m=app.history[idx];
@@ -2115,7 +2195,8 @@ function viewMatchDetail(idx){
     }catch(e){console.error('shotHtml error',e);}
   }
   content.innerHTML=`
-    <div style="background:var(--card);border-radius:18px;padding:16px;border:1px solid var(--border);margin:12px 16px 12px">
+    ${buildProScoreboard(m)}
+    <div style="background:var(--card);border-radius:18px;padding:16px;border:1px solid var(--border);margin:0 16px 12px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <div>
           <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">${m.tournament||'Amistoso'}</div>
@@ -2126,9 +2207,9 @@ function viewMatchDetail(idx){
       <div style="border-top:1px solid var(--border);padding-top:12px">
         <div style="font-size:14px;font-weight:600;margin-bottom:4px">${esc(mn)}</div>
         <div style="font-size:13px;color:var(--muted);margin-bottom:12px">vs ${esc(rn)}</div>
-        <div style="display:flex;gap:12px;align-items:center">${sh}</div>
       </div>
     </div>
+    ${buildSetBreakdown(m)}
     ${shotHtml}
     ${m.notes||m.tactica||m.mejora?`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);margin:0 16px;display:flex;flex-direction:column;gap:12px">
       ${m.notes?`<div><div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">📝 Notas</div><div style="font-size:13px;color:var(--text);line-height:1.6">${esc(m.notes)}</div></div>`:''}
