@@ -37,7 +37,8 @@
       "Bash(firebase apps:sdkconfig WEB 1:604478762156:web:4c4aa4b2698cca335f8309 --project padel-lucas-app)",
       "Bash(firebase database:instances:create padel-lucas-app-default-rtdb --project padel-lucas-app)",
       "Bash(firebase init:*)",
-      "Bash(1:*)"
+      "Bash(1:*)",
+      "Bash(bash DEPLOY.sh)"
     ]
   }
 }
