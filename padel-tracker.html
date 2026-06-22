@@ -296,6 +296,16 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 #sl-intensidad::-webkit-slider-thumb{background:var(--yellow)}
 .state-emojis{display:flex;justify-content:space-between;font-size:14px;opacity:0.5;margin-top:2px}
 
+/* Coach Insight */
+.coach-insight{background:linear-gradient(135deg,rgba(16,185,129,0.07) 0%,rgba(16,185,129,0.03) 100%);border:1px solid rgba(16,185,129,0.22);border-left:4px solid var(--my);border-radius:14px;padding:16px 18px;margin-bottom:4px}
+.coach-insight-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.coach-insight-icon{font-size:20px;line-height:1}
+.coach-insight-title{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--my)}
+.coach-insight-lines{display:flex;flex-direction:column;gap:7px}
+.ci-line{display:flex;align-items:flex-start;gap:9px;font-size:13px;line-height:1.5;color:var(--text)}
+.ci-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:5px}
+.ci-dot-green{background:#3DDB82}.ci-dot-red{background:#FF5E3A}.ci-dot-yellow{background:#F0DC50}.ci-dot-blue{background:#3B82F6}
+
 /* Stats */
 #stats-screen{overflow-y:auto}
 .stats-body{flex:1;overflow-y:auto;padding:16px 16px 40px;display:flex;flex-direction:column;gap:16px}
@@ -794,6 +804,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <button class="stats-tab" onclick="switchStatsTab('pareja',this)">Pareja</button>
   </div>
   <div id="panel-partidos" class="stats-panel active">
+    <div id="coach-insight-partidos"></div>
     <div class="filter-tabs">
       <button class="ftab active" onclick="setPeriod('all',this)">Todo</button>
       <button class="ftab" onclick="setPeriod('year',this)">Este año</button>
@@ -839,6 +850,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <div class="chart-card"><div class="chart-title">Detalle de golpes</div><div id="shot-detail-table"></div></div>
   </div>
   <div id="panel-tecnica" class="stats-panel">
+    <div id="coach-insight-tecnica"></div>
     <div class="kpi-grid">
       <div class="kpi-card"><div class="kpi-val kpi-purple" id="t-kpi-sessions">0</div><div class="kpi-label">Sesiones</div></div>
       <div class="kpi-card"><div class="kpi-val kpi-yellow" id="t-kpi-avg-q">—</div><div class="kpi-label">Calidad media</div></div>
@@ -852,6 +864,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <div class="chart-card"><div class="chart-title">Estado físico y mental</div><div class="chart-wrap" style="height:160px"><canvas id="chart-estado"></canvas></div></div>
   </div>
   <div id="panel-fisico" class="stats-panel">
+    <div id="coach-insight-fisico"></div>
     <div class="kpi-grid">
       <div class="kpi-card"><div class="kpi-val kpi-blue" id="f-kpi-sessions">0</div><div class="kpi-label">Sesiones</div></div>
       <div class="kpi-card"><div class="kpi-val kpi-yellow" id="f-kpi-intensity">—</div><div class="kpi-label">Intensidad media</div></div>
@@ -2398,6 +2411,147 @@ let activeStatsTab='partidos';
 function switchStatsTab(tab,el){activeStatsTab=tab;document.querySelectorAll('.stats-tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');document.querySelectorAll('.stats-panel').forEach(p=>p.classList.remove('active'));document.getElementById('panel-'+tab).classList.add('active');if(tab==='partidos')renderMatchStats();if(tab==='tecnica')renderTechStats();if(tab==='fisico')renderFisStats();if(tab==='rivales')renderRivalesTab();if(tab==='pareja')renderParejaTab();}
 function setPeriod(p,el){statsPeriod=p;document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderMatchStats();}
 function filterHistory(){if(statsPeriod==='all')return app.history;const now=new Date(),cutoff=new Date();if(statsPeriod==='year')cutoff.setFullYear(now.getFullYear(),0,1);if(statsPeriod==='6m')cutoff.setMonth(now.getMonth()-6);if(statsPeriod==='3m')cutoff.setMonth(now.getMonth()-3);if(statsPeriod==='month')cutoff.setDate(1);cutoff.setHours(0,0,0,0);return app.history.filter(m=>new Date(m.date+'T12:00:00')>=cutoff);}
+function _ciLine(dotClass,text){return`<div class="ci-line"><div class="ci-dot ${dotClass}"></div><span>${text}</span></div>`;}
+function _ciBlock(lines){return`<div class="coach-insight"><div class="coach-insight-header"><div class="coach-insight-icon">🎓</div><div class="coach-insight-title">Análisis del entrenador</div></div><div class="coach-insight-lines">${lines.join('')}</div></div>`;}
+
+function buildCoachInsightPartidos(data){
+  const el=document.getElementById('coach-insight-partidos');if(!el)return;
+  const lines=[];
+  const total=data.length;
+  if(!total){el.innerHTML='';return;}
+  const wins=data.filter(m=>m.isWin).length;
+  const pct=Math.round(wins/total*100);
+  // Racha reciente (últimos 5)
+  const rec=[...data].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
+  const recW=rec.filter(m=>m.isWin).length;
+  if(pct>=60) lines.push(_ciLine('ci-dot-green',`Estás en un buen momento: ${pct}% de victorias. Mantén la dinámica y sigue trabajando la consistencia.`));
+  else if(pct>=40) lines.push(_ciLine('ci-dot-yellow',`Tu porcentaje de victorias es del ${pct}%. Hay margen de mejora — analiza qué hacen diferente los rivales que te ganan.`));
+  else lines.push(_ciLine('ci-dot-red',`Solo ${pct}% de victorias. No te desanimes, pero hay que trabajar más: revisa las reflexiones de los partidos perdidos y detecta el patrón.`));
+  // Racha reciente
+  if(rec.length>=3){
+    if(recW>=4) lines.push(_ciLine('ci-dot-green',`Últimas ${rec.length} salidas: ${recW} victorias. Estás en racha, aprovéchala.`));
+    else if(recW<=1) lines.push(_ciLine('ci-dot-red',`Solo ${recW} victoria en los últimos ${rec.length} partidos. Momento de parar, analizar y resetear mentalmente.`));
+    else lines.push(_ciLine('ci-dot-yellow',`${recW} de ${rec.length} partidos recientes ganados. Rendimiento irregular — trabaja la constancia en cada juego.`));
+  }
+  // Análisis de golpes (si hay datos)
+  const withShots=data.filter(m=>m.shots&&hasShotData(m.shots.my));
+  if(withShots.length){
+    const totW=withShots.reduce((a,m)=>{const s=normShots(m.shots.my);return a+Object.values(s.winners).reduce((x,y)=>x+y,0);},0);
+    const totE=withShots.reduce((a,m)=>{const s=normShots(m.shots.my);return a+Object.values(s.enf).reduce((x,y)=>x+y,0);},0);
+    const totEF=withShots.reduce((a,m)=>a+(normShots(m.shots.my).ef||0),0);
+    const eff=totW+totE+totEF?Math.round(totW/(totW+totE+totEF)*100):0;
+    if(eff>=55) lines.push(_ciLine('ci-dot-green',`Eficiencia de golpe del ${eff}% — por encima de la media. Sigue siendo agresivo cuando tienes la oportunidad.`));
+    else if(eff>=40) lines.push(_ciLine('ci-dot-yellow',`Eficiencia del ${eff}%. Tienes demasiados errores no forzados (${totE}). Reduce los riesgos innecesarios y juega más seguro en puntos clave.`));
+    else lines.push(_ciLine('ci-dot-red',`Eficiencia del ${eff}% — debes mejorar urgentemente. ${totE} errores no forzados en ${withShots.length} partidos. Prioriza la consistencia sobre el golpe ganador.`));
+    // Golpe con más errores
+    const errMap={};withShots.forEach(m=>{const s=normShots(m.shots.my);SHOT_KEYS.forEach(k=>{errMap[k]=(errMap[k]||0)+(s.enf[k]||0);});});
+    const worstShot=Object.entries(errMap).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1])[0];
+    if(worstShot&&worstShot[1]>=2) lines.push(_ciLine('ci-dot-red',`Tu golpe con más errores no forzados es el ${SHOT_LABELS[worstShot[0]]||worstShot[0]} (${worstShot[1]} en total). Trabájalo en entreno con presión.`));
+    // Golpe con más winners
+    const winMap={};withShots.forEach(m=>{const s=normShots(m.shots.my);SHOT_KEYS.forEach(k=>{winMap[k]=(winMap[k]||0)+(s.winners[k]||0);});});
+    const bestShot=Object.entries(winMap).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1])[0];
+    if(bestShot&&bestShot[1]>=2) lines.push(_ciLine('ci-dot-green',`Tu arma principal es el ${SHOT_LABELS[bestShot[0]]||bestShot[0]} con ${bestShot[1]} winners. Úsalo como recurso en los momentos de presión.`));
+  }
+  // Si no hay notas en partidos perdidos
+  const lostNoNotes=data.filter(m=>!m.isWin&&!m.notes&&!m.tactica&&!m.mejora);
+  if(lostNoNotes.length>0) lines.push(_ciLine('ci-dot-blue',`Tienes ${lostNoNotes.length} derrota${lostNoNotes.length>1?'s':''} sin reflexión escrita. Anota qué pasó — es el primer paso para mejorar.`));
+  el.innerHTML=_ciBlock(lines);
+}
+
+function buildCoachInsightTecnica(){
+  const el=document.getElementById('coach-insight-tecnica');if(!el)return;
+  const tec=app.trainings.filter(t=>t.type==='tec'||t.type==='both').sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const lines=[];
+  if(!tec.length){el.innerHTML='';return;}
+  // Tendencia general de calidad
+  const getAvg=t=>{const v=Object.values(t.shotQuality||{}).filter(x=>x>0);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;};
+  const avgs=tec.map(getAvg).filter(v=>v!==null);
+  if(avgs.length>=2){
+    const first=avgs.slice(0,Math.ceil(avgs.length/2));
+    const last=avgs.slice(Math.floor(avgs.length/2));
+    const avgFirst=first.reduce((a,b)=>a+b,0)/first.length;
+    const avgLast=last.reduce((a,b)=>a+b,0)/last.length;
+    const diff=Math.round((avgLast-avgFirst)*10)/10;
+    if(diff>0.2) lines.push(_ciLine('ci-dot-green',`Tu calidad técnica ha mejorado +${diff} puntos de media. Vas en la buena dirección — no abandones la rutina.`));
+    else if(diff<-0.2) lines.push(_ciLine('ci-dot-red',`Tu calidad técnica ha bajado ${Math.abs(diff)} puntos de media respecto al inicio. Revisa si estás entrenando con suficiente concentración o si necesitas variar los ejercicios.`));
+    else lines.push(_ciLine('ci-dot-yellow',`Tu nivel técnico se mantiene estable. Para seguir creciendo necesitas salir de la zona de confort y trabajar los golpes más débiles.`));
+  } else {
+    lines.push(_ciLine('ci-dot-blue',`Solo tienes ${tec.length} sesión técnica registrada. Necesitas más datos para ver tendencias — sigue registrando.`));
+  }
+  // Golpes que mejoran y empeoran
+  const shotAvgs={};ALL_SHOT_KEYS.forEach(k=>{const vals=tec.map(t=>(t.shotQuality||{})[k]).filter(v=>v>0);if(vals.length>=2)shotAvgs[k]={first:vals[0],last:vals[vals.length-1],count:vals.length};});
+  const improving=Object.entries(shotAvgs).filter(([,d])=>d.last>d.first).sort((a,b)=>(b[1].last-b[1].first)-(a[1].last-a[1].first));
+  const declining=Object.entries(shotAvgs).filter(([,d])=>d.last<d[1].first).sort((a,b)=>(a[1].last-a[1].first)-(b[1].last-b[1].first));
+  // fix: use d.first not d[1].first
+  const decl=Object.entries(shotAvgs).filter(([,d])=>d.last<d.first).sort((a,b)=>(a[1].last-a[1].first)-(b[1].last-b[1].first));
+  if(improving.length) lines.push(_ciLine('ci-dot-green',`Golpes que más han mejorado: ${improving.slice(0,2).map(([k,d])=>`${ALL_SHOT_LABELS[k]||k} (+${d.last-d.first}★)`).join(', ')}. Buen trabajo, sigue en esa línea.`));
+  if(decl.length) lines.push(_ciLine('ci-dot-red',`Golpes que han empeorado: ${decl.slice(0,2).map(([k,d])=>`${ALL_SHOT_LABELS[k]||k} (${d.last-d.first}★)`).join(', ')}. Dedícales más tiempo en las próximas sesiones.`));
+  // Golpes poco trabajados (rating bajo)
+  const lowShots=Object.entries(ALL_SHOT_LABELS).filter(([k])=>{const vals=tec.map(t=>(t.shotQuality||{})[k]).filter(v=>v>0);return vals.length>=2&&vals[vals.length-1]<=2;});
+  if(lowShots.length) lines.push(_ciLine('ci-dot-red',`Tienes golpes con valoración muy baja (≤2★): ${lowShots.slice(0,3).map(([k])=>ALL_SHOT_LABELS[k]).join(', ')}. Son tu punto débil técnico — atácalos en el próximo entreno.`));
+  // Golpe top
+  const topShot=Object.entries(ALL_SHOT_LABELS).filter(([k])=>{const vals=tec.map(t=>(t.shotQuality||{})[k]).filter(v=>v>0);return vals.length&&vals[vals.length-1]>=4;}).sort((a,b)=>{const va=tec.map(t=>(t.shotQuality||{})[a[0]]).filter(v=>v>0);const vb=tec.map(t=>(t.shotQuality||{})[b[0]]).filter(v=>v>0);return(vb[vb.length-1]||0)-(va[va.length-1]||0);})[0];
+  if(topShot) lines.push(_ciLine('ci-dot-green',`Tu golpe más sólido es el ${topShot[1]} — úsalo como referencia y trata de llevar los puntos hacia ahí en partido.`));
+  // Frecuencia de entreno
+  if(tec.length>=2){
+    const last=tec[tec.length-1],prev=tec[tec.length-2];
+    const dias=Math.round((new Date(last.date)-new Date(prev.date))/(1000*60*60*24));
+    if(dias>14) lines.push(_ciLine('ci-dot-yellow',`Tu última sesión técnica fue hace bastante tiempo (${dias} días desde la anterior). La continuidad es clave para mejorar — intenta entrenar al menos una vez por semana.`));
+  }
+  el.innerHTML=_ciBlock(lines);
+}
+
+function buildCoachInsightFisico(){
+  const el=document.getElementById('coach-insight-fisico');if(!el)return;
+  const fis=app.trainings.filter(t=>t.type==='fis'||t.type==='both').sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const lines=[];
+  if(!fis.length){el.innerHTML='';return;}
+  const avg=arr=>arr.length?Math.round(arr.reduce((a,b)=>a+b,0)/arr.length*10)/10:null;
+  const avgI=avg(fis.map(t=>t.intensidad||0).filter(v=>v>0));
+  const avgE=avg(fis.map(t=>t.energia||0).filter(v=>v>0));
+  const avgH=avg(fis.map(t=>t.humor||0).filter(v=>v>0));
+  // Intensidad general
+  if(avgI!==null){
+    if(avgI>=4) lines.push(_ciLine('ci-dot-green',`Entrenas con intensidad alta (${avgI}/5 de media). Bien — pero asegúrate de que la recuperación sea suficiente para no llegar cansado a los partidos.`));
+    else if(avgI>=2.5) lines.push(_ciLine('ci-dot-yellow',`Intensidad media de ${avgI}/5. Para mejorar el rendimiento físico deberías elevar la exigencia progresivamente en cada sesión.`));
+    else lines.push(_ciLine('ci-dot-red',`Intensidad baja (${avgI}/5). Los entrenamientos físicos poco exigentes tienen poco impacto. Sube el nivel o cambia el tipo de ejercicios.`));
+  }
+  // Tendencia de energía (primeras vs últimas sesiones)
+  if(fis.length>=3){
+    const eVals=fis.map(t=>t.energia||0).filter(v=>v>0);
+    if(eVals.length>=3){
+      const firstHalf=eVals.slice(0,Math.ceil(eVals.length/2));
+      const lastHalf=eVals.slice(Math.floor(eVals.length/2));
+      const avgF=firstHalf.reduce((a,b)=>a+b,0)/firstHalf.length;
+      const avgL=lastHalf.reduce((a,b)=>a+b,0)/lastHalf.length;
+      const diff=Math.round((avgL-avgF)*10)/10;
+      if(diff>0.3) lines.push(_ciLine('ci-dot-green',`Tu nivel de energía está mejorando (+${diff} puntos). El trabajo físico está dando resultados — nótalo también en pista.`));
+      else if(diff<-0.3) lines.push(_ciLine('ci-dot-red',`Tu energía ha bajado ${Math.abs(diff)} puntos de media. Puede ser fatiga acumulada — revisa el descanso, la alimentación y la carga de entreno.`));
+    }
+  }
+  // Humor
+  if(avgH!==null){
+    if(avgH<2.5) lines.push(_ciLine('ci-dot-red',`Tu humor en los entrenamientos es bajo (${avgH}/5). La motivación afecta directamente al rendimiento — habla con tu entrenador sobre qué te está frenando.`));
+    else if(avgH>=4) lines.push(_ciLine('ci-dot-green',`Llegas a entrenar con buen humor (${avgH}/5). La actitud positiva es un arma — mantenla también en los momentos difíciles del partido.`));
+  }
+  // Frecuencia
+  const totalMins=fis.reduce((a,t)=>a+(t.duration||0),0);
+  const avgMins=fis.length?Math.round(totalMins/fis.length):0;
+  if(avgMins>0&&avgMins<45) lines.push(_ciLine('ci-dot-yellow',`Tus sesiones físicas duran de media ${avgMins} minutos — son cortas. Intenta llegar a 60-90 min para obtener adaptaciones reales.`));
+  else if(avgMins>=60) lines.push(_ciLine('ci-dot-green',`Media de ${avgMins} minutos por sesión física. Buen volumen de trabajo.`));
+  // Ejercicios repetitivos
+  const exFreq={};fis.forEach(t=>(t.exercises||[]).forEach(e=>{const k=e.split('·')[0].trim().toLowerCase();exFreq[k]=(exFreq[k]||0)+1;}));
+  const topEx=Object.entries(exFreq).sort((a,b)=>b[1]-a[1]);
+  if(topEx.length&&topEx[0][1]>=3) lines.push(_ciLine('ci-dot-yellow',`Repites mucho el ejercicio "${topEx[0][0]}" (${topEx[0][1]} veces). La variedad en el entrenamiento físico evita estancamientos y trabaja más grupos musculares.`));
+  // Última sesión
+  if(fis.length>=1){
+    const ultima=fis[fis.length-1];
+    const dias=Math.round((new Date()-new Date(ultima.date+'T12:00:00'))/(1000*60*60*24));
+    if(dias>14) lines.push(_ciLine('ci-dot-red',`Llevas ${dias} días sin sesión física registrada. La condición física se pierde rápido — vuelve a la rutina cuanto antes.`));
+  }
+  el.innerHTML=_ciBlock(lines);
+}
+
 function renderStats(){const el=document.getElementById('stats-player-name');if(el)el.textContent=app.playerName||'—';renderMatchStats();}
 function renderMatchStats(){
   const data=filterHistory();
@@ -2430,6 +2584,7 @@ function renderMatchStats(){
   mkChart('chart-donut','doughnut',{labels:['V','D'],datasets:[{data:[dw,dl],backgroundColor:['rgba(61,219,130,0.85)','rgba(255,94,58,0.7)'],borderWidth:0,hoverOffset:4}]},{responsive:true,maintainAspectRatio:false,cutout:'68%',plugins:{legend:{display:false},tooltip:{...CD.tooltip}}});
   document.getElementById('donut-legend').innerHTML=`<div class="donut-row"><span class="donut-dot" style="background:#3DDB82"></span><span>${dw} victorias (${dp}%)</span></div><div class="donut-row"><span class="donut-dot" style="background:#FF5E3A"></span><span>${dl} derrotas</span></div><div class="donut-row" style="margin-top:4px"><span style="font-size:11px;color:var(--muted)">${data.length} partidos</span></div>`;
   renderStreakBar(sorted);renderRivals(data);renderShotDetailTable(agg,tw,te);renderEloStatsCard();
+  buildCoachInsightPartidos(data);
 }
 function buildMonthly(data){const map={};data.forEach(m=>{const d=new Date(m.date+'T12:00:00');const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;if(!map[k])map[k]={wins:0,losses:0};if(m.isWin)map[k].wins++;else map[k].losses++;});return Object.keys(map).sort().map(k=>{const[y,mo]=k.split('-');const d=new Date(parseInt(y),parseInt(mo)-1,1);const lbl=d.toLocaleDateString('es-ES',{month:'short',year:'2-digit'});const t=map[k].wins+map[k].losses;return{label:lbl,wins:map[k].wins,losses:map[k].losses,total:t,pct:Math.round(map[k].wins/t*100)};});}
 function renderStreakBar(sorted){const r=sorted.slice(0,15),bar=document.getElementById('streak-bar'),lbl=document.getElementById('streak-label');if(!r.length){bar.innerHTML='<span style="font-size:13px;color:var(--muted)">Sin partidos aún</span>';lbl.textContent='';return;}bar.innerHTML=r.map(m=>`<div class="streak-dot ${m.isWin?'sd-win':'sd-loss'}" title="${fmtDate(m.date)}">${m.isWin?'V':'D'}</div>`).join('');let cur=1,t=r[0].isWin;for(let i=1;i<r.length;i++){if(r[i].isWin===t)cur++;else break;}lbl.textContent=`Racha: ${cur} ${t?'victoria':'derrota'}${cur>1?'s':''} · Últimos ${r.length}`;}
@@ -2546,6 +2701,7 @@ function renderTechStats(){
   const colors=['#3DDB82','#B57BFF','#F0DC50','#3B82F6','#EF4444','#06B6D4','#EC4899','#10B981','#8B5CF6','#F59E0B'];
   const fData=Object.entries(freq).sort((a,b)=>b[1]-a[1]);
   mkChart('chart-shots-pie','doughnut',{labels:fData.map(([k])=>ALL_SHOT_LABELS[k]||k),datasets:[{data:fData.map(([,v])=>v),backgroundColor:fData.map((_,i)=>colors[i%colors.length]),borderWidth:0}]},{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{display:false},tooltip:{...CD.tooltip}}});
+  buildCoachInsightTecnica();
 }
 
 function renderFisStats(){
@@ -2577,6 +2733,7 @@ function renderFisStats(){
   const bm={};fis.forEach(t=>{const d=new Date(t.date+'T12:00:00');const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;if(!bm[k])bm[k]=0;bm[k]+=(t.duration||60);});
   const mk=Object.keys(bm).sort(),ml=mk.map(k=>{const[y,mo]=k.split('-');return new Date(parseInt(y),parseInt(mo)-1,1).toLocaleDateString('es-ES',{month:'short',year:'2-digit'});});
   mkChart('chart-fis-load','bar',{labels:ml,datasets:[{data:mk.map(k=>bm[k]),backgroundColor:'rgba(74,158,255,0.7)',borderRadius:4}]},{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{...CD.tooltip,callbacks:{label:c=>`${c.raw} min`}}},scales:{x:{ticks:{color:CD.tick,font:{size:11},maxRotation:0},grid:{display:false},border:{display:false}},y:{ticks:{color:CD.tick,font:{size:11},callback:v=>v+'min'},grid:{color:CD.grid},border:{display:false}}}});
+  buildCoachInsightFisico();
 }
 
 // ═══════════════════════════════════════════════════════════════
