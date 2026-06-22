@@ -751,6 +751,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <div id="train-hist-count" style="font-size:13px;color:var(--muted)"></div>
     <button class="back-btn" style="background:transparent;border:none;cursor:pointer;font-size:18px" onclick="showExportScreen()" title="Exportar entrenamientos">💾</button>
   </div>
+  <div id="train-month-tabs" style="display:flex;gap:6px;overflow-x:auto;padding:10px 16px 4px;scrollbar-width:none;-ms-overflow-style:none;flex-shrink:0"></div>
   <div id="train-history-list" class="history-list"></div>
 </div>
 
@@ -2253,11 +2254,26 @@ function deleteTraining(id){
   saveApp();
   renderTrainHistory();
 }
+let activeTrainMonth='all';
+function renderTrainMonthTabs(sorted){
+  const tabsEl=document.getElementById('train-month-tabs');
+  if(!tabsEl)return;
+  const months=[...new Set(sorted.map(t=>(t.date||'').slice(0,7)))].sort((a,b)=>b.localeCompare(a));
+  const MESES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const fmtMonth=m=>{const[y,mo]=m.split('-');return`${MESES[parseInt(mo)-1]} ${y}`;};
+  const tabStyle=(active)=>`cursor:pointer;white-space:nowrap;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;border:none;transition:background 0.15s;background:${active?'var(--accent)':'rgba(255,255,255,0.08)'};color:${active?'#000':'var(--muted)'};`;
+  tabsEl.innerHTML=`<button style="${tabStyle(activeTrainMonth==='all')}" onclick="setTrainMonth('all')"">Todos</button>`
+    +months.map(m=>`<button style="${tabStyle(activeTrainMonth===m)}" onclick="setTrainMonth('${m}')">${fmtMonth(m)}</button>`).join('');
+}
+function setTrainMonth(m){activeTrainMonth=m;renderTrainHistory();}
 function renderTrainHistory(){
   const list=document.getElementById('train-history-list');
+  const sorted=[...app.trainings].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  renderTrainMonthTabs(sorted);
+  const filtered=activeTrainMonth==='all'?sorted:sorted.filter(t=>(t.date||'').startsWith(activeTrainMonth));
   document.getElementById('train-hist-count').textContent=app.trainings.length?`${app.trainings.length} sesiones`:'';
-  if(!app.trainings.length){list.innerHTML=`<div class="empty-state"><div class="empty-icon">💪</div><p>Aún no hay entrenamientos.<br>¡Registra la primera sesión!</p></div>`;return;}
-  list.innerHTML=app.trainings.map(t=>{
+  if(!filtered.length){list.innerHTML=`<div class="empty-state"><div class="empty-icon">💪</div><p>${activeTrainMonth==='all'?'Aún no hay entrenamientos.<br>¡Registra la primera sesión!':'No hay entrenamientos este mes.'}</p></div>`;return;}
+  list.innerHTML=filtered.map(t=>{
     const isTec=t.type==='tec'||t.type==='both';
     const shots=t.shotQuality?Object.entries(t.shotQuality).filter(([,v])=>v>0):[];
     const sc=shots.slice(0,5).map(([k,v])=>`<div class="ts-chip">${ALL_SHOT_LABELS[k]||k}<span class="stars">${'★'.repeat(v)}</span></div>`).join('');
