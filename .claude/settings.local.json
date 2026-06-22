@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(curl -s -X POST https://api.github.com/user/repos -H \"Authorization: token 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\" -H \"Content-Type: application/json\" -d '{\"\"\"\"name\"\"\"\":\"\"\"\"padel-tracker\"\"\"\",\"\"\"\"description\"\"\"\":\"\"\"\"Pádel match tracker app\"\"\"\",\"\"\"\"private\"\"\"\":false}')",
+      "Bash(git --version)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "WebSearch",
+      "Bash(bash -c \"git init\")",
+      "Read(//c/Users/pablo/Documents/APLICACIONES/**)",
+      "Bash(mkdir -p \"PADEL LUCAS APP/.git\")",
+      "Bash(npm list:*)",
+      "Bash(npm install:*)",
+      "Bash(git credential-manager:*)",
+      "Bash(git credential:*)",
+      "Read(//c/Users/pablo/Documents/APLICACIONES/PADEL LUCAS APP/**)",
+      "Bash(python fix_simulator.py)",
+      "Bash(python3 fix_simulator.py)",
+      "Bash(node -e \":*)",
+      "Bash(node fix_simulator.js)",
+      "Bash(firebase --version)",
+      "Bash(firebase projects:list)",
+      "Bash(firebase projects:create padel-tracker --display-name \"Padel Tracker\")",
+      "Bash(firebase projects:create padel-lucas-app --display-name \"Padel Tracker Lucas\")",
+      "Bash(firebase deploy:*)",
+      "mcp__Claude_in_Chrome__switch_browser",
+      "Bash(node -c padel-tracker.html)",
+      "Bash(firebase database:instances:list)",
+      "Bash(firebase database:instances:create padel-lucas-app-db --region us-central1)",
+      "Bash(firebase database:instances:create padel-lucas-app-db)",
+      "Bash(firebase use:*)",
+      "Bash(\"/tmp/firebase-rules.json\":*)",
+      "Read(//tmp/**)",
+      "Bash(node backup-data.js)",
+      "Bash(firebase apps:list --project padel-lucas-app)",
+      "Bash(firebase apps:create WEB \"Padel Tracker Web\" --project padel-lucas-app)",
+      "Bash(firebase apps:sdkconfig WEB 1:604478762156:web:4c4aa4b2698cca335f8309 --project padel-lucas-app)",
+      "Bash(firebase database:instances:create padel-lucas-app-default-rtdb --project padel-lucas-app)",
+      "Bash(firebase init:*)",
+      "Bash(1:*)"
+    ]
+  }
+}
