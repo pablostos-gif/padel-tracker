@@ -3269,6 +3269,46 @@ function closeFtDetail(){
 // ═══════════════════════════════════════════════════════════════
 // PDF PRINT
 // ═══════════════════════════════════════════════════════════════
+function pdfSetBreakdown(m){
+  const hasGames=m.sets&&m.sets.some(s=>s.games&&s.games.length);
+  if(!hasGames)return'';
+  const mnShort=(m.myName||'YO').split(' ')[0].toUpperCase().slice(0,8);
+  const rnShort=(m.rival1||'RIV').split(' ')[0].toUpperCase().slice(0,8);
+  let html=`<div class="pv-section"><div class="pv-section-title">Desglose Juego a Juego</div>`;
+  m.sets.forEach((set,si)=>{
+    if(!set.games||!set.games.length)return;
+    const myGamesWon=set.games.filter(g=>g.winner==='my').length;
+    const riGamesWon=set.games.filter(g=>g.winner==='ri').length;
+    html+=`<div style="margin-bottom:16px"><div style="font-size:10px;font-weight:700;color:#888;letter-spacing:1.5px;text-transform:uppercase;border-bottom:2px solid #e5e5e5;padding-bottom:5px;margin-bottom:8px">SET ${si+1} &nbsp;·&nbsp; ${set.my}-${set.ri} &nbsp;<span style="font-weight:400;color:#bbb">(${myGamesWon}-${riGamesWon} juegos)</span></div>`;
+    set.games.forEach((game,gi)=>{
+      const isMyWin=game.winner==='my';
+      const seq=getGameScoreSeq(game.points,m.puntoDeOro);
+      const pts=game.points||[];
+      const isTB=game.isTiebreak;
+      const lbl=isTB?'TB':`J${gi+1}`;
+      const box=(val,won)=>`<span style="display:inline-block;background:${won?'#C9A227':'#f0f0f0'};color:${won?'#000':'#aaa'};font-weight:${won?800:500};font-size:10px;min-width:26px;height:22px;border-radius:4px;text-align:center;line-height:22px;margin-right:2px;padding:0 2px">${val}</span>`;
+      const myBoxes=seq.map((s,i)=>box(s.my,pts[i]==='my')).join('');
+      const riBoxes=seq.map((s,i)=>box(s.ri,pts[i]==='ri')).join('');
+      html+=`<div style="margin-bottom:5px;border-left:3px solid ${isMyWin?'#1a9e55':'#d94520'};padding:6px 8px;border-radius:0 6px 6px 0;background:${isMyWin?'#f0faf5':'#fdf2f0'}">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+          <span style="font-size:9px;font-weight:700;color:#999;width:20px;text-align:right;flex-shrink:0">${lbl}</span>
+          <span style="font-size:10px;font-weight:700;color:#333;width:50px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${mnShort}</span>
+          <span>${myBoxes}</span>
+          ${isMyWin?`<span style="color:#1a9e55;font-size:12px;font-weight:900;margin-left:4px">✓</span>`:''}
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="width:20px;flex-shrink:0"></span>
+          <span style="font-size:10px;font-weight:600;color:#aaa;width:50px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${rnShort}</span>
+          <span>${riBoxes}</span>
+          ${!isMyWin?`<span style="color:#d94520;font-size:12px;font-weight:900;margin-left:4px">✓</span>`:''}
+        </div>
+      </div>`;
+    });
+    html+='</div>';
+  });
+  html+='</div>';
+  return html;
+}
 function printMatch(idx){
   const m=app.history[idx];if(!m)return;
   const mn=[m.myName,m.myPartner].filter(Boolean).join(' / '),rn=[m.rival1,m.rival2].filter(Boolean).join(' / ');
@@ -3340,15 +3380,35 @@ function printMatch(idx){
     }
   }
 
-  document.getElementById('pv-content').innerHTML=`<div class="pv-header"><div class="pv-header-top"><div><div class="pv-logo">Pádel Tracker</div><div class="pv-period">Informe de Partido</div></div><div class="pv-player"><div class="pv-player-name">${esc(m.myName)}</div><div class="pv-player-sub">${fmtDate(m.date)}${m.startTime?' · '+m.startTime+(m.endTime?' – '+m.endTime:''):''}</div></div></div></div><div style="padding:0 20px 20px"><div class="pv-section"><div class="pv-section-title">Resultado</div><div style="display:flex;justify-content:space-between;align-items:center;background:#f8f8f8;border-radius:10px;padding:14px 18px;border:1px solid #ebebeb"><div><div style="font-weight:700;font-size:15px">${esc(mn)}</div><div style="font-size:11px;color:#999;margin-top:2px">vs ${esc(rn)}</div>${m.tournament?`<div style="font-size:10px;color:#bbb;margin-top:2px">${esc(m.tournament)}</div>`:''}</div><div style="text-align:center"><div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px;color:${m.isWin?'#1a9e55':'#d94520'}">${mySets} – ${riSets}</div><div style="font-size:11px;color:#999">${score}</div></div><span class="${m.isWin?'pv-badge-w':'pv-badge-l'}" style="font-size:11px;padding:5px 14px">${m.isWin?'VICTORIA':'DERROTA'}</span></div></div>${analysisHtml}${m.notes||m.tactica||m.mejora?`<div class="pv-section"><div class="pv-section-title">Reflexión del Partido</div>${m.notes?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#888;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Notas</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.notes)}</div></div>`:''} ${m.tactica?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#2563eb;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Táctica utilizada</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.tactica)}</div></div>`:''} ${m.mejora?`<div><div style="font-size:10px;font-weight:700;color:#a07800;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">¿Qué cambiaríamos?</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.mejora)}</div></div>`:''}</div>`:''}    <div class="pv-footer">Generado con Pádel Tracker · ${new Date().toLocaleDateString('es-ES')}</div></div>`;
+  document.getElementById('pv-content').innerHTML=`<div class="pv-header"><div class="pv-header-top"><div><div class="pv-logo">Pádel Tracker</div><div class="pv-period">Informe de Partido</div></div><div class="pv-player"><div class="pv-player-name">${esc(m.myName)}</div><div class="pv-player-sub">${fmtDate(m.date)}${m.startTime?' · '+m.startTime+(m.endTime?' – '+m.endTime:''):''}</div></div></div></div><div style="padding:0 20px 20px"><div class="pv-section"><div class="pv-section-title">Resultado</div><div style="display:flex;justify-content:space-between;align-items:center;background:#f8f8f8;border-radius:10px;padding:14px 18px;border:1px solid #ebebeb"><div><div style="font-weight:700;font-size:15px">${esc(mn)}</div><div style="font-size:11px;color:#999;margin-top:2px">vs ${esc(rn)}</div>${m.tournament?`<div style="font-size:10px;color:#888;margin-top:3px;font-weight:600">🏆 ${esc(m.tournament)}</div>`:''} ${m.surface?`<div style="font-size:10px;color:#888;margin-top:3px">🏟 ${esc(m.surface)}</div>`:''} ${m.puntoDeOro?`<div style="font-size:10px;color:#a07800;margin-top:3px">⚡ Punto de oro</div>`:''}</div><div style="text-align:center"><div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px;color:${m.isWin?'#1a9e55':'#d94520'}">${mySets} – ${riSets}</div><div style="font-size:11px;color:#999">${score}</div></div><span class="${m.isWin?'pv-badge-w':'pv-badge-l'}" style="font-size:11px;padding:5px 14px">${m.isWin?'VICTORIA':'DERROTA'}</span></div></div>${pdfSetBreakdown(m)}${analysisHtml}${m.notes||m.tactica||m.mejora?`<div class="pv-section"><div class="pv-section-title">Reflexión del Partido</div>${m.notes?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#888;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Notas</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.notes)}</div></div>`:''} ${m.tactica?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#2563eb;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Táctica utilizada</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.tactica)}</div></div>`:''} ${m.mejora?`<div><div style="font-size:10px;font-weight:700;color:#a07800;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">¿Qué cambiaríamos?</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.mejora)}</div></div>`:''}</div>`:''}    <div class="pv-footer">Generado con Pádel Tracker · ${new Date().toLocaleDateString('es-ES')}</div></div>`;
   window.print();
 }
 function printTraining(id){
   const t=app.trainings.find(x=>x.id===id);if(!t)return;
+  const isTec=t.type==='tec'||t.type==='both';
+  const isFis=t.type==='fis'||t.type==='both';
+  const typeLabel=t.type==='both'?'TÉCNICO + FÍSICO':isTec?'TÉCNICO':'FÍSICO';
+  const typeColor=t.type==='both'?'#7c3aed':isTec?'#7c3aed':'#2563eb';
   const allShots=[...ALL_SHOT_KEYS.filter(k=>(t.shotQuality||{})[k]>0).map(k=>({name:ALL_SHOT_LABELS[k]||k,v:t.shotQuality[k]})),...Object.entries(t.customShotRatings||{}).map(([k,v])=>({name:k,v}))].sort((a,b)=>b.v-a.v);
-  const shotRows=allShots.map(({name,v})=>`<tr><td>${esc(name)}</td><td style="text-align:right;color:#a07800;font-size:13px">${'★'.repeat(v)}${'☆'.repeat(5-v)}</td><td style="text-align:right;font-weight:700">${v}/5</td></tr>`).join('');
-  const bar=(label,val,color)=>`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="width:120px;font-size:11px;color:#666">${label}</div><div style="flex:1;height:8px;background:#f0f0f0;border-radius:4px;overflow:hidden"><div style="width:${(val||0)/5*100}%;height:100%;background:${color};border-radius:4px"></div></div><div style="width:20px;text-align:right;font-weight:700;font-size:12px">${val||0}</div></div>`;
-  document.getElementById('pv-content').innerHTML=`<div class="pv-header"><div class="pv-header-top"><div><div class="pv-logo">Pádel Tracker</div><div class="pv-period">Informe de Entrenamiento</div></div><div class="pv-player"><div class="pv-player-name">${esc(app.playerName||'—')}</div><div class="pv-player-sub">${fmtDate(t.date)}${t.duration?' · '+t.duration+' min':''}</div></div></div></div><div style="padding:0 20px 20px">${t.coach?`<div style="background:#f0faf5;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#1a9e55;font-weight:600;border:1px solid #c8eedd">🎓 Entrenador: ${esc(t.coach)}</div>`:''}${allShots.length?`<div class="pv-section"><div class="pv-section-title">Golpes Técnicos</div><table class="pv-shot-table"><thead><tr><th>Golpe</th><th style="text-align:right">Valoración</th><th style="text-align:right">Nota</th></tr></thead><tbody>${shotRows}</tbody></table></div>`:''}${t.exercises&&t.exercises.length?`<div class="pv-section"><div class="pv-section-title">Ejercicios Físicos</div><ul style="margin:0;padding-left:16px">${t.exercises.map(e=>`<li style="font-size:12px;color:#333;margin-bottom:5px">${esc(e)}</li>`).join('')}</ul></div>`:''}<div class="pv-section"><div class="pv-section-title">Estado Físico y Mental</div>${bar('⚡ Energía',t.energia,'#1a9e55')}${bar('😊 Humor',t.humor,'#7c3aed')}${bar('🔥 Intensidad',t.intensidad,'#a07800')}</div>${t.notes?`<div class="pv-section"><div class="pv-section-title">Notas</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(t.notes)}</div></div>`:''}<div class="pv-footer">Generado con Pádel Tracker · ${new Date().toLocaleDateString('es-ES')}</div></div>`;
+  const avgQ=allShots.length?Math.round(allShots.reduce((a,s)=>a+s.v,0)/allShots.length*10)/10:0;
+  const shotRows=allShots.map(({name,v})=>{
+    const pct=Math.round(v/5*100);
+    const color=v>=4?'#1a9e55':v>=3?'#a07800':'#d94520';
+    return`<tr style="border-bottom:1px solid #f0f0f0"><td style="font-size:12px;color:#333;padding:5px 0">${esc(name)}</td><td style="text-align:center;padding:5px 8px"><div style="height:7px;background:#f0f0f0;border-radius:4px;overflow:hidden;width:70px"><div style="height:100%;width:${pct}%;background:${color};border-radius:4px"></div></div></td><td style="text-align:right;color:#a07800;font-size:12px;padding:5px 8px">${'★'.repeat(v)}${'☆'.repeat(5-v)}</td><td style="text-align:right;font-weight:700;font-size:12px;color:${color}">${v}/5</td></tr>`;
+  }).join('');
+  const bar=(label,val,color)=>`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="width:120px;font-size:11px;color:#666">${label}</div><div style="flex:1;height:8px;background:#f0f0f0;border-radius:4px;overflow:hidden"><div style="width:${(val||0)/5*100}%;height:100%;background:${color};border-radius:4px"></div></div><div style="width:20px;text-align:right;font-weight:700;font-size:12px;color:${color}">${val||0}/5</div></div>`;
+  // Estado summary badges
+  const statBadge=(label,val,color)=>val?`<div style="text-align:center;background:#f8f8f8;border-radius:10px;padding:10px 14px;border:1px solid #e8e8e8"><div style="font-size:20px;font-weight:900;color:${color}">${val}</div><div style="font-size:9px;color:#999;margin-top:2px;text-transform:uppercase;letter-spacing:1px">${label}</div></div>`:'';
+  document.getElementById('pv-content').innerHTML=`<div class="pv-header"><div class="pv-header-top"><div><div class="pv-logo">Pádel Tracker</div><div class="pv-period">Informe de Entrenamiento</div></div><div class="pv-player"><div class="pv-player-name">${esc(app.playerName||'—')}</div><div class="pv-player-sub">${fmtDate(t.date)}${t.duration?' · '+t.duration+' min':''}</div></div></div></div><div style="padding:0 20px 20px">
+  <div class="pv-section"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+    <div><span style="display:inline-block;background:${typeColor};color:#fff;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:5px 14px;border-radius:20px">${typeLabel}</span>${t.coach?`<div style="font-size:12px;color:#555;margin-top:6px">🎓 Entrenador: <strong>${esc(t.coach)}</strong></div>`:''}</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${statBadge('⚡ Energía',t.energia,'#1a9e55')}${statBadge('😊 Humor',t.humor,'#7c3aed')}${statBadge('🔥 Intens.',t.intensidad,'#a07800')}</div>
+  </div></div>
+  ${allShots.length?`<div class="pv-section"><div class="pv-section-title">Golpes Técnicos <span style="font-weight:400;color:#999;font-size:11px">${allShots.length} golpes · media ${avgQ}★</span></div><table class="pv-shot-table"><thead><tr><th>Golpe</th><th></th><th style="text-align:right">Valoración</th><th style="text-align:right">Nota</th></tr></thead><tbody>${shotRows}</tbody></table></div>`:''}
+  ${t.exercises&&t.exercises.length?`<div class="pv-section"><div class="pv-section-title">Ejercicios Físicos <span style="font-weight:400;color:#999;font-size:11px">${t.exercises.length} ejercicios</span></div><ol style="margin:0;padding-left:18px">${t.exercises.map(e=>`<li style="font-size:12px;color:#333;margin-bottom:6px;line-height:1.5">${esc(e)}</li>`).join('')}</ol></div>`:''}
+  <div class="pv-section"><div class="pv-section-title">Estado Físico y Mental</div>${bar('⚡ Energía',t.energia,'#1a9e55')}${bar('😊 Humor',t.humor,'#7c3aed')}${bar('🔥 Intensidad',t.intensidad,'#a07800')}</div>
+  ${t.notes?`<div class="pv-section"><div class="pv-section-title">Notas del Entrenamiento</div><div style="font-size:12px;line-height:1.8;color:#333">${esc(t.notes)}</div></div>`:''}
+  <div class="pv-footer">Generado con Pádel Tracker · ${new Date().toLocaleDateString('es-ES')}</div></div>`;
   window.print();
 }
 
