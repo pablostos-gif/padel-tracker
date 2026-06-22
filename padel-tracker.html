@@ -2481,8 +2481,6 @@ function buildCoachInsightTecnica(){
   // Golpes que mejoran y empeoran
   const shotAvgs={};ALL_SHOT_KEYS.forEach(k=>{const vals=tec.map(t=>(t.shotQuality||{})[k]).filter(v=>v>0);if(vals.length>=2)shotAvgs[k]={first:vals[0],last:vals[vals.length-1],count:vals.length};});
   const improving=Object.entries(shotAvgs).filter(([,d])=>d.last>d.first).sort((a,b)=>(b[1].last-b[1].first)-(a[1].last-a[1].first));
-  const declining=Object.entries(shotAvgs).filter(([,d])=>d.last<d[1].first).sort((a,b)=>(a[1].last-a[1].first)-(b[1].last-b[1].first));
-  // fix: use d.first not d[1].first
   const decl=Object.entries(shotAvgs).filter(([,d])=>d.last<d.first).sort((a,b)=>(a[1].last-a[1].first)-(b[1].last-b[1].first));
   if(improving.length) lines.push(_ciLine('ci-dot-green',`Golpes que más han mejorado: ${improving.slice(0,2).map(([k,d])=>`${ALL_SHOT_LABELS[k]||k} (+${d.last-d.first}★)`).join(', ')}. Buen trabajo, sigue en esa línea.`));
   if(decl.length) lines.push(_ciLine('ci-dot-red',`Golpes que han empeorado: ${decl.slice(0,2).map(([k,d])=>`${ALL_SHOT_LABELS[k]||k} (${d.last-d.first}★)`).join(', ')}. Dedícales más tiempo en las próximas sesiones.`));
