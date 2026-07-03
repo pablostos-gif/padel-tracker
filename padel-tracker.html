@@ -376,8 +376,8 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .confirm-btns{display:flex;gap:10px}
 .confirm-btns .btn{flex:1;padding:14px;font-size:14px}
 
-@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{background:#fff!important;color:#111!important}body::before{display:none}.screen,.overlay,.confirm-overlay,#shot-sheet,#save-toast,#first-modal{display:none!important}#print-view{display:block!important}@page{margin:18mm 14mm;size:A4}}
-#print-view{display:none}
+@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{background:#fff!important;color:#111!important}body::before{display:none}.screen,.overlay,.confirm-overlay,#shot-sheet,#save-toast,#first-modal{display:none!important}#print-view{position:static!important;left:0!important;top:0!important;width:auto!important;display:block!important}@page{margin:18mm 14mm;size:A4}}
+#print-view{position:fixed;top:0;left:-10000px;width:700px;background:#fff}
 .pv-page{font-family:'DM Sans',sans-serif;color:#111;background:#fff}
 .pv-header{background:linear-gradient(135deg,#0D3320,#1a5c38);color:#fff;padding:24px 28px 20px;border-radius:0 0 16px 16px;margin-bottom:20px}
 .pv-header-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
@@ -2293,10 +2293,12 @@ function exportSelectedMatches(){
   const from=data[0].date,to=data[data.length-1].date;
   const period=from===to?fmtDate(from):`${fmtDate(from)} – ${fmtDate(to)}`;
   const coachHtml=buildCoachInsightPartidos(data,null);
+  const chartsHtml=buildMatchesChartsSection(data);
   const body=data.map((m,i)=>`<div style="${i>0?'page-break-before:always;':''}padding-top:${i>0?'14px':'0'}"><div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#0D3320;margin-bottom:10px">Partido ${i+1} de ${data.length} · ${fmtDate(m.date)}</div>${buildMatchReportBody(m)}</div>`).join('');
-  document.getElementById('pv-content').innerHTML=pdfHeader('Informe de Partidos',esc(app.playerName||data[0].myName||''),`${period} · ${data.length} partido${data.length>1?'s':''}`)+`<div style="padding:0 20px 20px">${coachHtml?`<div class="pv-section">${coachHtml}</div>`:''}${body}${pdfFooterLine()}</div>`;
-  window.print();
-  toggleHistorySelectMode();
+  document.getElementById('pv-content').innerHTML=pdfHeader('Informe de Partidos',esc(app.playerName||data[0].myName||''),`${period} · ${data.length} partido${data.length>1?'s':''}`)+`<div style="padding:0 20px 20px">${coachHtml?`<div class="pv-section">${coachHtml}</div>`:''}${chartsHtml}${body}${pdfFooterLine()}</div>`;
+  destroyPdfCharts();
+  renderMatchesCharts(data);
+  setTimeout(()=>{window.print();toggleHistorySelectMode();},250);
 }
 function renderHistory(){
   const list=document.getElementById('history-list');
@@ -2458,10 +2460,12 @@ function exportSelectedTrainings(){
   let coachHtml='';
   if(coachTec)coachHtml+=`<div class="pv-section-title" style="margin-top:${coachHtml?'16px':'0'}">Análisis Técnico</div>${coachTec}`;
   if(coachFis)coachHtml+=`<div class="pv-section-title" style="margin-top:16px">Análisis Físico</div>${coachFis}`;
+  const chartsHtml=buildTrainingsChartsSection(data);
   const body=data.map((t,i)=>`<div style="${i>0?'page-break-before:always;':''}padding-top:${i>0?'14px':'0'}"><div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#0D3320;margin-bottom:10px">Entrenamiento ${i+1} de ${data.length} · ${fmtDate(t.date)}</div>${buildTrainingReportBody(t)}</div>`).join('');
-  document.getElementById('pv-content').innerHTML=pdfHeader('Informe de Entrenamientos',esc(app.playerName||'—'),`${period} · ${data.length} sesión${data.length>1?'es':''}`)+`<div style="padding:0 20px 20px">${coachHtml?`<div class="pv-section">${coachHtml}</div>`:''}${body}${pdfFooterLine()}</div>`;
-  window.print();
-  toggleTrainSelectMode();
+  document.getElementById('pv-content').innerHTML=pdfHeader('Informe de Entrenamientos',esc(app.playerName||'—'),`${period} · ${data.length} sesión${data.length>1?'es':''}`)+`<div style="padding:0 20px 20px">${coachHtml?`<div class="pv-section">${coachHtml}</div>`:''}${chartsHtml}${body}${pdfFooterLine()}</div>`;
+  destroyPdfCharts();
+  renderTrainingsCharts(data);
+  setTimeout(()=>{window.print();toggleTrainSelectMode();},250);
 }
 function renderTrainHistory(){
   const list=document.getElementById('train-history-list');
@@ -2494,6 +2498,16 @@ function setPeriod(p,el){statsPeriod=p;document.querySelectorAll('.ftab').forEac
 function filterHistory(){if(statsPeriod==='all')return app.history;const now=new Date(),cutoff=new Date();if(statsPeriod==='year')cutoff.setFullYear(now.getFullYear(),0,1);if(statsPeriod==='6m')cutoff.setMonth(now.getMonth()-6);if(statsPeriod==='3m')cutoff.setMonth(now.getMonth()-3);if(statsPeriod==='month')cutoff.setDate(1);cutoff.setHours(0,0,0,0);return app.history.filter(m=>new Date(m.date+'T12:00:00')>=cutoff);}
 function _ciLine(dotClass,text){return`<div class="ci-line"><div class="ci-dot ${dotClass}"></div><span>${text}</span></div>`;}
 function _ciBlock(lines){return`<div class="coach-insight"><div class="coach-insight-header"><div class="coach-insight-icon">🎓</div><div class="coach-insight-title">Análisis del entrenador</div></div><div class="coach-insight-lines">${lines.join('')}</div></div>`;}
+const _CI_STOPWORDS=new Set(['que','de','la','el','en','y','a','los','las','un','una','por','con','no','se','su','sus','para','del','al','lo','mas','pero','como','muy','fue','fui','esta','este','estoy','estaba','ha','he','has','habia','sin','solo','les','le','mi','me','nos','ya','si','tambien','hay','ser','estar','todo','toda','todos','todas','cuando','donde','porque','entre','sobre','desde','hasta','esa','ese','esos','esas','esto','eso','les','nada','algo','mas','mucho','poco','bien','mal','mejor','peor','partido','partidos','entreno','entrenos','entrenamiento','entrenamientos','hoy','dia','despues','antes','durante','sido','estado','tener','tengo','tenia','pude','puedo','vez','veces']);
+function _ciNormWord(w){return w.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
+function extractThemes(texts){
+  const freq={};
+  (texts||[]).filter(Boolean).forEach(txt=>{
+    const words=new Set(_ciNormWord(txt).replace(/[^a-z0-9ñ\s]/g,' ').split(/\s+/).filter(w=>w.length>=4&&!_CI_STOPWORDS.has(w)));
+    words.forEach(w=>{freq[w]=(freq[w]||0)+1;});
+  });
+  return Object.entries(freq).filter(([,c])=>c>=2).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([word,count])=>({word,count}));
+}
 
 function buildCoachInsightPartidos(data,elId='coach-insight-partidos'){
   const el=elId?document.getElementById(elId):null;
@@ -2536,6 +2550,18 @@ function buildCoachInsightPartidos(data,elId='coach-insight-partidos'){
   // Si no hay notas en partidos perdidos
   const lostNoNotes=data.filter(m=>!m.isWin&&!m.notes&&!m.tactica&&!m.mejora);
   if(lostNoNotes.length>0) lines.push(_ciLine('ci-dot-blue',`Tienes ${lostNoNotes.length} derrota${lostNoNotes.length>1?'s':''} sin reflexión escrita. Anota qué pasó — es el primer paso para mejorar.`));
+  // Contenido real de las notas/táctica/mejora del jugador
+  const allNotes=[];
+  data.forEach(m=>{[m.notes,m.tactica,m.mejora].forEach(txt=>{if(txt&&txt.trim())allNotes.push(txt.trim());});});
+  if(allNotes.length){
+    const themes=extractThemes(allNotes);
+    if(themes.length) lines.push(_ciLine('ci-dot-blue',`En tus notas y reflexiones aparecen de forma recurrente: ${themes.map(t=>`"${t.word}"`).join(', ')}. Revisa si es un patrón que se repite en tu juego y trabájalo específicamente.`));
+    const lastNoteM=[...data].sort((a,b)=>new Date(b.date)-new Date(a.date)).find(m=>m.notes&&m.notes.trim());
+    if(lastNoteM){
+      const txt=lastNoteM.notes.trim();
+      lines.push(_ciLine('ci-dot-blue',`Tu reflexión más reciente (${fmtDate(lastNoteM.date)}): "${esc(txt.slice(0,180))}${txt.length>180?'…':''}"`));
+    }
+  }
   const html=_ciBlock(lines);
   if(el)el.innerHTML=html;
   return html;
@@ -2578,6 +2604,17 @@ function buildCoachInsightTecnica(data,elId='coach-insight-tecnica'){
     const last=tec[tec.length-1],prev=tec[tec.length-2];
     const dias=Math.round((new Date(last.date)-new Date(prev.date))/(1000*60*60*24));
     if(dias>14) lines.push(_ciLine('ci-dot-yellow',`Tu última sesión técnica fue hace bastante tiempo (${dias} días desde la anterior). La continuidad es clave para mejorar — intenta entrenar al menos una vez por semana.`));
+  }
+  // Contenido real de las notas de entreno técnico
+  const tecNotes=tec.filter(t=>t.notes&&t.notes.trim()).map(t=>t.notes.trim());
+  if(tecNotes.length){
+    const themes=extractThemes(tecNotes);
+    if(themes.length) lines.push(_ciLine('ci-dot-blue',`En tus notas de entreno técnico se repiten estos conceptos: ${themes.map(t=>`"${t.word}"`).join(', ')}. Tenlo en cuenta al planificar la próxima sesión.`));
+    const lastNoted=[...tec].reverse().find(t=>t.notes&&t.notes.trim());
+    if(lastNoted){
+      const txt=lastNoted.notes.trim();
+      lines.push(_ciLine('ci-dot-blue',`Última nota de entreno (${fmtDate(lastNoted.date)}): "${esc(txt.slice(0,180))}${txt.length>180?'…':''}"`));
+    }
   }
   const html=_ciBlock(lines);
   if(el)el.innerHTML=html;
@@ -2631,6 +2668,12 @@ function buildCoachInsightFisico(data,elId='coach-insight-fisico'){
     const ultima=fis[fis.length-1];
     const dias=Math.round((new Date()-new Date(ultima.date+'T12:00:00'))/(1000*60*60*24));
     if(dias>14) lines.push(_ciLine('ci-dot-red',`Llevas ${dias} días sin sesión física registrada. La condición física se pierde rápido — vuelve a la rutina cuanto antes.`));
+  }
+  // Contenido real de las notas de entreno físico
+  const fisNotes=fis.filter(t=>t.notes&&t.notes.trim()).map(t=>t.notes.trim());
+  if(fisNotes.length){
+    const themes=extractThemes(fisNotes);
+    if(themes.length) lines.push(_ciLine('ci-dot-blue',`En tus notas de entreno físico se repiten estos conceptos: ${themes.map(t=>`"${t.word}"`).join(', ')}. Puede ser una señal a tener en cuenta en la planificación.`));
   }
   const html=_ciBlock(lines);
   if(el)el.innerHTML=html;
@@ -3608,6 +3651,97 @@ function pdfHeader(period,name,sub){
 function pdfFooterLine(){
   return`<div class="pv-footer">Generado con Pádel Tracker · ${new Date().toLocaleDateString('es-ES')}</div>`;
 }
+// ── Gráficos profesionales para PDF ──
+const PDF_CHART_IDS=['pdfc-results','pdfc-efficiency','pdfc-shots','pdfc-tec-evol','pdfc-shot-bars','pdfc-state-evol','pdfc-duration'];
+function destroyPdfCharts(){PDF_CHART_IDS.forEach(id=>destroyChart(id));}
+function _pdfChartBox(id,title,h){return`<div style="background:#fafafa;border:1px solid #eee;border-radius:12px;padding:10px 10px 6px"><div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">${title}</div><div style="height:${h||180}px"><canvas id="${id}"></canvas></div></div>`;}
+function buildMatchesChartsSection(data){
+  const withShots=data.filter(m=>m.shots&&hasShotData(m.shots.my));
+  let top='';
+  if(data.length>=2) top+=_pdfChartBox('pdfc-results','Evolución de Resultados');
+  if(withShots.length>=2) top+=_pdfChartBox('pdfc-efficiency','Evolución de Eficiencia');
+  let html='';
+  if(top) html+=`<div style="display:grid;grid-template-columns:${data.length>=2&&withShots.length>=2?'1fr 1fr':'1fr'};gap:14px;margin-bottom:14px">${top}</div>`;
+  if(withShots.length) html+=`<div style="margin-bottom:4px">${_pdfChartBox('pdfc-shots','Winners vs Errores No Forzados por Golpe',200)}</div>`;
+  if(!html) return '';
+  return `<div class="pv-section"><div class="pv-section-title">📊 Estadística Profesional</div>${html}</div>`;
+}
+function renderMatchesCharts(data){
+  const sorted=[...data].sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const axisX={ticks:{color:'#888',font:{size:9},maxRotation:60,minRotation:60},grid:{display:false}};
+  if(document.getElementById('pdfc-results')){
+    mkChart('pdfc-results','bar',{
+      labels:sorted.map(m=>fmtDate(m.date)),
+      datasets:[{label:'Resultado',data:sorted.map(m=>m.isWin?1:-1),backgroundColor:sorted.map(m=>m.isWin?'#1a9e55':'#d94520'),borderRadius:4}]
+    },{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{y:{min:-1,max:1,ticks:{stepSize:1,callback:v=>v===1?'G':v===-1?'P':'',color:'#888',font:{size:10}},grid:{color:'#eee'}},x:axisX}});
+  }
+  const withShots=sorted.filter(m=>m.shots&&hasShotData(m.shots.my));
+  if(document.getElementById('pdfc-efficiency')&&withShots.length>=2){
+    const effs=withShots.map(m=>{const s=normShots(m.shots.my);const w=Object.values(s.winners).reduce((a,b)=>a+b,0),e=Object.values(s.enf).reduce((a,b)=>a+b,0);return(w+e+s.ef)?Math.round(w/(w+e+s.ef)*100):0;});
+    mkChart('pdfc-efficiency','line',{
+      labels:withShots.map(m=>fmtDate(m.date)),
+      datasets:[{label:'Eficiencia %',data:effs,borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,0.15)',fill:true,tension:0.3,pointRadius:3,pointBackgroundColor:'#2563eb'}]
+    },{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{y:{min:0,max:100,ticks:{color:'#888',font:{size:10},callback:v=>v+'%'},grid:{color:'#eee'}},x:axisX}});
+  }
+  if(document.getElementById('pdfc-shots')&&withShots.length){
+    const winMap={},errMap={};SHOT_KEYS.forEach(k=>{winMap[k]=0;errMap[k]=0;});
+    withShots.forEach(m=>{const s=normShots(m.shots.my);SHOT_KEYS.forEach(k=>{winMap[k]+=s.winners[k]||0;errMap[k]+=s.enf[k]||0;});});
+    const keys=SHOT_KEYS.filter(k=>winMap[k]>0||errMap[k]>0);
+    mkChart('pdfc-shots','bar',{
+      labels:keys.map(k=>SHOT_LABELS[k]),
+      datasets:[{label:'Winners',data:keys.map(k=>winMap[k]),backgroundColor:'#1a9e55',borderRadius:3},{label:'Errores No Forz.',data:keys.map(k=>errMap[k]),backgroundColor:'#d94520',borderRadius:3}]
+    },{responsive:true,maintainAspectRatio:false,animation:false,indexAxis:'y',plugins:{legend:{position:'top',labels:{color:'#333',font:{size:10},boxWidth:12}}},scales:{x:{ticks:{color:'#888',font:{size:9}},grid:{color:'#eee'}},y:{ticks:{color:'#333',font:{size:10}},grid:{display:false}}}});
+  }
+}
+function buildTrainingsChartsSection(data){
+  const tec=data.filter(t=>t.type==='tec'||t.type==='both').sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const fis=data.filter(t=>t.type==='fis'||t.type==='both').sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const hasShotRatings=data.some(t=>Object.values(t.shotQuality||{}).some(v=>v>0)||Object.values(t.customShotRatings||{}).some(v=>v>0));
+  const hasDur=data.some(t=>t.duration);
+  let html='';
+  let row1='';
+  if(tec.length>=2) row1+=_pdfChartBox('pdfc-tec-evol','Evolución Calidad Técnica (Top golpes)');
+  if(fis.length>=2) row1+=_pdfChartBox('pdfc-state-evol','Evolución Energía / Humor / Intensidad');
+  if(row1) html+=`<div style="display:grid;grid-template-columns:${tec.length>=2&&fis.length>=2?'1fr 1fr':'1fr'};gap:14px;margin-bottom:14px">${row1}</div>`;
+  let row2='';
+  if(hasShotRatings) row2+=_pdfChartBox('pdfc-shot-bars','Valoración Media por Golpe',200);
+  if(hasDur) row2+=_pdfChartBox('pdfc-duration','Duración por Sesión (min)',180);
+  if(row2) html+=`<div style="display:grid;grid-template-columns:${hasShotRatings&&hasDur?'1fr 1fr':'1fr'};gap:14px;margin-bottom:4px">${row2}</div>`;
+  if(!html) return '';
+  return `<div class="pv-section"><div class="pv-section-title">📊 Estadística Profesional</div>${html}</div>`;
+}
+function renderTrainingsCharts(data){
+  const tec=data.filter(t=>t.type==='tec'||t.type==='both').sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const fis=data.filter(t=>t.type==='fis'||t.type==='both').sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const axisX={ticks:{color:'#888',font:{size:9},maxRotation:60,minRotation:60},grid:{display:false}};
+  if(document.getElementById('pdfc-tec-evol')&&tec.length>=2){
+    const freq={};ALL_SHOT_KEYS.forEach(k=>{const c=tec.filter(t=>(t.shotQuality||{})[k]>0).length;if(c>0)freq[k]=c;});
+    const topKeys=Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k])=>k);
+    const palette=['#7c3aed','#1a9e55','#2563eb','#d94520','#a07800'];
+    const datasets=topKeys.map((k,i)=>({label:ALL_SHOT_LABELS[k]||k,data:tec.map(t=>(t.shotQuality||{})[k]||null),borderColor:palette[i%palette.length],backgroundColor:palette[i%palette.length],spanGaps:true,tension:0.3,pointRadius:3}));
+    mkChart('pdfc-tec-evol','line',{labels:tec.map(t=>fmtDate(t.date)),datasets},{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{position:'top',labels:{color:'#333',font:{size:9},boxWidth:10}}},scales:{y:{min:0,max:5,ticks:{stepSize:1,color:'#888',font:{size:10}},grid:{color:'#eee'}},x:axisX}});
+  }
+  if(document.getElementById('pdfc-state-evol')&&fis.length>=2){
+    mkChart('pdfc-state-evol','line',{labels:fis.map(t=>fmtDate(t.date)),datasets:[
+      {label:'Energía',data:fis.map(t=>t.energia||null),borderColor:'#1a9e55',tension:0.3,pointRadius:3},
+      {label:'Humor',data:fis.map(t=>t.humor||null),borderColor:'#7c3aed',tension:0.3,pointRadius:3},
+      {label:'Intensidad',data:fis.map(t=>t.intensidad||null),borderColor:'#a07800',tension:0.3,pointRadius:3}
+    ]},{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{position:'top',labels:{color:'#333',font:{size:9},boxWidth:10}}},scales:{y:{min:0,max:5,ticks:{stepSize:1,color:'#888',font:{size:10}},grid:{color:'#eee'}},x:axisX}});
+  }
+  if(document.getElementById('pdfc-shot-bars')){
+    const agg={};
+    data.forEach(t=>{
+      ALL_SHOT_KEYS.forEach(k=>{const v=(t.shotQuality||{})[k];if(v>0){if(!agg[k])agg[k]={sum:0,n:0};agg[k].sum+=v;agg[k].n++;}});
+      Object.entries(t.customShotRatings||{}).forEach(([k,v])=>{if(v>0){if(!agg[k])agg[k]={sum:0,n:0};agg[k].sum+=v;agg[k].n++;}});
+    });
+    const entries=Object.entries(agg).map(([k,{sum,n}])=>[ALL_SHOT_LABELS[k]||k,Math.round(sum/n*10)/10]).sort((a,b)=>b[1]-a[1]);
+    if(entries.length) mkChart('pdfc-shot-bars','bar',{labels:entries.map(e=>e[0]),datasets:[{label:'Media',data:entries.map(e=>e[1]),backgroundColor:entries.map(e=>e[1]>=4?'#1a9e55':e[1]>=3?'#a07800':'#d94520'),borderRadius:3}]},{responsive:true,maintainAspectRatio:false,animation:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{min:0,max:5,ticks:{color:'#888',font:{size:9}},grid:{color:'#eee'}},y:{ticks:{color:'#333',font:{size:10}},grid:{display:false}}}});
+  }
+  if(document.getElementById('pdfc-duration')){
+    const withDur=data.filter(t=>t.duration).sort((a,b)=>new Date(a.date)-new Date(b.date));
+    if(withDur.length) mkChart('pdfc-duration','bar',{labels:withDur.map(t=>fmtDate(t.date)),datasets:[{label:'Minutos',data:withDur.map(t=>t.duration),backgroundColor:'#2563eb',borderRadius:4}]},{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{y:{ticks:{color:'#888',font:{size:10}},grid:{color:'#eee'}},x:axisX}});
+  }
+}
 function pdfSetBreakdown(m){
   const hasGames=m.sets&&m.sets.some(s=>s.games&&s.games.length);
   if(!hasGames)return'';
@@ -3723,8 +3857,11 @@ function buildMatchReportBody(m){
 function printMatch(idx){
   const m=app.history[idx];if(!m)return;
   const sub=`${fmtDate(m.date)}${m.startTime?' · '+m.startTime+(m.endTime?' – '+m.endTime:''):''}`;
-  document.getElementById('pv-content').innerHTML=pdfHeader('Informe de Partido',esc(m.myName),sub)+`<div style="padding:0 20px 20px">${buildMatchReportBody(m)}${pdfFooterLine()}</div>`;
-  window.print();
+  const chartsHtml=buildMatchesChartsSection([m]);
+  document.getElementById('pv-content').innerHTML=pdfHeader('Informe de Partido',esc(m.myName),sub)+`<div style="padding:0 20px 20px">${buildMatchReportBody(m)}${chartsHtml}${pdfFooterLine()}</div>`;
+  destroyPdfCharts();
+  renderMatchesCharts([m]);
+  setTimeout(()=>window.print(),250);
 }
 function buildTrainingReportBody(t){
   const isTec=t.type==='tec'||t.type==='both';
@@ -3753,8 +3890,11 @@ function buildTrainingReportBody(t){
 function printTraining(id){
   const t=app.trainings.find(x=>x.id===id);if(!t)return;
   const sub=`${fmtDate(t.date)}${t.duration?' · '+t.duration+' min':''}`;
-  document.getElementById('pv-content').innerHTML=pdfHeader('Informe de Entrenamiento',esc(app.playerName||'—'),sub)+`<div style="padding:0 20px 20px">${buildTrainingReportBody(t)}${pdfFooterLine()}</div>`;
-  window.print();
+  const chartsHtml=buildTrainingsChartsSection([t]);
+  document.getElementById('pv-content').innerHTML=pdfHeader('Informe de Entrenamiento',esc(app.playerName||'—'),sub)+`<div style="padding:0 20px 20px">${buildTrainingReportBody(t)}${chartsHtml}${pdfFooterLine()}</div>`;
+  destroyPdfCharts();
+  renderTrainingsCharts([t]);
+  setTimeout(()=>window.print(),250);
 }
 
 let s3renderer=null, s3scene=null, s3camera=null;
