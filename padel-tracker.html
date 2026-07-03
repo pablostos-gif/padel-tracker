@@ -230,7 +230,11 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 
 /* History */
 .history-list{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
-.hist-card{background:var(--card);border-radius:18px;padding:16px 18px;border:1px solid var(--border);transition:all 0.2s cubic-bezier(0.4,0,0.2,1);box-shadow:0 1px 3px rgba(0,0,0,0.15)}.hist-card:hover{border-color:var(--my);box-shadow:0 4px 12px rgba(16,185,129,0.1)}
+.hist-card{position:relative;background:var(--card);border-radius:18px;padding:16px 18px;border:1px solid var(--border);transition:all 0.2s cubic-bezier(0.4,0,0.2,1);box-shadow:0 1px 3px rgba(0,0,0,0.15)}.hist-card:hover{border-color:var(--my);box-shadow:0 4px 12px rgba(16,185,129,0.1)}
+.hist-select-box{width:22px;height:22px;border-radius:7px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;font-weight:800;color:#06170f;transition:all 0.15s;margin-top:1px}
+.hist-select-box.checked{background:var(--my);border-color:var(--my)}
+.export-bar{flex-shrink:0;display:flex;align-items:center;gap:10px;padding:12px 16px 20px;border-top:1px solid var(--border);background:var(--card)}
+.export-bar-count{flex:1;font-size:13px;color:var(--muted)}
 .hist-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .hist-date{font-size:11px;color:var(--muted)}
 .hist-badge{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:3px 10px;border-radius:20px}
@@ -407,6 +411,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .pv-coef-val{font-family:'Bebas Neue',sans-serif;font-size:30px;color:#111;letter-spacing:1px}
 .pv-coef-label{font-size:9px;color:#999;text-transform:uppercase;letter-spacing:1px;margin-top:3px}
 .pv-footer{font-size:10px;color:#ccc;text-align:center;margin-top:28px;padding-top:10px;border-top:1px solid #f0f0f0}
+@media print{#print-view .ci-line{color:#222!important}}
 
 @media(min-width:600px){body{background:#030810}.screen{width:100%;margin:0;background:var(--bg);min-height:100dvh}.tz-point{font-size:88px}.scoring-area{min-height:280px}#shot-sheet{width:100%;left:0;transform:translateY(100%)}#shot-sheet.open{transform:translateY(0)}#save-toast{width:100%;left:0;transform:translateY(100%)}#save-toast.show{transform:translateY(0)}}
 /* ═══ GOALS ═══ */
@@ -614,9 +619,11 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <button class="back-btn" onclick="showScreen('home')">←</button>
     <h2>Historial</h2>
     <div id="hist-count" style="font-size:13px;color:var(--muted)"></div>
+    <button class="back-btn" style="background:transparent;border:none;cursor:pointer;font-size:16px" onclick="toggleHistorySelectMode()" title="Seleccionar y exportar informe">📤</button>
   </div>
   <div id="match-month-tabs" style="display:flex;gap:6px;overflow-x:auto;padding:10px 16px 4px;scrollbar-width:none;-ms-overflow-style:none;flex-shrink:0"></div>
   <div id="history-list" class="history-list"></div>
+  <div id="history-export-bar" class="export-bar" style="display:none"></div>
 </div>
 
 <!-- TRAINING SETUP -->
@@ -760,10 +767,12 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <button class="back-btn" onclick="showScreen('home')">←</button>
     <h2>Entrenamientos</h2>
     <div id="train-hist-count" style="font-size:13px;color:var(--muted)"></div>
-    <button class="back-btn" style="background:transparent;border:none;cursor:pointer;font-size:18px" onclick="showExportScreen()" title="Exportar entrenamientos">💾</button>
+    <button class="back-btn" style="background:transparent;border:none;cursor:pointer;font-size:16px" onclick="toggleTrainSelectMode()" title="Seleccionar y exportar informe">📤</button>
+    <button class="back-btn" style="background:transparent;border:none;cursor:pointer;font-size:18px" onclick="showExportScreen()" title="Exportar datos (JSON)">💾</button>
   </div>
   <div id="train-month-tabs" style="display:flex;gap:6px;overflow-x:auto;padding:10px 16px 4px;scrollbar-width:none;-ms-overflow-style:none;flex-shrink:0"></div>
   <div id="train-history-list" class="history-list"></div>
+  <div id="train-export-bar" class="export-bar" style="display:none"></div>
 </div>
 
 <!-- TRAINING EXPORT -->
@@ -2259,19 +2268,53 @@ function renderMatchMonthTabs(sorted){
     +months.map(m=>`<button style="${tabStyle(activeMatchMonth===m)}" onclick="setMatchMonth('${m}')">${fmtMonth(m)}</button>`).join('');
 }
 function setMatchMonth(m){activeMatchMonth=m;renderHistory();}
+let historySelectMode=false;
+let selectedMatchIds=new Set();
+function toggleHistorySelectMode(){
+  historySelectMode=!historySelectMode;
+  if(!historySelectMode)selectedMatchIds.clear();
+  renderHistory();
+}
+function toggleMatchSelect(id){
+  if(selectedMatchIds.has(id))selectedMatchIds.delete(id);else selectedMatchIds.add(id);
+  renderHistory();
+}
+function renderHistoryExportBar(){
+  const bar=document.getElementById('history-export-bar');
+  if(!bar)return;
+  if(!historySelectMode){bar.style.display='none';bar.innerHTML='';return;}
+  bar.style.display='flex';
+  const n=selectedMatchIds.size;
+  bar.innerHTML=`<div class="export-bar-count">${n?`${n} partido${n>1?'s':''} seleccionado${n>1?'s':''}`:'Toca los partidos que quieras exportar'}</div><button class="btn btn-ghost" style="padding:9px 14px;font-size:13px" onclick="toggleHistorySelectMode()">Cancelar</button><button class="btn btn-primary" style="padding:9px 16px;font-size:13px" onclick="exportSelectedMatches()">📄 Exportar</button>`;
+}
+function exportSelectedMatches(){
+  if(!selectedMatchIds.size){alert('Selecciona al menos un partido para exportar');return;}
+  const data=app.history.filter(m=>selectedMatchIds.has(m.id)).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const from=data[0].date,to=data[data.length-1].date;
+  const period=from===to?fmtDate(from):`${fmtDate(from)} – ${fmtDate(to)}`;
+  const coachHtml=buildCoachInsightPartidos(data,null);
+  const body=data.map((m,i)=>`<div style="${i>0?'page-break-before:always;':''}padding-top:${i>0?'14px':'0'}"><div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#0D3320;margin-bottom:10px">Partido ${i+1} de ${data.length} · ${fmtDate(m.date)}</div>${buildMatchReportBody(m)}</div>`).join('');
+  document.getElementById('pv-content').innerHTML=pdfHeader('Informe de Partidos',esc(app.playerName||data[0].myName||''),`${period} · ${data.length} partido${data.length>1?'s':''}`)+`<div style="padding:0 20px 20px">${coachHtml?`<div class="pv-section">${coachHtml}</div>`:''}${body}${pdfFooterLine()}</div>`;
+  window.print();
+  toggleHistorySelectMode();
+}
 function renderHistory(){
   const list=document.getElementById('history-list');
   const sorted=[...app.history].sort((a,b)=>new Date(b.date)-new Date(a.date));
   renderMatchMonthTabs(sorted);
   const filtered=activeMatchMonth==='all'?sorted:sorted.filter(m=>(m.date||'').startsWith(activeMatchMonth));
   document.getElementById('hist-count').textContent=app.history.length?`${app.history.length} partidos`:'';
+  renderHistoryExportBar();
   if(!filtered.length){list.innerHTML=`<div class="empty-state"><div class="empty-icon">🎾</div><p>${activeMatchMonth==='all'?'Todavía no hay partidos.<br>¡Empieza a registrar!':'No hay partidos este mes.'}</p></div>`;return;}
   list.innerHTML=filtered.map(m=>{
     const mn=[m.myName,m.myPartner].filter(Boolean).join(' / '),rn=[m.rival1,m.rival2].filter(Boolean).join(' / ');
     const sh=m.sets.map((s,i)=>{const w=s.my>s.ri,sep=i<m.sets.length-1?'<span class="set-dot">·</span>':'';return`<span class="set-score"><span class="${w?'w':'l'}">${s.my}</span>-<span class="${w?'l':'w'}">${s.ri}</span></span>${sep}`;}).join('');
     const shots=m.shots?m.shots.my:null;
     const sb=shots?`<div class="hist-shot-bar"><div class="hsb-item"><div class="hsb-dot" style="background:var(--my)"></div>${Object.values(shots.winners).reduce((a,b)=>a+b,0)}W</div><div class="hsb-item"><div class="hsb-dot" style="background:var(--rival)"></div>${Object.values(shots.enf).reduce((a,b)=>a+b,0)}ENF</div><div class="hsb-item"><div class="hsb-dot" style="background:var(--yellow)"></div>${shots.ef}EF</div></div>`:'';
-    return`<div class="hist-card" onclick="viewMatchDetail(${app.history.indexOf(m)})"><div class="hist-top"><div><div class="hist-date">${m.tournament?esc(m.tournament)+' · ':''}${fmtDate(m.date)}</div></div><span class="hist-badge ${m.isWin?'badge-win':'badge-loss'}">${m.isWin?'VICTORIA':'DERROTA'}</span></div><div class="hist-players">${esc(mn)}<span class="vs">vs</span>${esc(rn)}</div><div class="hist-score">${sh}</div>${sb}${m.notes?`<div class="hist-notes">${esc(m.notes)}</div>`:''}</div>`;
+    const sel=selectedMatchIds.has(m.id);
+    const cardClick=historySelectMode?`toggleMatchSelect(${m.id})`:`viewMatchDetail(${app.history.indexOf(m)})`;
+    const checkbox=historySelectMode?`<div class="hist-select-box ${sel?'checked':''}">${sel?'✓':''}</div>`:'';
+    return`<div class="hist-card" onclick="${cardClick}"><div style="display:flex;gap:10px"><div style="flex:1;min-width:0"><div class="hist-top"><div><div class="hist-date">${m.tournament?esc(m.tournament)+' · ':''}${fmtDate(m.date)}</div></div><span class="hist-badge ${m.isWin?'badge-win':'badge-loss'}">${m.isWin?'VICTORIA':'DERROTA'}</span></div><div class="hist-players">${esc(mn)}<span class="vs">vs</span>${esc(rn)}</div><div class="hist-score">${sh}</div>${sb}${m.notes?`<div class="hist-notes">${esc(m.notes)}</div>`:''}</div>${checkbox}</div></div>`;
   }).join('');
 }
 
@@ -2386,12 +2429,47 @@ function renderTrainMonthTabs(sorted){
     +months.map(m=>`<button style="${tabStyle(activeTrainMonth===m)}" onclick="setTrainMonth('${m}')">${fmtMonth(m)}</button>`).join('');
 }
 function setTrainMonth(m){activeTrainMonth=m;renderTrainHistory();}
+let trainSelectMode=false;
+let selectedTrainIds=new Set();
+function toggleTrainSelectMode(){
+  trainSelectMode=!trainSelectMode;
+  if(!trainSelectMode)selectedTrainIds.clear();
+  renderTrainHistory();
+}
+function toggleTrainSelect(id){
+  if(selectedTrainIds.has(id))selectedTrainIds.delete(id);else selectedTrainIds.add(id);
+  renderTrainHistory();
+}
+function renderTrainExportBar(){
+  const bar=document.getElementById('train-export-bar');
+  if(!bar)return;
+  if(!trainSelectMode){bar.style.display='none';bar.innerHTML='';return;}
+  bar.style.display='flex';
+  const n=selectedTrainIds.size;
+  bar.innerHTML=`<div class="export-bar-count">${n?`${n} entreno${n>1?'s':''} seleccionado${n>1?'s':''}`:'Toca los entrenos que quieras exportar'}</div><button class="btn btn-ghost" style="padding:9px 14px;font-size:13px" onclick="toggleTrainSelectMode()">Cancelar</button><button class="btn btn-primary" style="padding:9px 16px;font-size:13px" onclick="exportSelectedTrainings()">📄 Exportar</button>`;
+}
+function exportSelectedTrainings(){
+  if(!selectedTrainIds.size){alert('Selecciona al menos un entrenamiento para exportar');return;}
+  const data=app.trainings.filter(t=>selectedTrainIds.has(t.id)).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const from=data[0].date,to=data[data.length-1].date;
+  const period=from===to?fmtDate(from):`${fmtDate(from)} – ${fmtDate(to)}`;
+  const coachTec=buildCoachInsightTecnica(data,null);
+  const coachFis=buildCoachInsightFisico(data,null);
+  let coachHtml='';
+  if(coachTec)coachHtml+=`<div class="pv-section-title" style="margin-top:${coachHtml?'16px':'0'}">Análisis Técnico</div>${coachTec}`;
+  if(coachFis)coachHtml+=`<div class="pv-section-title" style="margin-top:16px">Análisis Físico</div>${coachFis}`;
+  const body=data.map((t,i)=>`<div style="${i>0?'page-break-before:always;':''}padding-top:${i>0?'14px':'0'}"><div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#0D3320;margin-bottom:10px">Entrenamiento ${i+1} de ${data.length} · ${fmtDate(t.date)}</div>${buildTrainingReportBody(t)}</div>`).join('');
+  document.getElementById('pv-content').innerHTML=pdfHeader('Informe de Entrenamientos',esc(app.playerName||'—'),`${period} · ${data.length} sesión${data.length>1?'es':''}`)+`<div style="padding:0 20px 20px">${coachHtml?`<div class="pv-section">${coachHtml}</div>`:''}${body}${pdfFooterLine()}</div>`;
+  window.print();
+  toggleTrainSelectMode();
+}
 function renderTrainHistory(){
   const list=document.getElementById('train-history-list');
   const sorted=[...app.trainings].sort((a,b)=>new Date(b.date)-new Date(a.date));
   renderTrainMonthTabs(sorted);
   const filtered=activeTrainMonth==='all'?sorted:sorted.filter(t=>(t.date||'').startsWith(activeTrainMonth));
   document.getElementById('train-hist-count').textContent=app.trainings.length?`${app.trainings.length} sesiones`:'';
+  renderTrainExportBar();
   if(!filtered.length){list.innerHTML=`<div class="empty-state"><div class="empty-icon">💪</div><p>${activeTrainMonth==='all'?'Aún no hay entrenamientos.<br>¡Registra la primera sesión!':'No hay entrenamientos este mes.'}</p></div>`;return;}
   list.innerHTML=filtered.map(t=>{
     const isTec=t.type==='tec'||t.type==='both';
@@ -2400,7 +2478,10 @@ function renderTrainHistory(){
     const dur=t.duration?`${t.duration}min · `:'';
     const coachStr=t.coach?`<span style="font-size:11px;color:var(--muted)">🎓 ${esc(t.coach)}</span>`:'';
     const sr=`<div class="train-state-row"><div>⚡${'●'.repeat(t.energia||0)}</div><div>😊${'●'.repeat(t.humor||0)}</div><div>🔥${'●'.repeat(t.intensidad||0)}</div></div>`;
-    return`<div class="hist-card ${isTec?'train-card':'train-card fis'}" style="cursor:pointer" onclick="editTraining(${t.id})"><div class="hist-top"><div><div class="hist-date">${dur}${fmtDate(t.date)}</div>${coachStr}</div><span class="hist-badge ${isTec?'badge-train':'badge-train-fis'}">${t.type==='both'?'TÉCNICO + FÍSICO':isTec?'TÉCNICO':'FÍSICO'}</span><div style="display:flex;align-items:center;gap:4px"><div onclick="event.stopPropagation();shareTraining(${t.id})" style="cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--blue);font-size:15px;opacity:0.8" title="Compartir">🔗</div><div onclick="event.stopPropagation();printTraining(${t.id})" style="cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--my);font-size:15px;opacity:0.7" title="PDF">📄</div><div onclick="event.stopPropagation();deleteTraining(${t.id})" style="cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--rival);font-size:18px;opacity:0.6">✕</div></div></div>${shots.length?`<div class="train-shots-row">${sc}${shots.length>5?`<span style="font-size:11px;color:var(--muted)">+${shots.length-5} más</span>`:''}</div>`:''}${t.exercises&&t.exercises.length?`<div style="font-size:12px;color:var(--muted);margin-top:6px">${t.exercises.slice(0,3).map(e=>esc(e)).join(' · ')}</div>`:''}${sr}${t.notes?`<div class="hist-notes">${esc(t.notes)}</div>`:''}</div>`;
+    const sel=selectedTrainIds.has(t.id);
+    const cardClick=trainSelectMode?`toggleTrainSelect(${t.id})`:`editTraining(${t.id})`;
+    const actions=trainSelectMode?`<div class="hist-select-box ${sel?'checked':''}">${sel?'✓':''}</div>`:`<div style="display:flex;align-items:center;gap:4px"><div onclick="event.stopPropagation();shareTraining(${t.id})" style="cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--blue);font-size:15px;opacity:0.8" title="Compartir">🔗</div><div onclick="event.stopPropagation();printTraining(${t.id})" style="cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--my);font-size:15px;opacity:0.7" title="PDF">📄</div><div onclick="event.stopPropagation();deleteTraining(${t.id})" style="cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--rival);font-size:18px;opacity:0.6">✕</div></div>`;
+    return`<div class="hist-card ${isTec?'train-card':'train-card fis'}" style="cursor:pointer" onclick="${cardClick}"><div class="hist-top"><div><div class="hist-date">${dur}${fmtDate(t.date)}</div>${coachStr}</div><span class="hist-badge ${isTec?'badge-train':'badge-train-fis'}">${t.type==='both'?'TÉCNICO + FÍSICO':isTec?'TÉCNICO':'FÍSICO'}</span>${actions}</div>${shots.length?`<div class="train-shots-row">${sc}${shots.length>5?`<span style="font-size:11px;color:var(--muted)">+${shots.length-5} más</span>`:''}</div>`:''}${t.exercises&&t.exercises.length?`<div style="font-size:12px;color:var(--muted);margin-top:6px">${t.exercises.slice(0,3).map(e=>esc(e)).join(' · ')}</div>`:''}${sr}${t.notes?`<div class="hist-notes">${esc(t.notes)}</div>`:''}</div>`;
   }).join('');
 }
 
@@ -2414,11 +2495,11 @@ function filterHistory(){if(statsPeriod==='all')return app.history;const now=new
 function _ciLine(dotClass,text){return`<div class="ci-line"><div class="ci-dot ${dotClass}"></div><span>${text}</span></div>`;}
 function _ciBlock(lines){return`<div class="coach-insight"><div class="coach-insight-header"><div class="coach-insight-icon">🎓</div><div class="coach-insight-title">Análisis del entrenador</div></div><div class="coach-insight-lines">${lines.join('')}</div></div>`;}
 
-function buildCoachInsightPartidos(data){
-  const el=document.getElementById('coach-insight-partidos');if(!el)return;
+function buildCoachInsightPartidos(data,elId='coach-insight-partidos'){
+  const el=elId?document.getElementById(elId):null;
   const lines=[];
   const total=data.length;
-  if(!total){el.innerHTML='';return;}
+  if(!total){if(el)el.innerHTML='';return'';}
   const wins=data.filter(m=>m.isWin).length;
   const pct=Math.round(wins/total*100);
   // Racha reciente (últimos 5)
@@ -2455,14 +2536,16 @@ function buildCoachInsightPartidos(data){
   // Si no hay notas en partidos perdidos
   const lostNoNotes=data.filter(m=>!m.isWin&&!m.notes&&!m.tactica&&!m.mejora);
   if(lostNoNotes.length>0) lines.push(_ciLine('ci-dot-blue',`Tienes ${lostNoNotes.length} derrota${lostNoNotes.length>1?'s':''} sin reflexión escrita. Anota qué pasó — es el primer paso para mejorar.`));
-  el.innerHTML=_ciBlock(lines);
+  const html=_ciBlock(lines);
+  if(el)el.innerHTML=html;
+  return html;
 }
 
-function buildCoachInsightTecnica(){
-  const el=document.getElementById('coach-insight-tecnica');if(!el)return;
-  const tec=app.trainings.filter(t=>t.type==='tec'||t.type==='both').sort((a,b)=>new Date(a.date)-new Date(b.date));
+function buildCoachInsightTecnica(data,elId='coach-insight-tecnica'){
+  const el=elId?document.getElementById(elId):null;
+  const tec=(data||app.trainings).filter(t=>t.type==='tec'||t.type==='both').sort((a,b)=>new Date(a.date)-new Date(b.date));
   const lines=[];
-  if(!tec.length){el.innerHTML='';return;}
+  if(!tec.length){if(el)el.innerHTML='';return'';}
   // Tendencia general de calidad
   const getAvg=t=>{const v=Object.values(t.shotQuality||{}).filter(x=>x>0);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;};
   const avgs=tec.map(getAvg).filter(v=>v!==null);
@@ -2496,14 +2579,16 @@ function buildCoachInsightTecnica(){
     const dias=Math.round((new Date(last.date)-new Date(prev.date))/(1000*60*60*24));
     if(dias>14) lines.push(_ciLine('ci-dot-yellow',`Tu última sesión técnica fue hace bastante tiempo (${dias} días desde la anterior). La continuidad es clave para mejorar — intenta entrenar al menos una vez por semana.`));
   }
-  el.innerHTML=_ciBlock(lines);
+  const html=_ciBlock(lines);
+  if(el)el.innerHTML=html;
+  return html;
 }
 
-function buildCoachInsightFisico(){
-  const el=document.getElementById('coach-insight-fisico');if(!el)return;
-  const fis=app.trainings.filter(t=>t.type==='fis'||t.type==='both').sort((a,b)=>new Date(a.date)-new Date(b.date));
+function buildCoachInsightFisico(data,elId='coach-insight-fisico'){
+  const el=elId?document.getElementById(elId):null;
+  const fis=(data||app.trainings).filter(t=>t.type==='fis'||t.type==='both').sort((a,b)=>new Date(a.date)-new Date(b.date));
   const lines=[];
-  if(!fis.length){el.innerHTML='';return;}
+  if(!fis.length){if(el)el.innerHTML='';return'';}
   const avg=arr=>arr.length?Math.round(arr.reduce((a,b)=>a+b,0)/arr.length*10)/10:null;
   const avgI=avg(fis.map(t=>t.intensidad||0).filter(v=>v>0));
   const avgE=avg(fis.map(t=>t.energia||0).filter(v=>v>0));
@@ -2547,7 +2632,9 @@ function buildCoachInsightFisico(){
     const dias=Math.round((new Date()-new Date(ultima.date+'T12:00:00'))/(1000*60*60*24));
     if(dias>14) lines.push(_ciLine('ci-dot-red',`Llevas ${dias} días sin sesión física registrada. La condición física se pierde rápido — vuelve a la rutina cuanto antes.`));
   }
-  el.innerHTML=_ciBlock(lines);
+  const html=_ciBlock(lines);
+  if(el)el.innerHTML=html;
+  return html;
 }
 
 function renderStats(){const el=document.getElementById('stats-player-name');if(el)el.textContent=app.playerName||'—';renderMatchStats();}
@@ -3515,6 +3602,12 @@ function closeFtDetail(){
 // ═══════════════════════════════════════════════════════════════
 // PDF PRINT
 // ═══════════════════════════════════════════════════════════════
+function pdfHeader(period,name,sub){
+  return`<div class="pv-header"><div class="pv-header-top"><div><div class="pv-logo">Pádel Tracker</div><div class="pv-period">${period}</div></div><div class="pv-player"><div class="pv-player-name">${name}</div><div class="pv-player-sub">${sub}</div></div></div></div>`;
+}
+function pdfFooterLine(){
+  return`<div class="pv-footer">Generado con Pádel Tracker · ${new Date().toLocaleDateString('es-ES')}</div>`;
+}
 function pdfSetBreakdown(m){
   const hasGames=m.sets&&m.sets.some(s=>s.games&&s.games.length);
   if(!hasGames)return'';
@@ -3555,8 +3648,7 @@ function pdfSetBreakdown(m){
   html+='</div>';
   return html;
 }
-function printMatch(idx){
-  const m=app.history[idx];if(!m)return;
+function buildMatchReportBody(m){
   const mn=[m.myName,m.myPartner].filter(Boolean).join(' / '),rn=[m.rival1,m.rival2].filter(Boolean).join(' / ');
   const mySets=m.sets.filter(s=>s.my>s.ri).length,riSets=m.sets.filter(s=>s.ri>s.my).length;
   const score=m.sets.map(s=>`${s.my}-${s.ri}`).join('  |  ');
@@ -3626,11 +3718,15 @@ function printMatch(idx){
     }
   }
 
-  document.getElementById('pv-content').innerHTML=`<div class="pv-header"><div class="pv-header-top"><div><div class="pv-logo">Pádel Tracker</div><div class="pv-period">Informe de Partido</div></div><div class="pv-player"><div class="pv-player-name">${esc(m.myName)}</div><div class="pv-player-sub">${fmtDate(m.date)}${m.startTime?' · '+m.startTime+(m.endTime?' – '+m.endTime:''):''}</div></div></div></div><div style="padding:0 20px 20px"><div class="pv-section"><div class="pv-section-title">Resultado</div><div style="display:flex;justify-content:space-between;align-items:center;background:#f8f8f8;border-radius:10px;padding:14px 18px;border:1px solid #ebebeb"><div><div style="font-weight:700;font-size:15px">${esc(mn)}</div><div style="font-size:11px;color:#999;margin-top:2px">vs ${esc(rn)}</div>${m.tournament?`<div style="font-size:10px;color:#888;margin-top:3px;font-weight:600">🏆 ${esc(m.tournament)}</div>`:''} ${m.surface?`<div style="font-size:10px;color:#888;margin-top:3px">🏟 ${esc(m.surface)}</div>`:''} ${m.puntoDeOro?`<div style="font-size:10px;color:#a07800;margin-top:3px">⚡ Punto de oro</div>`:''}</div><div style="text-align:center"><div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px;color:${m.isWin?'#1a9e55':'#d94520'}">${mySets} – ${riSets}</div><div style="font-size:11px;color:#999">${score}</div></div><span class="${m.isWin?'pv-badge-w':'pv-badge-l'}" style="font-size:11px;padding:5px 14px">${m.isWin?'VICTORIA':'DERROTA'}</span></div></div>${pdfSetBreakdown(m)}${analysisHtml}${m.notes||m.tactica||m.mejora?`<div class="pv-section"><div class="pv-section-title">Reflexión del Partido</div>${m.notes?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#888;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Notas</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.notes)}</div></div>`:''} ${m.tactica?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#2563eb;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Táctica utilizada</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.tactica)}</div></div>`:''} ${m.mejora?`<div><div style="font-size:10px;font-weight:700;color:#a07800;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">¿Qué cambiaríamos?</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.mejora)}</div></div>`:''}</div>`:''}    <div class="pv-footer">Generado con Pádel Tracker · ${new Date().toLocaleDateString('es-ES')}</div></div>`;
+  return`<div class="pv-section"><div class="pv-section-title">Resultado</div><div style="display:flex;justify-content:space-between;align-items:center;background:#f8f8f8;border-radius:10px;padding:14px 18px;border:1px solid #ebebeb"><div><div style="font-weight:700;font-size:15px">${esc(mn)}</div><div style="font-size:11px;color:#999;margin-top:2px">vs ${esc(rn)}</div>${m.tournament?`<div style="font-size:10px;color:#888;margin-top:3px;font-weight:600">🏆 ${esc(m.tournament)}</div>`:''} ${m.surface?`<div style="font-size:10px;color:#888;margin-top:3px">🏟 ${esc(m.surface)}</div>`:''} ${m.puntoDeOro?`<div style="font-size:10px;color:#a07800;margin-top:3px">⚡ Punto de oro</div>`:''}</div><div style="text-align:center"><div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px;color:${m.isWin?'#1a9e55':'#d94520'}">${mySets} – ${riSets}</div><div style="font-size:11px;color:#999">${score}</div></div><span class="${m.isWin?'pv-badge-w':'pv-badge-l'}" style="font-size:11px;padding:5px 14px">${m.isWin?'VICTORIA':'DERROTA'}</span></div></div>${pdfSetBreakdown(m)}${analysisHtml}${m.notes||m.tactica||m.mejora?`<div class="pv-section"><div class="pv-section-title">Reflexión del Partido</div>${m.notes?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#888;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Notas</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.notes)}</div></div>`:''} ${m.tactica?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#2563eb;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Táctica utilizada</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.tactica)}</div></div>`:''} ${m.mejora?`<div><div style="font-size:10px;font-weight:700;color:#a07800;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">¿Qué cambiaríamos?</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.mejora)}</div></div>`:''}</div>`:''}`;
+}
+function printMatch(idx){
+  const m=app.history[idx];if(!m)return;
+  const sub=`${fmtDate(m.date)}${m.startTime?' · '+m.startTime+(m.endTime?' – '+m.endTime:''):''}`;
+  document.getElementById('pv-content').innerHTML=pdfHeader('Informe de Partido',esc(m.myName),sub)+`<div style="padding:0 20px 20px">${buildMatchReportBody(m)}${pdfFooterLine()}</div>`;
   window.print();
 }
-function printTraining(id){
-  const t=app.trainings.find(x=>x.id===id);if(!t)return;
+function buildTrainingReportBody(t){
   const isTec=t.type==='tec'||t.type==='both';
   const isFis=t.type==='fis'||t.type==='both';
   const typeLabel=t.type==='both'?'TÉCNICO + FÍSICO':isTec?'TÉCNICO':'FÍSICO';
@@ -3645,16 +3741,19 @@ function printTraining(id){
   const bar=(label,val,color)=>`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="width:120px;font-size:11px;color:#666">${label}</div><div style="flex:1;height:8px;background:#f0f0f0;border-radius:4px;overflow:hidden"><div style="width:${(val||0)/5*100}%;height:100%;background:${color};border-radius:4px"></div></div><div style="width:20px;text-align:right;font-weight:700;font-size:12px;color:${color}">${val||0}/5</div></div>`;
   // Estado summary badges
   const statBadge=(label,val,color)=>val?`<div style="text-align:center;background:#f8f8f8;border-radius:10px;padding:10px 14px;border:1px solid #e8e8e8"><div style="font-size:20px;font-weight:900;color:${color}">${val}</div><div style="font-size:9px;color:#999;margin-top:2px;text-transform:uppercase;letter-spacing:1px">${label}</div></div>`:'';
-  document.getElementById('pv-content').innerHTML=`<div class="pv-header"><div class="pv-header-top"><div><div class="pv-logo">Pádel Tracker</div><div class="pv-period">Informe de Entrenamiento</div></div><div class="pv-player"><div class="pv-player-name">${esc(app.playerName||'—')}</div><div class="pv-player-sub">${fmtDate(t.date)}${t.duration?' · '+t.duration+' min':''}</div></div></div></div><div style="padding:0 20px 20px">
-  <div class="pv-section"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+  return`<div class="pv-section"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
     <div><span style="display:inline-block;background:${typeColor};color:#fff;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:5px 14px;border-radius:20px">${typeLabel}</span>${t.coach?`<div style="font-size:12px;color:#555;margin-top:6px">🎓 Entrenador: <strong>${esc(t.coach)}</strong></div>`:''}</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${statBadge('⚡ Energía',t.energia,'#1a9e55')}${statBadge('😊 Humor',t.humor,'#7c3aed')}${statBadge('🔥 Intens.',t.intensidad,'#a07800')}</div>
   </div></div>
   ${allShots.length?`<div class="pv-section"><div class="pv-section-title">Golpes Técnicos <span style="font-weight:400;color:#999;font-size:11px">${allShots.length} golpes · media ${avgQ}★</span></div><table class="pv-shot-table"><thead><tr><th>Golpe</th><th></th><th style="text-align:right">Valoración</th><th style="text-align:right">Nota</th></tr></thead><tbody>${shotRows}</tbody></table></div>`:''}
   ${t.exercises&&t.exercises.length?`<div class="pv-section"><div class="pv-section-title">Ejercicios Físicos <span style="font-weight:400;color:#999;font-size:11px">${t.exercises.length} ejercicios</span></div><ol style="margin:0;padding-left:18px">${t.exercises.map(e=>`<li style="font-size:12px;color:#333;margin-bottom:6px;line-height:1.5">${esc(e)}</li>`).join('')}</ol></div>`:''}
   <div class="pv-section"><div class="pv-section-title">Estado Físico y Mental</div>${bar('⚡ Energía',t.energia,'#1a9e55')}${bar('😊 Humor',t.humor,'#7c3aed')}${bar('🔥 Intensidad',t.intensidad,'#a07800')}</div>
-  ${t.notes?`<div class="pv-section"><div class="pv-section-title">Notas del Entrenamiento</div><div style="font-size:12px;line-height:1.8;color:#333">${esc(t.notes)}</div></div>`:''}
-  <div class="pv-footer">Generado con Pádel Tracker · ${new Date().toLocaleDateString('es-ES')}</div></div>`;
+  ${t.notes?`<div class="pv-section"><div class="pv-section-title">Notas del Entrenamiento</div><div style="font-size:12px;line-height:1.8;color:#333">${esc(t.notes)}</div></div>`:''}`;
+}
+function printTraining(id){
+  const t=app.trainings.find(x=>x.id===id);if(!t)return;
+  const sub=`${fmtDate(t.date)}${t.duration?' · '+t.duration+' min':''}`;
+  document.getElementById('pv-content').innerHTML=pdfHeader('Informe de Entrenamiento',esc(app.playerName||'—'),sub)+`<div style="padding:0 20px 20px">${buildTrainingReportBody(t)}${pdfFooterLine()}</div>`;
   window.print();
 }
 
