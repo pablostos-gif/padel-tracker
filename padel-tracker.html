@@ -601,6 +601,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   <div class="screen-header"><h2>Resumen del partido</h2></div>
   <div class="scrollable" style="padding-bottom:16px">
     <div id="result-card" class="result-card"></div>
+    <div id="match-timing-stats" style="display:none"></div>
     <div id="shot-summary" class="shot-summary" style="display:none"></div>
     <div class="notes-section" style="padding-top:0">
       <div class="notes-label">Notas del partido</div>
@@ -1724,7 +1725,7 @@ function startMatch(){
   else if(format==='1-1'){bestOf=1;startGame={my:1,ri:1};}
 
   const startTime=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
-  app.match={myName,myPartner,rival1,rival2,bestOf,tournament,date,format,puntoDeOro,serving:null,tiebreakMax:0,sets:[],currentSet:startGame,currentGame:{my:0,ri:0},tiebreak:false,winner:null,notes:'',shots:emptyShots(),startTime,endTime:null,currentGamePoints:[],currentSetGames:[]};
+  app.match={myName,myPartner,rival1,rival2,bestOf,tournament,date,format,puntoDeOro,serving:null,tiebreakMax:0,sets:[],currentSet:startGame,currentGame:{my:0,ri:0},tiebreak:false,winner:null,notes:'',shots:emptyShots(),startTime,endTime:null,startTs:Date.now(),endTs:null,currentGamePoints:[],currentSetGames:[]};
   stateStack=[];showScreen('match');renderMatch();showServeOverlay();
 }
 function emptyShots(){
@@ -1764,7 +1765,7 @@ function gameWinner(g){
 function winGame(w){
   const m=app.match;
   if(!m.currentSetGames)m.currentSetGames=[];
-  m.currentSetGames.push({winner:w,points:[...(m.currentGamePoints||[])]});
+  m.currentSetGames.push({winner:w,points:[...(m.currentGamePoints||[])],server:m.serving||null});
   m.currentGamePoints=[];
   m.currentGame={my:0,ri:0};
   m.tiebreak=false;
@@ -1811,7 +1812,7 @@ function setTiebreakType(max){
 function winTiebreak(winner){
   const m=app.match;
   if(!m.currentSetGames)m.currentSetGames=[];
-  m.currentSetGames.push({winner,points:[...(m.currentGamePoints||[])],isTiebreak:true});
+  m.currentSetGames.push({winner,points:[...(m.currentGamePoints||[])],isTiebreak:true,server:m.serving||null});
   m.currentGamePoints=[];
   m.tiebreak=false;
   m.sets.push({...m.currentSet,games:[...m.currentSetGames]});
@@ -1921,14 +1922,94 @@ function saveShot(){
 // ═══════════════════════════════════════════════════════════════
 // END SCREEN
 // ═══════════════════════════════════════════════════════════════
-function goToEndScreen(){app.match.endTime=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});showScreen('end-screen');renderEndScreen();}
+function goToEndScreen(){app.match.endTime=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});app.match.endTs=Date.now();showScreen('end-screen');renderEndScreen();}
+function fmtDuration(ms){if(!ms||ms<0)return'';const totalMin=Math.round(ms/60000);const h=Math.floor(totalMin/60),mnt=totalMin%60;return h>0?`${h}h ${mnt}min`:`${mnt}min`;}
+function calcMatchStats(m){
+  const allGames=[];(m.sets||[]).forEach(s=>(s.games||[]).forEach(g=>allGames.push(g)));
+  let mySrvWon=0,mySrvTot=0,riSrvWon=0,riSrvTot=0;
+  let myBpWon=0,myBpTot=0,riBpWon=0,riBpTot=0;
+  allGames.forEach(g=>{
+    if(g.isTiebreak||!g.server)return;
+    const pts=g.points||[];const srv=g.server;const ret=srv==='my'?'ri':'my';
+    const srvWonPt=pts.filter(p=>p===srv).length,total=pts.length;
+    if(srv==='my'){mySrvTot+=total;mySrvWon+=srvWonPt;}else{riSrvTot+=total;riSrvWon+=srvWonPt;}
+    // puntos de quiebre: el que resta llega a un punto de ganar el juego del rival que saca
+    let sc={my:0,ri:0};
+    pts.forEach((p,i)=>{
+      const retScore=sc[ret],srvScore=sc[srv];
+      const retAtGamePointVsServer=retScore>=3&&retScore-srvScore>=1;
+      if(retAtGamePointVsServer){
+        if(ret==='my'){myBpTot++;if(p==='my')myBpWon++;}else{riBpTot++;if(p==='ri')riBpWon++;}
+      }
+      if(p==='my')sc.my++;else sc.ri++;
+    });
+  });
+  // racha de puntos más larga (todos los puntos del partido, en orden, incl. tiebreaks)
+  let streak={my:0,ri:0},cur=null,curLen=0;
+  allGames.forEach(g=>(g.points||[]).forEach(p=>{
+    if(p===cur)curLen++;else{cur=p;curLen=1;}
+    if(curLen>streak[p])streak[p]=curLen;
+  }));
+  const durationMs=(m.endTs&&m.startTs)?m.endTs-m.startTs:null;
+  return{
+    mySrvWon,mySrvTot,riSrvWon,riSrvTot,
+    myRetWon:riSrvTot-riSrvWon,myRetTot:riSrvTot,riRetWon:mySrvTot-mySrvWon,riRetTot:mySrvTot,
+    myBpWon,myBpTot,riBpWon,riBpTot,
+    myStreak:streak.my,riStreak:streak.ri,
+    durationMs
+  };
+}
+function _statBarRow(label,myVal,myTot,riVal,riTot){
+  const myTxt=myTot?`${myVal}/${myTot}`:'—',riTxt=riTot?`${riVal}/${riTot}`:'—';
+  const myPct=myTot?Math.round(myVal/myTot*100):0,riPct=riTot?Math.round(riVal/riTot*100):0;
+  const totPct=(myPct+riPct)||1,myW=Math.round(myPct/totPct*100);
+  return`<div style="margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px">
+      <span style="color:var(--my);font-weight:700">${myTxt}</span>
+      <span style="color:var(--muted);letter-spacing:0.5px;font-size:11px;text-align:center">${label}</span>
+      <span style="color:var(--rival);font-weight:700">${riTxt}</span>
+    </div>
+    <div style="height:8px;border-radius:4px;background:rgba(255,94,58,0.35);overflow:hidden">
+      <div style="height:100%;border-radius:4px;background:var(--my);width:${myTot||riTot?myW:50}%"></div>
+    </div>
+  </div>`;
+}
+function _matchTimingInnerHtml(m){
+  const st=calcMatchStats(m);
+  const hasServe=st.mySrvTot+st.riSrvTot>0;
+  if(!hasServe&&!st.durationMs)return'';
+  const durHtml=st.durationMs?`<div style="display:flex;align-items:center;justify-content:center;gap:8px;background:var(--card2);border-radius:12px;padding:12px;margin-bottom:14px">
+    <span style="font-size:18px">⏱️</span>
+    <span style="font-size:13px;color:var(--muted)">Duración del partido</span>
+    <span style="font-size:15px;font-weight:800;color:var(--text)">${fmtDuration(st.durationMs)}</span>
+  </div>`:'';
+  const barsHtml=hasServe?`
+    ${_statBarRow('SAQUES GANADOS',st.mySrvWon,st.mySrvTot,st.riSrvWon,st.riSrvTot)}
+    ${_statBarRow('DEVOLUCIONES GANADAS',st.myRetWon,st.myRetTot,st.riRetWon,st.riRetTot)}
+    ${(st.myBpTot+st.riBpTot>0)?_statBarRow('PUNTOS DE QUIEBRE GANADOS',st.myBpWon,st.myBpTot,st.riBpWon,st.riBpTot):''}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px">
+      <span style="font-size:13px;font-weight:700;color:var(--my)">${st.myStreak}</span>
+      <span style="font-size:11px;color:var(--muted);letter-spacing:0.5px">RACHA MÁS LARGA DE PUNTOS</span>
+      <span style="font-size:13px;font-weight:700;color:var(--rival)">${st.riStreak}</span>
+    </div>`:'';
+  return durHtml+barsHtml;
+}
+function buildMatchTimingStats(m){
+  const inner=_matchTimingInnerHtml(m);
+  if(!inner)return'';
+  return`<div class="shot-summary" style="display:block"><div class="shot-sum-title">⏱️ Estadísticas del partido</div>${inner}</div>`;
+}
 function renderEndScreen(){
   const m=app.match;
   const mySets=m.sets.filter(s=>s.my>s.ri).length,rivSets=m.sets.filter(s=>s.ri>s.my).length;
   const isMyWin=mySets>rivSets;
   const sH=m.sets.map(s=>{const w=s.my>s.ri;return`<div class="result-set"><span class="${w?'my':'ri'}">${w?s.my:s.ri}</span><span style="color:var(--muted);margin:0 2px">-</span><span class="${w?'ri':'my'}">${w?s.ri:s.my}</span></div>`;}).join('');
-  const timeInfo=(m.startTime||m.endTime)?`<div class="result-meta" style="margin-top:4px">${m.startTime?'Inicio: '+m.startTime:''}${m.startTime&&m.endTime?' &nbsp;·&nbsp; ':''}${m.endTime?'Fin: '+m.endTime:''}</div>`:'';
+  const durTxt=fmtDuration(m.endTs&&m.startTs?m.endTs-m.startTs:null);
+  const timeInfo=(m.startTime||m.endTime)?`<div class="result-meta" style="margin-top:4px">${m.startTime?'Inicio: '+m.startTime:''}${m.startTime&&m.endTime?' &nbsp;·&nbsp; ':''}${m.endTime?'Fin: '+m.endTime:''}${durTxt?' &nbsp;·&nbsp; '+durTxt:''}</div>`:'';
   document.getElementById('result-card').innerHTML=`<div class="result-winner-label">🏆 Ganador</div><div class="result-winner-name" style="color:${isMyWin?'var(--my)':'var(--rival)'}">${esc((isMyWin?m.myName:m.rival1).toUpperCase())}</div><div class="result-winner-partner">${(isMyWin?m.myPartner:m.rival2)?'con '+esc(isMyWin?m.myPartner:m.rival2):''}</div><div class="result-sets">${sH}</div><div class="result-meta">${m.tournament?esc(m.tournament)+' · ':''}${fmtDate(m.date)}</div>${timeInfo}`;
+  const timingHtml=buildMatchTimingStats(m);
+  const timingEl=document.getElementById('match-timing-stats');
+  if(timingHtml){timingEl.style.display='block';timingEl.innerHTML=timingHtml;}else{timingEl.style.display='none';timingEl.innerHTML='';}
   const my=m.shots.my,ri=m.shots.ri;
   const tw=Object.values(my.winners).reduce((a,b)=>a+b,0),te=Object.values(my.enf).reduce((a,b)=>a+b,0);
   const rw=Object.values(ri.winners).reduce((a,b)=>a+b,0),re=Object.values(ri.enf).reduce((a,b)=>a+b,0);
@@ -2253,13 +2334,15 @@ function viewMatchDetail(idx){
       </div>`;
     }catch(e){console.error('shotHtml error',e);}
   }
+  const timingInner=_matchTimingInnerHtml(m);
+  const timingBlockHtml=timingInner?`<div class="shot-summary" style="margin:0 16px 12px"><div class="shot-sum-title">⏱️ Estadísticas del partido</div>${timingInner}</div>`:'';
   content.innerHTML=`
     ${buildProScoreboard(m)}
     <div style="background:var(--card);border-radius:18px;padding:16px;border:1px solid var(--border);margin:0 16px 12px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <div>
           <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">${m.tournament||'Amistoso'}</div>
-          <div style="font-size:12px;color:var(--muted)">${fmtDate(m.date)}${m.startTime?` · ${m.startTime}${m.endTime?' – '+m.endTime:''}`:''}</div>
+          <div style="font-size:12px;color:var(--muted)">${fmtDate(m.date)}${m.startTime?` · ${m.startTime}${m.endTime?' – '+m.endTime:''}`:''}${(m.endTs&&m.startTs)?` · ${fmtDuration(m.endTs-m.startTs)}`:''}</div>
         </div>
         <span class="hist-badge ${m.isWin?'badge-win':'badge-loss'}">${m.isWin?'VICTORIA':'DERROTA'}</span>
       </div>
@@ -2268,6 +2351,7 @@ function viewMatchDetail(idx){
         <div style="font-size:13px;color:var(--muted);margin-bottom:12px">vs ${esc(rn)}</div>
       </div>
     </div>
+    ${timingBlockHtml}
     ${buildSetBreakdown(m)}
     ${shotHtml}
     ${m.notes||m.tactica||m.mejora?`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);margin:0 16px;display:flex;flex-direction:column;gap:12px">
@@ -3162,11 +3246,16 @@ function _renderCoachMatch(m,playerName){
         ${m.tournament?`<span style="font-size:12px;background:rgba(255,255,255,0.07);border-radius:8px;padding:4px 12px">🏆 ${esc(m.tournament)}</span>`:''}
         ${m.myPartner?`<span style="font-size:12px;background:rgba(255,255,255,0.07);border-radius:8px;padding:4px 12px">🤝 Pareja: ${esc(m.myPartner)}</span>`:''}
         ${m.startTime?`<span style="font-size:12px;background:rgba(255,255,255,0.07);border-radius:8px;padding:4px 12px">🕐 ${m.startTime}${m.endTime?' – '+m.endTime:''}</span>`:''}
+        ${(m.endTs&&m.startTs)?`<span style="font-size:12px;background:rgba(255,255,255,0.07);border-radius:8px;padding:4px 12px">⏱️ ${fmtDuration(m.endTs-m.startTs)}</span>`:''}
         ${m.puntoDeOro?`<span style="font-size:12px;background:rgba(240,180,0,0.15);border-radius:8px;padding:4px 12px;color:#F0DC50">⚡ Punto de oro</span>`:''}
       </div>
     </div>`;
 
   let html='';
+
+  // ── ESTADÍSTICAS DE SAQUE / QUIEBRE / RACHA ──────────────────────
+  const timingInner=_matchTimingInnerHtml(m);
+  if(timingInner)html+=_card('⏱️ Estadísticas del partido','var(--blue)',timingInner);
 
   // ── DESGLOSE JUEGO A JUEGO ──────────────────────────────────────
   const hasGames=m.sets&&m.sets.some(s=>s.games&&s.games.length);
