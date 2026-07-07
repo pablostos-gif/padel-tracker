@@ -280,6 +280,14 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .sq-star{font-size:18px;cursor:pointer;transition:transform 0.1s;color:#2A3A55;user-select:none}
 .sq-star.lit{color:#F0DC50}
 .sq-star:active{transform:scale(1.3)}
+.perf-item{display:flex;align-items:center;gap:14px;padding:10px 2px;border-bottom:1px solid var(--border)}
+.perf-item:last-child{border-bottom:none}
+.perf-ring{--pct:0;--col:var(--my);width:58px;height:58px;border-radius:50%;flex-shrink:0;position:relative;display:flex;align-items:center;justify-content:center;background:conic-gradient(var(--col) calc(var(--pct)*3.6deg),#2A3448 0deg)}
+.perf-ring::before{content:'';position:absolute;inset:6px;border-radius:50%;background:var(--card)}
+.perf-ring-val{position:relative;z-index:1;font-size:13px;font-weight:800;color:var(--text)}
+.perf-item-info{flex:1;min-width:0}
+.perf-item-label{font-size:14px;font-weight:600;color:var(--text)}
+.perf-item-sub{font-size:12px;color:var(--muted);margin-top:2px}
 .exercise-list{display:flex;flex-direction:column;gap:8px}
 .ex-item{background:var(--card);border-radius:14px;padding:12px 14px;border:1px solid var(--border);display:flex;align-items:center;gap:10px}
 .ex-name{flex:1;font-size:14px;font-weight:500}
@@ -664,7 +672,17 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
         </div>
       </div>
       <div class="f-section">
-        <div class="f-section-title">🧠 Estado físico y mental</div>
+        <div class="color-bar" style="background:linear-gradient(90deg,#06B6D4,#7EE8F5)"></div>
+        <div class="f-section-title">🧠 Táctica (opcional) — puntúa del 1 al 5 ⭐</div>
+        <div class="shots-quality-grid" id="tactico-quality-grid"></div>
+      </div>
+      <div class="f-section">
+        <div class="color-bar" style="background:linear-gradient(90deg,#F0DC50,#FFF0A0)"></div>
+        <div class="f-section-title">🧘 Mental (opcional) — puntúa del 1 al 5 ⭐</div>
+        <div class="shots-quality-grid" id="mental-quality-grid"></div>
+      </div>
+      <div class="f-section">
+        <div class="f-section-title">🔋 Estado físico y mental</div>
         <div class="state-sliders">
           <div class="state-row">
             <div class="state-row-top"><div class="state-row-label">⚡ Energía</div><div class="state-row-val kpi-green" id="sl-energia-val">3</div></div>
@@ -807,6 +825,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   </div>
   <div class="stats-tabs">
     <button class="stats-tab active" onclick="switchStatsTab('partidos',this)">Partidos</button>
+    <button class="stats-tab" onclick="switchStatsTab('rendimiento',this)">Rendimiento</button>
     <button class="stats-tab" onclick="switchStatsTab('tecnica',this)">Técnica</button>
     <button class="stats-tab" onclick="switchStatsTab('fisico',this)">Físico</button>
     <button class="stats-tab" onclick="switchStatsTab('rivales',this)">Rivales</button>
@@ -857,6 +876,10 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <div class="chart-card"><div class="chart-title">Últimos partidos</div><div id="streak-bar" class="streak-bar"></div><div id="streak-label" class="streak-label"></div></div>
     <div class="chart-card"><div class="chart-title">Rendimiento por rival</div><div id="rivals-table"></div></div>
     <div class="chart-card"><div class="chart-title">Detalle de golpes</div><div id="shot-detail-table"></div></div>
+  </div>
+  <div id="panel-rendimiento" class="stats-panel">
+    <div style="font-size:13px;color:var(--muted);padding:2px 2px 4px">Calculado automáticamente con lo que registras en cada entrenamiento. "Ahora" = media de tus últimas 3 valoraciones · "Media histórica" = media de todas.</div>
+    <div id="rendimiento-content"></div>
   </div>
   <div id="panel-tecnica" class="stats-panel">
     <div id="coach-insight-tecnica"></div>
@@ -1320,6 +1343,10 @@ const SHOT_LABELS={remate:'Remate',bandeja:'Bandeja',vibora:'Víbora',volea_der:
 const SHOT_KEYS=Object.keys(SHOT_LABELS);
 const ALL_SHOT_LABELS={...SHOT_LABELS,resto:'Resto',contrapared:'Contrapared'};
 const ALL_SHOT_KEYS=[...SHOT_KEYS,'saque','resto','contrapared'];
+const TACTICO_LABELS={tac_servicio:'Táctica al servicio',tac_resto:'Táctica al resto',tac_red:'Cerrar la red',tac_consistencia:'Consistencia / trabajar el punto',tac_direcciones:'Direcciones y patrones de juego',tac_globo:'Uso del globo (def./neutro/agresivo)'};
+const TACTICO_KEYS=Object.keys(TACTICO_LABELS);
+const MENTAL_LABELS={men_actitud:'Actitud',men_concentracion:'Concentración / rutinas',men_fortaleza:'Fortaleza mental',men_companerismo:'Compañerismo',men_motivacion:'Motivación',men_resiliencia:'Resiliencia'};
+const MENTAL_KEYS=Object.keys(MENTAL_LABELS);
 const energiaColors=['#5A6A8A','#4A9EFF','#3DDB82','#3DDB82','#F0DC50'];
 const humorColors=['#5A6A8A','#FF5E3A','#4A9EFF','#B57BFF','#3DDB82'];
 const intensidadColors=['#5A6A8A','#4A9EFF','#3DDB82','#F0DC50','#FF5E3A'];
@@ -2333,7 +2360,7 @@ function goToTraining(){
   document.getElementById('sl-energia').value=3;document.getElementById('sl-energia-val').textContent=3;
   document.getElementById('sl-humor').value=3;document.getElementById('sl-humor-val').textContent=3;
   document.getElementById('sl-intensidad').value=3;document.getElementById('sl-intensidad-val').textContent=3;
-  buildShotsQualityGrid();renderExerciseList();showScreen('train-setup');
+  buildShotsQualityGrid();buildRatingGrid('tactico-quality-grid',TACTICO_KEYS,TACTICO_LABELS);buildRatingGrid('mental-quality-grid',MENTAL_KEYS,MENTAL_LABELS);renderExerciseList();showScreen('train-setup');
 }
 function editTraining(id){
   const t=app.trainings.find(x=>x.id===id);
@@ -2349,10 +2376,25 @@ function editTraining(id){
   document.getElementById('sl-humor').value=t.humor||3;document.getElementById('sl-humor-val').textContent=t.humor||3;
   document.getElementById('sl-intensidad').value=t.intensidad||3;document.getElementById('sl-intensidad-val').textContent=t.intensidad||3;
   buildShotsQualityGrid();
+  buildRatingGrid('tactico-quality-grid',TACTICO_KEYS,TACTICO_LABELS);
+  buildRatingGrid('mental-quality-grid',MENTAL_KEYS,MENTAL_LABELS);
   Object.keys(t.shotQuality||{}).forEach(k=>{const v=t.shotQuality[k];if(v){const row=document.getElementById('sqr-'+k);if(row)row.classList.add('active');for(let i=1;i<=v;i++){const el=document.getElementById(`sqs-${k}-${i}`);if(el)el.classList.add('lit');}}});
   Object.keys(t.customShotRatings||{}).forEach(s=>{const idx=customShots.indexOf(s);if(idx>=0){const k='custom-'+idx;const v=t.customShotRatings[s];if(v){const row=document.getElementById('sqr-'+k);if(row)row.classList.add('active');for(let i=1;i<=v;i++){const el=document.getElementById(`sqs-${k}-${i}`);if(el)el.classList.add('lit');}}}});
+  Object.keys(t.tacticoRatings||{}).forEach(k=>{const v=t.tacticoRatings[k];if(v){const row=document.getElementById('sqr-'+k);if(row)row.classList.add('active');for(let i=1;i<=v;i++){const el=document.getElementById(`sqs-${k}-${i}`);if(el)el.classList.add('lit');}}});
+  Object.keys(t.mentalRatings||{}).forEach(k=>{const v=t.mentalRatings[k];if(v){const row=document.getElementById('sqr-'+k);if(row)row.classList.add('active');for(let i=1;i<=v;i++){const el=document.getElementById(`sqs-${k}-${i}`);if(el)el.classList.add('lit');}}});
   renderExerciseList();
   showScreen('train-setup');
+}
+function buildRatingGrid(containerId,keys,labels){
+  const el=document.getElementById(containerId);if(!el)return;
+  el.innerHTML=keys.map(k=>`
+    <div class="sq-row" id="sqr-${k}" onclick="toggleShot('${k}')">
+      <div class="sq-toggle" id="sqt-${k}">✓</div>
+      <div class="sq-name">${labels[k]}</div>
+      <div class="sq-stars" onclick="event.stopPropagation()">
+        ${[1,2,3,4,5].map(n=>`<span class="sq-star" id="sqs-${k}-${n}" onclick="rateStar('${k}',${n})">★</span>`).join('')}
+      </div>
+    </div>`).join('');
 }
 function buildShotsQualityGrid(){
   const standardShots=ALL_SHOT_KEYS.map(k=>`
@@ -2388,6 +2430,8 @@ function updSlider(el,valId,colors){const v=parseInt(el.value);const ve=document
 function saveTraining(){
   const sq={};ALL_SHOT_KEYS.forEach(k=>{const r=getShotRating(k);if(r!==null)sq[k]=r;});
   const customShotRatings={};customShots.forEach((s,i)=>{const r=getShotRating('custom-'+i);if(r!==null)customShotRatings[s]=r;});
+  const tacticoRatings={};TACTICO_KEYS.forEach(k=>{const r=getShotRating(k);if(r!==null)tacticoRatings[k]=r;});
+  const mentalRatings={};MENTAL_KEYS.forEach(k=>{const r=getShotRating(k);if(r!==null)mentalRatings[k]=r;});
   const t={
     id:editingTrainingId||Date.now(),
     date:document.getElementById('t-date').value||new Date().toISOString().split('T')[0],
@@ -2397,6 +2441,8 @@ function saveTraining(){
     shotQuality:sq,
     customShots:[...customShots],
     customShotRatings:customShotRatings,
+    tacticoRatings:tacticoRatings,
+    mentalRatings:mentalRatings,
     exercises:[...exercises],
     energia:parseInt(document.getElementById('sl-energia').value),
     humor:parseInt(document.getElementById('sl-humor').value),
@@ -2493,7 +2539,7 @@ function renderTrainHistory(){
 // STATS
 // ═══════════════════════════════════════════════════════════════
 let activeStatsTab='partidos';
-function switchStatsTab(tab,el){activeStatsTab=tab;document.querySelectorAll('.stats-tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');document.querySelectorAll('.stats-panel').forEach(p=>p.classList.remove('active'));document.getElementById('panel-'+tab).classList.add('active');if(tab==='partidos')renderMatchStats();if(tab==='tecnica')renderTechStats();if(tab==='fisico')renderFisStats();if(tab==='rivales')renderRivalesTab();if(tab==='pareja')renderParejaTab();}
+function switchStatsTab(tab,el){activeStatsTab=tab;document.querySelectorAll('.stats-tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');document.querySelectorAll('.stats-panel').forEach(p=>p.classList.remove('active'));document.getElementById('panel-'+tab).classList.add('active');if(tab==='partidos')renderMatchStats();if(tab==='rendimiento')renderRendimiento();if(tab==='tecnica')renderTechStats();if(tab==='fisico')renderFisStats();if(tab==='rivales')renderRivalesTab();if(tab==='pareja')renderParejaTab();}
 function setPeriod(p,el){statsPeriod=p;document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderMatchStats();}
 function filterHistory(){if(statsPeriod==='all')return app.history;const now=new Date(),cutoff=new Date();if(statsPeriod==='year')cutoff.setFullYear(now.getFullYear(),0,1);if(statsPeriod==='6m')cutoff.setMonth(now.getMonth()-6);if(statsPeriod==='3m')cutoff.setMonth(now.getMonth()-3);if(statsPeriod==='month')cutoff.setDate(1);cutoff.setHours(0,0,0,0);return app.history.filter(m=>new Date(m.date+'T12:00:00')>=cutoff);}
 function _ciLine(dotClass,text){return`<div class="ci-line"><div class="ci-dot ${dotClass}"></div><span>${text}</span></div>`;}
@@ -2681,6 +2727,66 @@ function buildCoachInsightFisico(data,elId='coach-insight-fisico'){
 }
 
 function renderStats(){const el=document.getElementById('stats-player-name');if(el)el.textContent=app.playerName||'—';renderMatchStats();}
+
+// ═══════════════════════════════════════════════════════════════
+// MI RENDIMIENTO — dashboard autocalculado por pilares (técnico/táctico/físico/mental)
+// ═══════════════════════════════════════════════════════════════
+function _perfItemHtml(label,curPct,histPct,color,subtitle){
+  return `<div class="perf-item">
+    <div class="perf-ring" style="--pct:${curPct};--col:${color}"><div class="perf-ring-val">${curPct}%</div></div>
+    <div class="perf-item-info">
+      <div class="perf-item-label">${label}</div>
+      <div class="perf-item-sub">${subtitle||('Media histórica: '+(histPct!=null?histPct+'%':'—'))}</div>
+    </div>
+  </div>`;
+}
+function _perfPillarSection(pillarKey,keys,labels,dataKey,emptyHint){
+  const cfg=PILLAR_CFG[pillarKey];
+  const trainings=app.trainings||[];
+  const items=keys.map(k=>{
+    const vals=trainings.map(t=>(t[dataKey]||{})[k]).filter(v=>v>0);
+    if(!vals.length)return null;
+    const recent=vals.slice(-3);
+    const curPct=Math.round((recent.reduce((a,b)=>a+b,0)/recent.length)*20);
+    const histPct=Math.round((vals.reduce((a,b)=>a+b,0)/vals.length)*20);
+    return{label:labels[k],curPct,histPct};
+  }).filter(Boolean);
+  if(!items.length){
+    return `<div class="chart-card"><div class="chart-title">${cfg.emoji} ${cfg.label}</div>
+      <div style="text-align:center;padding:20px 4px;color:var(--muted);font-size:13px">Aún no tienes datos de ${cfg.label.toLowerCase()}. ${esc(emptyHint||'')}</div></div>`;
+  }
+  return `<div class="chart-card"><div class="chart-title">${cfg.emoji} ${cfg.label}</div>${items.map(it=>_perfItemHtml(it.label,it.curPct,it.histPct,cfg.color)).join('')}</div>`;
+}
+function _perfFisicoSection(){
+  const cfg=PILLAR_CFG.fisico;
+  const fis=(app.trainings||[]).filter(t=>(t.intensidad||0)>0||(t.energia||0)>0);
+  if(!fis.length){
+    return `<div class="chart-card"><div class="chart-title">${cfg.emoji} ${cfg.label}</div>
+      <div style="text-align:center;padding:20px 4px;color:var(--muted);font-size:13px">Aún no tienes datos físicos. Se rellenan al guardar un entrenamiento.</div></div>`;
+  }
+  const mk=(key,label)=>{
+    const vals=fis.map(t=>t[key]).filter(v=>v>0);
+    if(!vals.length)return'';
+    const recent=vals.slice(-3);
+    const curPct=Math.round((recent.reduce((a,b)=>a+b,0)/recent.length)*20);
+    const histPct=Math.round((vals.reduce((a,b)=>a+b,0)/vals.length)*20);
+    return _perfItemHtml(label,curPct,histPct,cfg.color);
+  };
+  const now=new Date();const cutoff=new Date();cutoff.setDate(now.getDate()-30);
+  const last30=(app.trainings||[]).filter(t=>t.date&&new Date(t.date+'T12:00:00')>=cutoff).length;
+  const regPct=Math.min(100,Math.round(last30/8*100));
+  const regHtml=_perfItemHtml('Regularidad',regPct,null,cfg.color,last30+' sesiones en los últimos 30 días');
+  return `<div class="chart-card"><div class="chart-title">${cfg.emoji} ${cfg.label}</div>${mk('intensidad','Intensidad')}${mk('energia','Energía')}${regHtml}</div>`;
+}
+function renderRendimiento(){
+  const wrap=document.getElementById('rendimiento-content');if(!wrap)return;
+  let html='';
+  html+=_perfPillarSection('tecnico',ALL_SHOT_KEYS,ALL_SHOT_LABELS,'shotQuality','Puntúa tus golpes al guardar un entrenamiento.');
+  html+=_perfPillarSection('tactico',TACTICO_KEYS,TACTICO_LABELS,'tacticoRatings','Valórate en el bloque "Táctica" al guardar un entrenamiento.');
+  html+=_perfFisicoSection();
+  html+=_perfPillarSection('mental',MENTAL_KEYS,MENTAL_LABELS,'mentalRatings','Valórate en el bloque "Mental" al guardar un entrenamiento.');
+  wrap.innerHTML=html;
+}
 function renderMatchStats(){
   const data=filterHistory();
   const wins=data.filter(m=>m.isWin).length,losses=data.length-wins,pct=data.length?Math.round(wins/data.length*100):null;
