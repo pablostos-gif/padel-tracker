@@ -520,6 +520,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
         <div class="input-group"><label>Puntos en juego</label><select id="inp-game-format">
           <option value="ventaja">Con ventaja</option>
           <option value="oro">Punto de oro</option>
+          <option value="estrella">Star Point ⭐</option>
         </select></div>
         <div class="input-group"><label>Torneo / Liga</label><input id="inp-tournament" type="text" placeholder="Amistoso" maxlength="30"></div>
       </div>
@@ -1738,7 +1739,9 @@ function startMatch(){
   const rival1=document.getElementById('inp-rival1').value.trim()||'Rival';
   const rival2=document.getElementById('inp-rival2').value.trim();
   const format=document.getElementById('inp-best-of').value;
-  const puntoDeOro=document.getElementById('inp-game-format').value==='oro';
+  const gameFormat=document.getElementById('inp-game-format').value;
+  const puntoDeOro=gameFormat==='oro';
+  const starPoint=gameFormat==='estrella';
   const tournament=document.getElementById('inp-tournament').value.trim();
   const date=document.getElementById('inp-date').value||new Date().toISOString().split('T')[0];
 
@@ -1747,7 +1750,7 @@ function startMatch(){
   else if(format==='1-1'){bestOf=1;startGame={my:1,ri:1};}
 
   const startTime=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
-  app.match={myName,myPartner,rival1,rival2,bestOf,tournament,date,format,puntoDeOro,serving:null,tiebreakMax:0,sets:[],currentSet:startGame,currentGame:{my:0,ri:0},tiebreak:false,winner:null,notes:'',shots:emptyShots(),startTime,endTime:null,startTs:Date.now(),endTs:null,currentGamePoints:[],currentSetGames:[]};
+  app.match={myName,myPartner,rival1,rival2,bestOf,tournament,date,format,puntoDeOro,starPoint,serving:null,tiebreakMax:0,sets:[],currentSet:startGame,currentGame:{my:0,ri:0},tiebreak:false,winner:null,notes:'',shots:emptyShots(),startTime,endTime:null,startTs:Date.now(),endTs:null,currentGamePoints:[],currentSetGames:[]};
   stateStack=[];showScreen('match');renderMatch();showServeOverlay();
 }
 function emptyShots(){
@@ -1782,6 +1785,7 @@ function scorePoint(team){
 }
 function gameWinner(g){
   if(app.match&&app.match.puntoDeOro&&g.my>=3&&g.ri>=3){if(g.my>g.ri)return'my';if(g.ri>g.my)return'ri';return null;}
+  if(app.match&&app.match.starPoint&&g.my>=5&&g.ri>=5){if(g.my>g.ri)return'my';if(g.ri>g.my)return'ri';return null;}
   if(g.my>=4&&g.my-g.ri>=2)return'my';if(g.ri>=4&&g.ri-g.my>=2)return'ri';return null;
 }
 function winGame(w){
@@ -1870,7 +1874,8 @@ function getPoints(g,tb){
   const d=g.my>=3&&g.ri>=3;if(!d)return{my:PT[Math.min(g.my,3)],ri:PT[Math.min(g.ri,3)],deuce:false};
   const diff=g.my-g.ri;
   const isOro=app.match&&app.match.puntoDeOro;
-  if(diff===0)return{my:isOro?'ORO':'40',ri:isOro?'ORO':'40',deuce:true};
+  const isStar=app.match&&app.match.starPoint;
+  if(diff===0)return{my:isOro?'ORO':(isStar&&g.my>=5?'★':'40'),ri:isOro?'ORO':(isStar&&g.my>=5?'★':'40'),deuce:true};
   return diff>0?{my:'AD',ri:'',deuce:false}:{my:'',ri:'AD',deuce:false};
 }
 function popAnim(id){const el=document.getElementById(id);el.classList.remove('pop');void el.offsetWidth;el.classList.add('pop');setTimeout(()=>el.classList.remove('pop'),320);}
@@ -2255,7 +2260,7 @@ function saveMatchEdit(){
   m.isWin=m.mySets>m.rivSets;
   saveApp();renderHistory();viewMatchDetail(currentMatchDetailIdx);
 }
-function getGameScoreSeq(points,puntoDeOro){
+function getGameScoreSeq(points,puntoDeOro,starPoint){
   const PT=['0','15','30','40'];
   let my=0,ri=0;const seq=[];
   for(const p of(points||[])){
@@ -2263,6 +2268,7 @@ function getGameScoreSeq(points,puntoDeOro){
     let ms,rs;
     if(my>=3&&ri>=3){
       if(puntoDeOro){ms=my>ri?'Oro':'40';rs=ri>my?'Oro':'40';}
+      else if(starPoint&&my>=5&&ri>=5){ms=rs='★';}
       else if(my===ri){ms=rs='Ig.';}
       else if(my>ri){ms='Vent.';rs='';}
       else{ms='';rs='Vent.';}
@@ -2306,7 +2312,7 @@ function buildSetBreakdown(m){
     html+=`<div style="margin-bottom:20px"><div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1.5px;margin-bottom:10px;text-transform:uppercase;border-bottom:1px solid var(--border);padding-bottom:6px">SET ${si+1} &nbsp;·&nbsp; ${set.my}-${set.ri}</div>`;
     set.games.forEach((game,gi)=>{
       const isMyWin=game.winner==='my';
-      const seq=getGameScoreSeq(game.points,m.puntoDeOro);
+      const seq=getGameScoreSeq(game.points,m.puntoDeOro,m.starPoint);
       const pts=game.points||[];
       const isTB=game.isTiebreak;
       const box=(val,won)=>`<div style="background:${won?'#C9A227':'rgba(255,255,255,0.08)'};color:${won?'#000':'rgba(255,255,255,0.35)'};font-weight:${won?800:600};font-size:11px;min-width:30px;height:28px;border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0 2px">${val}</div>`;
@@ -3289,6 +3295,7 @@ function _renderCoachMatch(m,playerName){
         ${m.startTime?`<span style="font-size:12px;background:rgba(255,255,255,0.07);border-radius:8px;padding:4px 12px">🕐 ${m.startTime}${m.endTime?' – '+m.endTime:''}</span>`:''}
         ${(m.endTs&&m.startTs)?`<span style="font-size:12px;background:rgba(255,255,255,0.07);border-radius:8px;padding:4px 12px">⏱️ ${fmtDuration(m.endTs-m.startTs)}</span>`:''}
         ${m.puntoDeOro?`<span style="font-size:12px;background:rgba(240,180,0,0.15);border-radius:8px;padding:4px 12px;color:#F0DC50">⚡ Punto de oro</span>`:''}
+        ${m.starPoint?`<span style="font-size:12px;background:rgba(240,180,0,0.15);border-radius:8px;padding:4px 12px;color:#F0DC50">⭐ Star Point</span>`:''}
       </div>
     </div>`;
 
@@ -3311,7 +3318,7 @@ function _renderCoachMatch(m,playerName){
       gHtml+=`<div style="margin-bottom:18px"><div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:10px">SET ${si+1} &nbsp;·&nbsp; ${set.my}-${set.ri} &nbsp;<span style="font-weight:400;opacity:0.6">(${myGW}-${riGW} juegos)</span></div>`;
       set.games.forEach((game,gi)=>{
         const isMyWin=game.winner==='my';
-        const seq=getGameScoreSeq(game.points,m.puntoDeOro);
+        const seq=getGameScoreSeq(game.points,m.puntoDeOro,m.starPoint);
         const pts=game.points||[];
         const isTB=game.isTiebreak;
         const lbl=isTB?'TB':`J${gi+1}`;
@@ -3991,7 +3998,7 @@ function pdfSetBreakdown(m){
     html+=`<div style="margin-bottom:16px"><div style="font-size:10px;font-weight:700;color:#888;letter-spacing:1.5px;text-transform:uppercase;border-bottom:2px solid #e5e5e5;padding-bottom:5px;margin-bottom:8px">SET ${si+1} &nbsp;·&nbsp; ${set.my}-${set.ri} &nbsp;<span style="font-weight:400;color:#bbb">(${myGamesWon}-${riGamesWon} juegos)</span></div>`;
     set.games.forEach((game,gi)=>{
       const isMyWin=game.winner==='my';
-      const seq=getGameScoreSeq(game.points,m.puntoDeOro);
+      const seq=getGameScoreSeq(game.points,m.puntoDeOro,m.starPoint);
       const pts=game.points||[];
       const isTB=game.isTiebreak;
       const lbl=isTB?'TB':`J${gi+1}`;
@@ -4088,7 +4095,7 @@ function buildMatchReportBody(m){
     }
   }
 
-  return`<div class="pv-section"><div class="pv-section-title">Resultado</div><div style="display:flex;justify-content:space-between;align-items:center;background:#f8f8f8;border-radius:10px;padding:14px 18px;border:1px solid #ebebeb"><div><div style="font-weight:700;font-size:15px">${esc(mn)}</div><div style="font-size:11px;color:#999;margin-top:2px">vs ${esc(rn)}</div>${m.tournament?`<div style="font-size:10px;color:#888;margin-top:3px;font-weight:600">🏆 ${esc(m.tournament)}</div>`:''} ${m.surface?`<div style="font-size:10px;color:#888;margin-top:3px">🏟 ${esc(m.surface)}</div>`:''} ${m.puntoDeOro?`<div style="font-size:10px;color:#a07800;margin-top:3px">⚡ Punto de oro</div>`:''}</div><div style="text-align:center"><div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px;color:${m.isWin?'#1a9e55':'#d94520'}">${mySets} – ${riSets}</div><div style="font-size:11px;color:#999">${score}</div></div><span class="${m.isWin?'pv-badge-w':'pv-badge-l'}" style="font-size:11px;padding:5px 14px">${m.isWin?'VICTORIA':'DERROTA'}</span></div></div>${pdfSetBreakdown(m)}${analysisHtml}${m.notes||m.tactica||m.mejora?`<div class="pv-section"><div class="pv-section-title">Reflexión del Partido</div>${m.notes?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#888;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Notas</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.notes)}</div></div>`:''} ${m.tactica?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#2563eb;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Táctica utilizada</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.tactica)}</div></div>`:''} ${m.mejora?`<div><div style="font-size:10px;font-weight:700;color:#a07800;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">¿Qué cambiaríamos?</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.mejora)}</div></div>`:''}</div>`:''}`;
+  return`<div class="pv-section"><div class="pv-section-title">Resultado</div><div style="display:flex;justify-content:space-between;align-items:center;background:#f8f8f8;border-radius:10px;padding:14px 18px;border:1px solid #ebebeb"><div><div style="font-weight:700;font-size:15px">${esc(mn)}</div><div style="font-size:11px;color:#999;margin-top:2px">vs ${esc(rn)}</div>${m.tournament?`<div style="font-size:10px;color:#888;margin-top:3px;font-weight:600">🏆 ${esc(m.tournament)}</div>`:''} ${m.surface?`<div style="font-size:10px;color:#888;margin-top:3px">🏟 ${esc(m.surface)}</div>`:''} ${m.puntoDeOro?`<div style="font-size:10px;color:#a07800;margin-top:3px">⚡ Punto de oro</div>`:''} ${m.starPoint?`<div style="font-size:10px;color:#a07800;margin-top:3px">⭐ Star Point</div>`:''}</div><div style="text-align:center"><div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px;color:${m.isWin?'#1a9e55':'#d94520'}">${mySets} – ${riSets}</div><div style="font-size:11px;color:#999">${score}</div></div><span class="${m.isWin?'pv-badge-w':'pv-badge-l'}" style="font-size:11px;padding:5px 14px">${m.isWin?'VICTORIA':'DERROTA'}</span></div></div>${pdfSetBreakdown(m)}${analysisHtml}${m.notes||m.tactica||m.mejora?`<div class="pv-section"><div class="pv-section-title">Reflexión del Partido</div>${m.notes?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#888;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Notas</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.notes)}</div></div>`:''} ${m.tactica?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#2563eb;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Táctica utilizada</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.tactica)}</div></div>`:''} ${m.mejora?`<div><div style="font-size:10px;font-weight:700;color:#a07800;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">¿Qué cambiaríamos?</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.mejora)}</div></div>`:''}</div>`:''}`;
 }
 function printMatch(idx){
   const m=app.history[idx];if(!m)return;
