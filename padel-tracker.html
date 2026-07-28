@@ -9,6 +9,7 @@
 <!-- Firebase SDK (Compat) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <!-- DATOS GUARDADOS — no tocar esta línea -->
 <script type="application/json" id="__ptd">null</script>
 <style>
@@ -625,6 +626,12 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <div id="match-timing-stats" style="display:none"></div>
     <div id="shot-summary" class="shot-summary" style="display:none"></div>
     <div class="notes-section" style="padding-top:0">
+      <div class="notes-label">📸 Fotos del partido</div>
+      <input type="file" id="match-photos-input" accept="image/*" multiple style="display:none" onchange="handleEndPhotoInput(this)">
+      <button class="btn btn-ghost" style="width:100%;margin-bottom:10px" onclick="document.getElementById('match-photos-input').click()">+ Añadir foto</button>
+      <div id="match-photos-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>
+    </div>
+    <div class="notes-section" style="padding-top:0">
       <div class="notes-label">Notas del partido</div>
       <textarea id="match-notes" placeholder="¿Cómo fue el partido? ¿Qué mejoró? ¿Aspectos a trabajar?..." rows="3"></textarea>
     </div>
@@ -722,6 +729,12 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
             <div class="state-emojis"><span>🧘</span><span>🚶</span><span>🏃</span><span>🏋️</span><span>💥</span></div>
           </div>
         </div>
+      </div>
+      <div class="f-section">
+        <div class="f-section-title">📸 Fotos del entrenamiento</div>
+        <input type="file" id="train-photos-input" accept="image/*" multiple style="display:none" onchange="handleTrainPhotoInput(this)">
+        <button class="btn btn-ghost" style="width:100%;margin-bottom:10px" onclick="document.getElementById('train-photos-input').click()">+ Añadir foto</button>
+        <div id="train-photos-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>
       </div>
       <div class="f-section">
         <div class="f-label">Notas del entrenamiento</div>
@@ -1338,6 +1351,9 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     </div>
   </div>
 </div>
+<div id="photo-viewer-overlay" class="confirm-overlay hidden" onclick="closePhotoViewer()" style="z-index:9999">
+  <img id="photo-viewer-img" src="" style="max-width:100%;max-height:90vh;border-radius:12px;object-fit:contain">
+</div>
 
 <!-- LIVE STATS -->
 <div id="live-stats-overlay" class="live-stats-overlay hidden" onclick="if(event.target===this)closeLiveStats()">
@@ -1474,6 +1490,106 @@ function syncToFirebase(){
     trainings:  app.trainings,
     lastSync:   ts
   }).catch(e=>console.log("Firestore save error:",e));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FOTOS — subida/borrado a Firebase Storage y galería reutilizable
+// ═══════════════════════════════════════════════════════════════
+function uploadPhotoFile(file,folder,id){
+  const path=`${folder}/${id}/${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+  return firebase.storage().ref(path).put(file).then(snap=>snap.ref.getDownloadURL()).then(url=>({url,path}));
+}
+function deletePhotoFile(path){
+  try{firebase.storage().ref(path).delete().catch(()=>{});}catch(e){}
+}
+function renderPhotoGrid(photos,gridId,deleteFn){
+  const el=document.getElementById(gridId);
+  if(!el)return;
+  if(!photos||!photos.length){el.innerHTML='<div style="font-size:12px;color:var(--muted);padding:4px 0">Sin fotos todavía</div>';return;}
+  el.innerHTML=photos.map((p,i)=>`
+    <div style="position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:rgba(255,255,255,0.05)">
+      <img src="${p.url}" loading="lazy" style="width:100%;height:100%;object-fit:cover;cursor:pointer" onclick="openPhotoViewer('${esc(p.url)}')">
+      <button onclick="event.stopPropagation();${deleteFn}(${i})" style="position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.65);color:#fff;border:none;font-size:12px;line-height:1;cursor:pointer">✕</button>
+    </div>`).join('');
+}
+function openPhotoViewer(url){
+  document.getElementById('photo-viewer-img').src=url;
+  document.getElementById('photo-viewer-overlay').classList.remove('hidden');
+}
+function closePhotoViewer(){
+  document.getElementById('photo-viewer-overlay').classList.add('hidden');
+  document.getElementById('photo-viewer-img').src='';
+}
+
+// --- Contexto: partido en curso / resumen final ---
+function handleEndPhotoInput(input){
+  if(!app.match)return;
+  if(!app.match.photos)app.match.photos=[];
+  const files=[...input.files];
+  input.value='';
+  const id=app.match.startTs||Date.now();
+  files.forEach(file=>{
+    uploadPhotoFile(file,'match-photos',id).then(p=>{
+      app.match.photos.push(p);
+      renderPhotoGrid(app.match.photos,'match-photos-grid','deleteEndPhoto');
+      saveLiveMatch();
+    }).catch(e=>console.log('photo upload error',e));
+  });
+}
+function deleteEndPhoto(i){
+  if(!app.match||!app.match.photos)return;
+  const p=app.match.photos[i];
+  app.match.photos.splice(i,1);
+  renderPhotoGrid(app.match.photos,'match-photos-grid','deleteEndPhoto');
+  saveLiveMatch();
+  if(p&&p.path)deletePhotoFile(p.path);
+}
+
+// --- Contexto: detalle de partido guardado (historial) ---
+function handleDetailPhotoInput(input){
+  const m=app.history[currentMatchDetailIdx];
+  if(!m)return;
+  if(!m.photos)m.photos=[];
+  const files=[...input.files];
+  input.value='';
+  const id=m.id||currentMatchDetailIdx;
+  files.forEach(file=>{
+    uploadPhotoFile(file,'match-photos',id).then(p=>{
+      m.photos.push(p);
+      renderPhotoGrid(m.photos,'detail-photos-grid','deleteDetailPhoto');
+      saveApp();
+    }).catch(e=>console.log('photo upload error',e));
+  });
+}
+function deleteDetailPhoto(i){
+  const m=app.history[currentMatchDetailIdx];
+  if(!m||!m.photos)return;
+  const p=m.photos[i];
+  m.photos.splice(i,1);
+  renderPhotoGrid(m.photos,'detail-photos-grid','deleteDetailPhoto');
+  saveApp();
+  if(p&&p.path)deletePhotoFile(p.path);
+}
+
+// --- Contexto: formulario de entrenamiento (nuevo/editar) ---
+let trainPhotos=[];
+let currentTrainingPhotoId=null;
+function handleTrainPhotoInput(input){
+  const files=[...input.files];
+  input.value='';
+  const id=currentTrainingPhotoId||Date.now();
+  files.forEach(file=>{
+    uploadPhotoFile(file,'training-photos',id).then(p=>{
+      trainPhotos.push(p);
+      renderPhotoGrid(trainPhotos,'train-photos-grid','deleteTrainPhoto');
+    }).catch(e=>console.log('photo upload error',e));
+  });
+}
+function deleteTrainPhoto(i){
+  const p=trainPhotos[i];
+  trainPhotos.splice(i,1);
+  renderPhotoGrid(trainPhotos,'train-photos-grid','deleteTrainPhoto');
+  if(p&&p.path)deletePhotoFile(p.path);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1822,7 +1938,7 @@ function startMatch(){
   const startGame={my:setStartGames,ri:setStartGames};
 
   const startTime=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
-  app.match={myName,myPartner,rival1,rival2,bestOf,tournament,date,format,puntoDeOro,starPoint,setStartGames,decidingSuperTie,matchTieSet:false,serving:null,tiebreakMax:0,sets:[],currentSet:startGame,currentGame:{my:0,ri:0},tiebreak:false,winner:null,notes:'',shots:emptyShots(),startTime,endTime:null,startTs:Date.now(),endTs:null,currentGamePoints:[],currentSetGames:[]};
+  app.match={myName,myPartner,rival1,rival2,bestOf,tournament,date,format,puntoDeOro,starPoint,setStartGames,decidingSuperTie,matchTieSet:false,serving:null,tiebreakMax:0,sets:[],currentSet:startGame,currentGame:{my:0,ri:0},tiebreak:false,winner:null,notes:'',shots:emptyShots(),startTime,endTime:null,startTs:Date.now(),endTs:null,currentGamePoints:[],currentSetGames:[],photos:[]};
   stateStack=[];showScreen('match');renderMatch();showServeOverlay();
 }
 function emptyShots(){
@@ -2118,6 +2234,7 @@ function buildMatchTimingStats(m){
 }
 function renderEndScreen(){
   const m=app.match;
+  renderPhotoGrid(m.photos||[],'match-photos-grid','deleteEndPhoto');
   const mySets=m.sets.filter(s=>s.my>s.ri).length,rivSets=m.sets.filter(s=>s.ri>s.my).length;
   const isMyWin=mySets>rivSets;
   const sH=m.sets.map(s=>{const w=s.my>s.ri;return`<div class="result-set"><span class="${w?'my':'ri'}">${w?s.my:s.ri}</span><span style="color:var(--muted);margin:0 2px">-</span><span class="${w?'ri':'my'}">${w?s.ri:s.my}</span></div>`;}).join('');
@@ -2472,6 +2589,12 @@ function viewMatchDetail(idx){
     ${timingBlockHtml}
     ${buildSetBreakdown(m)}
     ${shotHtml}
+    <div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);margin:0 16px 12px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">📸 Fotos del partido</div>
+      <input type="file" id="detail-photos-input" accept="image/*" multiple style="display:none" onchange="handleDetailPhotoInput(this)">
+      <button class="btn btn-ghost" style="width:100%;margin-bottom:10px" onclick="document.getElementById('detail-photos-input').click()">+ Añadir foto</button>
+      <div id="detail-photos-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>
+    </div>
     ${m.notes||m.tactica||m.mejora?`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);margin:0 16px;display:flex;flex-direction:column;gap:12px">
       ${m.notes?`<div><div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">📝 Notas</div><div style="font-size:13px;color:var(--text);line-height:1.6">${esc(m.notes)}</div></div>`:''}
       ${m.tactica?`<div style="${m.notes?'border-top:1px solid var(--border);padding-top:12px':''}"><div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--blue);margin-bottom:6px">🎯 Táctica utilizada</div><div style="font-size:13px;color:var(--text);line-height:1.6">${esc(m.tactica)}</div></div>`:''}
@@ -2482,6 +2605,7 @@ function viewMatchDetail(idx){
     </div>
   `;
   showScreen('match-detail-screen');
+  renderPhotoGrid(m.photos||[],'detail-photos-grid','deleteDetailPhoto');
   if(shots) requestAnimationFrame(()=>renderMatchCharts(shots,myLabel,riLabel,'hd'));
 }
 
@@ -2555,6 +2679,8 @@ function renderHistory(){
 function goToTraining(){
   exercises=[];
   editingTrainingId=null;
+  currentTrainingPhotoId=Date.now();
+  trainPhotos=[];
   document.getElementById('t-date').value=new Date().toISOString().split('T')[0];
   document.getElementById('t-duration').value='';
   document.getElementById('t-coach').value='';
@@ -2562,12 +2688,14 @@ function goToTraining(){
   document.getElementById('sl-energia').value=3;document.getElementById('sl-energia-val').textContent=3;
   document.getElementById('sl-humor').value=3;document.getElementById('sl-humor-val').textContent=3;
   document.getElementById('sl-intensidad').value=3;document.getElementById('sl-intensidad-val').textContent=3;
-  buildShotsQualityGrid();buildRatingGrid('tactico-quality-grid',TACTICO_KEYS,TACTICO_LABELS);buildRatingGrid('mental-quality-grid',MENTAL_KEYS,MENTAL_LABELS);renderExerciseList();showScreen('train-setup');
+  buildShotsQualityGrid();buildRatingGrid('tactico-quality-grid',TACTICO_KEYS,TACTICO_LABELS);buildRatingGrid('mental-quality-grid',MENTAL_KEYS,MENTAL_LABELS);renderExerciseList();renderPhotoGrid(trainPhotos,'train-photos-grid','deleteTrainPhoto');showScreen('train-setup');
 }
 function editTraining(id){
   const t=app.trainings.find(x=>x.id===id);
   if(!t)return;
   editingTrainingId=id;
+  currentTrainingPhotoId=id;
+  trainPhotos=[...(t.photos||[])];
   exercises=[...(t.exercises||[])];
   customShots=[...(t.customShots||[])];
   document.getElementById('t-date').value=t.date||'';
@@ -2585,6 +2713,7 @@ function editTraining(id){
   Object.keys(t.tacticoRatings||{}).forEach(k=>{const v=t.tacticoRatings[k];if(v){const row=document.getElementById('sqr-'+k);if(row)row.classList.add('active');for(let i=1;i<=v;i++){const el=document.getElementById(`sqs-${k}-${i}`);if(el)el.classList.add('lit');}}});
   Object.keys(t.mentalRatings||{}).forEach(k=>{const v=t.mentalRatings[k];if(v){const row=document.getElementById('sqr-'+k);if(row)row.classList.add('active');for(let i=1;i<=v;i++){const el=document.getElementById(`sqs-${k}-${i}`);if(el)el.classList.add('lit');}}});
   renderExerciseList();
+  renderPhotoGrid(trainPhotos,'train-photos-grid','deleteTrainPhoto');
   showScreen('train-setup');
 }
 function buildRatingGrid(containerId,keys,labels){
@@ -2635,7 +2764,7 @@ function saveTraining(){
   const tacticoRatings={};TACTICO_KEYS.forEach(k=>{const r=getShotRating(k);if(r!==null)tacticoRatings[k]=r;});
   const mentalRatings={};MENTAL_KEYS.forEach(k=>{const r=getShotRating(k);if(r!==null)mentalRatings[k]=r;});
   const t={
-    id:editingTrainingId||Date.now(),
+    id:editingTrainingId||currentTrainingPhotoId||Date.now(),
     date:document.getElementById('t-date').value||new Date().toISOString().split('T')[0],
     type:'both',
     duration:parseInt(document.getElementById('t-duration').value)||null,
@@ -2649,10 +2778,12 @@ function saveTraining(){
     energia:parseInt(document.getElementById('sl-energia').value),
     humor:parseInt(document.getElementById('sl-humor').value),
     intensidad:parseInt(document.getElementById('sl-intensidad').value),
-    notes:document.getElementById('t-notes').value.trim()
+    notes:document.getElementById('t-notes').value.trim(),
+    photos:[...trainPhotos]
   };
   if(editingTrainingId){const idx=app.trainings.findIndex(x=>x.id===editingTrainingId);if(idx>=0)app.trainings[idx]=t;}else{app.trainings.unshift(t);}
   customShots=[];
+  trainPhotos=[];
   saveApp();
   showScreen('train-history-screen');
   setTimeout(showSaveToast,500);
