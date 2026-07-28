@@ -1318,6 +1318,17 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     </div>
   </div>
 </div>
+<div id="recover-match-overlay" class="confirm-overlay hidden">
+  <div class="confirm-box">
+    <div style="font-size:32px;margin-bottom:6px">⚠️</div>
+    <h3>Partido sin terminar</h3>
+    <p>Se encontró un partido que no llegó a guardarse (por ejemplo, tras un cierre o recarga accidental). ¿Quieres continuarlo desde donde se quedó?</p>
+    <div class="confirm-btns">
+      <button class="btn btn-ghost" onclick="discardRecoveredMatch()">Descartar</button>
+      <button class="btn btn-primary" onclick="resumeRecoveredMatch()">Continuar partido</button>
+    </div>
+  </div>
+</div>
 
 <!-- LIVE STATS -->
 <div id="live-stats-overlay" class="live-stats-overlay hidden" onclick="if(event.target===this)closeLiveStats()">
@@ -1363,6 +1374,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 // CONSTANTS
 // ═══════════════════════════════════════════════════════════════
 const DB_KEY='padel_tracker_v5';
+const LIVE_MATCH_KEY='padel_tracker_live_match_v1';
 const SHOT_LABELS={remate:'Remate',bandeja:'Bandeja',vibora:'Víbora',volea_der:'Volea D',volea_rev:'Volea R',fondo_der:'Fondo D',fondo_rev:'Fondo R',globo:'Globo',bajada_pared:'Bajada P',saque:'Saque'};
 const SHOT_KEYS=Object.keys(SHOT_LABELS);
 const ALL_SHOT_LABELS={...SHOT_LABELS,resto:'Resto',contrapared:'Contrapared'};
@@ -1390,6 +1402,7 @@ let currentMatchDetailIdx=null;
 let shotTimerInterval=null;
 let pendingShot={team:null,outcome:null,shot:null,pointPlayer:null};
 let firstTime=false;
+let recoveredMatchData=null;
 
 // ═══════════════════════════════════════════════════════════════
 // FIREBASE SYNC
@@ -1494,6 +1507,48 @@ function saveApp(){
   try{document.getElementById('__ptd').textContent=json;}catch(e){}
   syncToFirebase();
 }
+
+// ═══════════════════════════════════════════════════════════════
+// LIVE MATCH AUTOSAVE — evita perder el partido si se recarga la página
+// ═══════════════════════════════════════════════════════════════
+function saveLiveMatch(){
+  try{
+    if(!app.match){localStorage.removeItem(LIVE_MATCH_KEY);return;}
+    localStorage.setItem(LIVE_MATCH_KEY,JSON.stringify({match:app.match,stateStack,ts:Date.now()}));
+  }catch(e){}
+}
+function clearLiveMatch(){try{localStorage.removeItem(LIVE_MATCH_KEY);}catch(e){}}
+function checkLiveMatchRecovery(){
+  try{
+    const raw=localStorage.getItem(LIVE_MATCH_KEY);
+    if(!raw)return;
+    const data=JSON.parse(raw);
+    if(data&&data.match){
+      recoveredMatchData=data;
+      document.getElementById('recover-match-overlay').classList.remove('hidden');
+    }else clearLiveMatch();
+  }catch(e){}
+}
+function resumeRecoveredMatch(){
+  if(!recoveredMatchData)return;
+  app.match=recoveredMatchData.match;
+  stateStack=recoveredMatchData.stateStack||[];
+  document.getElementById('recover-match-overlay').classList.add('hidden');
+  if(app.match.winner){showScreen('end-screen');renderEndScreen();}
+  else{showScreen('match');renderMatch();}
+  recoveredMatchData=null;
+}
+function discardRecoveredMatch(){
+  clearLiveMatch();
+  document.getElementById('recover-match-overlay').classList.add('hidden');
+  recoveredMatchData=null;
+}
+window.addEventListener('beforeunload',e=>{
+  if(app.match&&!app.match.winner){
+    e.preventDefault();
+    e.returnValue='';
+  }
+});
 
 // Generate the full HTML with data embedded and trigger download
 function generateAndDownload(){
@@ -1853,6 +1908,7 @@ function winTiebreak(winner){
 function undoPoint(){if(!stateStack.length)return;closeShot();Object.assign(app.match,JSON.parse(stateStack.pop()));renderMatch();}
 function renderMatch(){
   const m=app.match;if(!m)return;
+  saveLiveMatch();
   document.getElementById('names-my').textContent=[m.myName,m.myPartner].filter(Boolean).join(' / ');
   document.getElementById('names-ri').textContent=[m.rival1,m.rival2].filter(Boolean).join(' / ');
   const sc=document.getElementById('sets-container');sc.innerHTML='';
@@ -1943,13 +1999,13 @@ function saveShot(){
   };
   recordTo(m.shots[team]);
   if(pointPlayer&&m.shots[pointPlayer])recordTo(m.shots[pointPlayer]);
-  renderShotBadges();closeShot();
+  renderShotBadges();closeShot();saveLiveMatch();
 }
 
 // ═══════════════════════════════════════════════════════════════
 // END SCREEN
 // ═══════════════════════════════════════════════════════════════
-function goToEndScreen(){app.match.endTime=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});app.match.endTs=Date.now();showScreen('end-screen');renderEndScreen();}
+function goToEndScreen(){app.match.endTime=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});app.match.endTs=Date.now();saveLiveMatch();showScreen('end-screen');renderEndScreen();}
 function fmtDuration(ms){if(!ms||ms<0)return'';const totalMin=Math.round(ms/60000);const h=Math.floor(totalMin/60),mnt=totalMin%60;return h>0?`${h}h ${mnt}min`:`${mnt}min`;}
 function calcMatchStats(m){
   const allGames=[];(m.sets||[]).forEach(s=>(s.games||[]).forEach(g=>allGames.push(g)));
@@ -2055,13 +2111,13 @@ function saveMatch(){
   const m=app.match,mySets=m.sets.filter(s=>s.my>s.ri).length,rivSets=m.sets.filter(s=>s.ri>s.my).length;
   app.history.unshift({...m,id:Date.now(),mySets,rivSets,isWin:mySets>rivSets});
   saveApp();
-  app.match=null;stateStack=[];document.getElementById('match-notes').value='';document.getElementById('match-tactica').value='';document.getElementById('match-mejora').value='';
+  app.match=null;stateStack=[];clearLiveMatch();document.getElementById('match-notes').value='';document.getElementById('match-tactica').value='';document.getElementById('match-mejora').value='';
   // Auto-download and show toast
   generateAndDownload();
   showScreen('history-screen');
   setTimeout(showSaveToast,500);
 }
-function discardMatch(){app.match=null;stateStack=[];document.getElementById('match-notes').value='';showScreen('home');}
+function discardMatch(){app.match=null;stateStack=[];clearLiveMatch();document.getElementById('match-notes').value='';showScreen('home');}
 
 // ═══════════════════════════════════════════════════════════════
 // MATCH HISTORY
@@ -3529,6 +3585,7 @@ function _renderCoachTraining(t,playerName){
 
 // initFirebase ya hace loadApp+renderHome internamente
 initFirebase();
+if(!IS_COACH_VIEW)checkLiveMatchRecovery();
 
 // Si es vista coach, cargar datos de Firestore y renderizar
 if(IS_COACH_VIEW){
