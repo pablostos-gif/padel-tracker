@@ -33,6 +33,24 @@
             "value": "max-age=0, no-cache, no-store, must-revalidate"
           }
         ]
+      },
+      {
+        "source": "/padel-tracker",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "max-age=0, no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "max-age=0, no-cache, no-store, must-revalidate"
+          }
+        ]
       }
     ]
   }
