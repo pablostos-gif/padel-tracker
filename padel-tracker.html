@@ -479,6 +479,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <button class="btn btn-secondary"  onclick="window.open('https://padelcv.com/menores/','_blank')">🏆 &nbsp;Próximos Torneos</button>
     <div class="home-section-label">Desarrollo</div>
     <button class="btn btn-blue"       onclick="showScreen('fitness-screen')">🏃 &nbsp;Tests Físicos</button>
+    <button class="btn btn-blue"       onclick="showScreen('body-screen')">📏 &nbsp;Evolución Corporal</button>
     <button class="btn btn-accent"     onclick="showScreen('goals-screen')">🎯 &nbsp;Objetivos · <span id="home-goals-badge">—</span></button>
     <div class="home-section-label">Análisis y exportar</div>
     <button class="btn btn-accent"     onclick="showScreen('stats-screen')">◈ &nbsp;Evolución y estadísticas</button>
@@ -1123,6 +1124,93 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   </div>
 </div>
 
+<!-- BODY EVOLUTION -->
+<div id="body-screen" class="screen">
+  <div class="screen-header">
+    <button class="back-btn" onclick="showScreen('home')">←</button>
+    <h2>Evolución Corporal · <span id="body-player-name">—</span></h2>
+    <button class="back-btn" style="color:var(--my);font-size:26px;font-weight:300;line-height:1" onclick="openAddBodyMeasurement()" title="Nueva medición">+</button>
+  </div>
+  <div class="goals-body">
+    <div id="body-profile-card"></div>
+    <div id="body-summary"></div>
+    <div id="body-predicted"></div>
+    <div id="body-chart-wrap" style="position:relative;height:220px;margin:8px 0 8px;background:var(--card);border-radius:14px;border:1px solid var(--border);padding:12px;box-sizing:border-box">
+      <canvas id="body-chart"></canvas>
+    </div>
+    <div id="body-gallery"></div>
+    <div id="body-list"></div>
+  </div>
+</div>
+
+<!-- BODY PROFILE EDIT OVERLAY -->
+<div id="body-profile-overlay" class="confirm-overlay hidden">
+  <div class="confirm-box" style="max-width:360px;width:90%;max-height:90vh;overflow-y:auto">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;margin-bottom:14px">Perfil Físico</div>
+    <div style="margin-bottom:12px">
+      <label class="goal-lbl">Fecha de nacimiento</label>
+      <input id="bp-birthdate-inp" class="goal-inp" type="date">
+    </div>
+    <div style="margin-bottom:12px">
+      <label class="goal-lbl">Sexo</label>
+      <div style="display:flex;gap:8px">
+        <button class="goal-freq-btn" data-sex="M" onclick="selectBodySex('M')">Chico</button>
+        <button class="goal-freq-btn" data-sex="F" onclick="selectBodySex('F')">Chica</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+      <div><label class="goal-lbl">Altura del padre (cm)</label><input id="bp-father-inp" class="goal-inp" type="number" step="0.1" placeholder="Ej: 178"></div>
+      <div><label class="goal-lbl">Altura de la madre (cm)</label><input id="bp-mother-inp" class="goal-inp" type="number" step="0.1" placeholder="Ej: 165"></div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:16px;line-height:1.5">Estos datos solo se usan para estimar la altura adulta (fórmula de altura media parental). Es una aproximación orientativa, no un diagnóstico médico.</div>
+    <div class="confirm-btns">
+      <button class="btn btn-primary" onclick="saveBodyProfile()">✓ &nbsp;Guardar</button>
+      <button class="btn btn-ghost" onclick="closeBodyProfileEdit()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD/EDIT BODY MEASUREMENT OVERLAY -->
+<div id="add-body-overlay" class="confirm-overlay hidden">
+  <div class="confirm-box" style="max-width:380px;width:92%;max-height:92vh;overflow-y:auto">
+    <div id="body-form-title" style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;margin-bottom:14px">Nueva Medición</div>
+    <div style="margin-bottom:12px">
+      <label class="goal-lbl">Fecha</label>
+      <input id="body-date-inp" class="goal-inp" type="date">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div><label class="goal-lbl">Peso (kg)</label><input id="body-weight-inp" class="goal-inp" type="number" step="0.1" min="0" placeholder="Ej: 45.5"></div>
+      <div><label class="goal-lbl">Altura (cm)</label><input id="body-height-inp" class="goal-inp" type="number" step="0.1" min="0" placeholder="Ej: 155"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div><label class="goal-lbl">Envergadura (cm)</label><input id="body-wingspan-inp" class="goal-inp" type="number" step="0.1" min="0" placeholder="Opcional"></div>
+      <div><label class="goal-lbl">% Grasa corporal</label><input id="body-fat-inp" class="goal-inp" type="number" step="0.1" min="0" placeholder="Opcional"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div><label class="goal-lbl">Masa muscular (kg)</label><input id="body-muscle-inp" class="goal-inp" type="number" step="0.1" min="0" placeholder="Opcional"></div>
+      <div><label class="goal-lbl">Perímetro brazo (cm)</label><input id="body-arm-inp" class="goal-inp" type="number" step="0.1" min="0" placeholder="Opcional"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div><label class="goal-lbl">Perímetro muslo (cm)</label><input id="body-thigh-inp" class="goal-inp" type="number" step="0.1" min="0" placeholder="Opcional"></div>
+      <div><label class="goal-lbl">Perímetro cintura (cm)</label><input id="body-waist-inp" class="goal-inp" type="number" step="0.1" min="0" placeholder="Opcional"></div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label class="goal-lbl">Notas (opcional)</label>
+      <textarea id="body-notes-inp" class="goal-inp" rows="2" style="resize:none" placeholder="Sensaciones, contexto..."></textarea>
+    </div>
+    <div style="margin-bottom:16px">
+      <label class="goal-lbl">Foto (opcional)</label>
+      <input type="file" id="body-photos-input" accept="image/*" multiple style="display:none" onchange="handleBodyPhotoInput(this)">
+      <button class="btn btn-ghost" style="width:100%;margin-bottom:10px" onclick="document.getElementById('body-photos-input').click()">+ Añadir foto</button>
+      <div id="body-photos-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>
+    </div>
+    <div class="confirm-btns">
+      <button class="btn btn-primary" onclick="saveBodyMeasurement()">✓ &nbsp;Guardar</button>
+      <button class="btn btn-ghost" onclick="closeAddBodyMeasurement()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <!-- GOALS -->
 <div id="goals-screen" class="screen">
   <div class="screen-header">
@@ -1417,7 +1505,7 @@ const CD={tooltip:{backgroundColor:'#1C2840',borderColor:'rgba(255,255,255,0.08)
 // ═══════════════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════════════
-let app={playerName:'',match:null,history:[],trainings:[],goals:[],fitnessTests:[]};
+let app={playerName:'',match:null,history:[],trainings:[],goals:[],fitnessTests:[],bodyMeasurements:[],bodyProfile:{}};
 let stateStack=[];
 let statsPeriod='all';
 let charts={};
@@ -1607,6 +1695,8 @@ function loadApp(){
       if(!app.history)app.history=[];
       if(!app.goals)app.goals=[];
       if(!app.fitnessTests)app.fitnessTests=[];
+      if(!app.bodyMeasurements)app.bodyMeasurements=[];
+      if(!app.bodyProfile)app.bodyProfile={};
       return;
     }
   }catch(e){}
@@ -1619,6 +1709,8 @@ function loadApp(){
       if(!app.history)app.history=[];
       if(!app.goals)app.goals=[];
       if(!app.fitnessTests)app.fitnessTests=[];
+      if(!app.bodyMeasurements)app.bodyMeasurements=[];
+      if(!app.bodyProfile)app.bodyProfile={};
       return;
     }
   }catch(e){}
@@ -1627,7 +1719,7 @@ function loadApp(){
 }
 
 function saveApp(){
-  const data={playerName:app.playerName,history:app.history,trainings:app.trainings,goals:app.goals||[],fitnessTests:app.fitnessTests||[],lastSync:app.lastSync||''};
+  const data={playerName:app.playerName,history:app.history,trainings:app.trainings,goals:app.goals||[],fitnessTests:app.fitnessTests||[],bodyMeasurements:app.bodyMeasurements||[],bodyProfile:app.bodyProfile||{},lastSync:app.lastSync||''};
   const json=JSON.stringify(data);
   try{localStorage.setItem(DB_KEY,json);}catch(e){}
   try{document.getElementById('__ptd').textContent=json;}catch(e){}
@@ -1808,6 +1900,7 @@ function showScreen(id){
   if(id==='train-history-screen')renderTrainHistory();
   if(id==='goals-screen')renderGoals();
   if(id==='fitness-screen')renderFitness();
+  if(id==='body-screen')renderBodyMeasurements();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -4117,6 +4210,295 @@ function openFtDetail(typeKey){
 function closeFtDetail(){
   document.getElementById('ft-detail-overlay').classList.add('hidden');
   if(ftDetailChart){ftDetailChart.destroy();ftDetailChart=null;}
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EVOLUCIÓN CORPORAL
+// ═══════════════════════════════════════════════════════════════
+let bodyChart=null;
+let bodyPhotosTemp=[];
+let currentBodyPhotoId=null;
+let editingBodyId=null;
+let bodySelectedSex=null;
+
+function calcAgeStr(birthDate){
+  if(!birthDate)return null;
+  const b=new Date(birthDate+'T00:00:00'),now=new Date();
+  let years=now.getFullYear()-b.getFullYear();
+  let months=now.getMonth()-b.getMonth();
+  if(now.getDate()<b.getDate())months--;
+  if(months<0){years--;months+=12;}
+  return `${years} año${years!==1?'s':''}${months>0?' '+months+' mes'+(months!==1?'es':''):''}`;
+}
+function calcBMI(weight,height){
+  if(!weight||!height)return null;
+  const h=height/100;
+  return Math.round((weight/(h*h))*10)/10;
+}
+function calcPredictedAdultHeight(){
+  const bp=app.bodyProfile||{};
+  if(!bp.sex||!bp.fatherHeight||!bp.motherHeight)return null;
+  const f=parseFloat(bp.fatherHeight),m=parseFloat(bp.motherHeight);
+  if(isNaN(f)||isNaN(m))return null;
+  const pred=bp.sex==='M'?(f+m+13)/2:(f+m-13)/2;
+  return Math.round(pred*10)/10;
+}
+
+function renderBodyMeasurements(){
+  const nameEl=document.getElementById('body-player-name');if(nameEl)nameEl.textContent=app.playerName||'—';
+  const list=(app.bodyMeasurements||[]).slice().sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const bp=app.bodyProfile||{};
+
+  // Profile card
+  const profCard=document.getElementById('body-profile-card');
+  const age=calcAgeStr(bp.birthDate);
+  profCard.innerHTML=`<div style="background:var(--card);border-radius:14px;padding:14px 16px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+    <div>
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Perfil</div>
+      <div style="font-size:13px">${age?`🎂 ${age}`:'Sin fecha de nacimiento'}${bp.sex?` · ${bp.sex==='M'?'Chico':'Chica'}`:''}</div>
+      ${bp.fatherHeight&&bp.motherHeight?`<div style="font-size:11px;color:var(--muted);margin-top:2px">Padres: ${bp.fatherHeight}cm / ${bp.motherHeight}cm</div>`:''}
+    </div>
+    <button class="btn btn-ghost" style="padding:9px 12px;font-size:12px" onclick="openBodyProfileEdit()">✎ Editar</button>
+  </div>`;
+
+  if(!list.length){
+    document.getElementById('body-summary').innerHTML='';
+    document.getElementById('body-predicted').innerHTML='';
+    document.getElementById('body-chart-wrap').style.display='none';
+    document.getElementById('body-gallery').innerHTML='';
+    document.getElementById('body-list').innerHTML=`<div class="empty-state"><div class="empty-icon">📏</div><p>Sin mediciones aún.<br>Pulsa + para registrar la primera.</p></div>`;
+    if(bodyChart){bodyChart.destroy();bodyChart=null;}
+    return;
+  }
+  document.getElementById('body-chart-wrap').style.display='block';
+
+  const last=list[list.length-1];
+  const prev=list.length>1?list[list.length-2]:null;
+  const bmi=calcBMI(last.weight,last.height);
+
+  // velocity
+  let heightVelTxt='',weightVelTxt='';
+  if(prev&&last.height&&prev.height){
+    const days=(new Date(last.date)-new Date(prev.date))/86400000;
+    const months=days/30.44;
+    if(months>=0.5){
+      const cmPerMonth=(last.height-prev.height)/months;
+      heightVelTxt=`${cmPerMonth>=0?'+':''}${cmPerMonth.toFixed(1)} cm/mes`;
+    }
+  }
+  if(prev&&last.weight&&prev.weight){
+    const days=(new Date(last.date)-new Date(prev.date))/86400000;
+    const months=days/30.44;
+    if(months>=0.5){
+      const kgPerMonth=(last.weight-prev.weight)/months;
+      weightVelTxt=`${kgPerMonth>=0?'+':''}${kgPerMonth.toFixed(1)} kg/mes`;
+    }
+  }
+  const isGrowthSpurt=heightVelTxt&&parseFloat(heightVelTxt)>=0.6;
+
+  document.getElementById('body-summary').innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);border-left:3px solid #3DDB82;text-align:center">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:#3DDB82;line-height:1">${last.height||'—'}<span style="font-size:14px"> cm</span></div>
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:4px">Altura actual</div>
+      ${heightVelTxt?`<div style="font-size:11px;color:var(--muted);margin-top:4px">${heightVelTxt}${isGrowthSpurt?' 🚀':''}</div>`:''}
+    </div>
+    <div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);border-left:3px solid var(--blue);text-align:center">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--blue);line-height:1">${last.weight||'—'}<span style="font-size:14px"> kg</span></div>
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:4px">Peso actual</div>
+      ${weightVelTxt?`<div style="font-size:11px;color:var(--muted);margin-top:4px">${weightVelTxt}</div>`:''}
+    </div>
+  </div>
+  ${bmi?`<div style="background:var(--card);border-radius:14px;padding:12px 14px;border:1px solid var(--border);margin-top:8px;display:flex;justify-content:space-between;align-items:center">
+    <div><div style="font-size:13px;font-weight:700">IMC: ${bmi}</div><div style="font-size:10px;color:var(--muted);margin-top:2px;line-height:1.4">Orientativo. En menores el rango normal depende de la edad — consulta con el pediatra.</div></div>
+  </div>`:''}
+  ${isGrowthSpurt?`<div style="background:rgba(240,220,80,0.08);border:1px solid rgba(240,220,80,0.25);border-radius:14px;padding:10px 14px;margin-top:8px;font-size:12px;color:var(--yellow)">🚀 Ritmo de crecimiento elevado — posible fase de estirón. Puede ser un buen momento para vigilar cargas de entreno físico y descanso.</div>`:''}`;
+
+  // Predicted adult height
+  const predicted=calcPredictedAdultHeight();
+  if(predicted&&last.height){
+    const pct=Math.round((last.height/predicted)*1000)/10;
+    document.getElementById('body-predicted').innerHTML=`<div style="background:var(--card);border-radius:14px;padding:14px 16px;border:1px solid var(--border);border-left:3px solid #B57BFF;margin-top:8px">
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Altura adulta estimada</div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:#B57BFF">${predicted} <span style="font-size:13px">cm ±8.5</span></div>
+        <div style="text-align:right"><div style="font-size:18px;font-weight:700">${pct}%</div><div style="font-size:10px;color:var(--muted)">alcanzado</div></div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.4">Estimación por altura media de los padres. Aproximación orientativa, no sustituye una valoración médica.</div>
+    </div>`;
+  }else{
+    document.getElementById('body-predicted').innerHTML=`<div style="background:var(--card);border-radius:14px;padding:12px 14px;border:1px dashed var(--border);margin-top:8px;font-size:12px;color:var(--muted);text-align:center">Añade sexo y altura de los padres en el perfil para ver la altura adulta estimada</div>`;
+  }
+
+  // Chart
+  if(bodyChart){bodyChart.destroy();bodyChart=null;}
+  const ctx=document.getElementById('body-chart').getContext('2d');
+  bodyChart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:list.map(r=>fmtDate(r.date)),
+      datasets:[
+        {label:'Altura (cm)',data:list.map(r=>r.height||null),borderColor:'#3DDB82',backgroundColor:'rgba(61,219,130,0.08)',borderWidth:2.5,pointRadius:4,fill:false,tension:0.3,yAxisID:'y'},
+        {label:'Peso (kg)',data:list.map(r=>r.weight||null),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.08)',borderWidth:2.5,pointRadius:4,fill:false,tension:0.3,yAxisID:'y1'}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{color:'rgba(255,255,255,0.6)',font:{size:10},boxWidth:10}}},
+      scales:{
+        x:{ticks:{color:'rgba(255,255,255,0.4)',font:{size:10}},grid:{color:'rgba(255,255,255,0.05)'}},
+        y:{position:'left',ticks:{color:'#3DDB82',font:{size:10}},grid:{color:'rgba(255,255,255,0.05)'}},
+        y1:{position:'right',ticks:{color:'#3b82f6',font:{size:10}},grid:{display:false}}
+      }
+    }
+  });
+
+  // Photo gallery timeline
+  const withPhotos=list.filter(r=>r.photos&&r.photos.length);
+  const gallery=document.getElementById('body-gallery');
+  if(withPhotos.length){
+    gallery.innerHTML=`<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:10px 0 8px">Galería cronológica</div>
+    <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px">${withPhotos.map(r=>`
+      <div style="flex:0 0 auto;text-align:center">
+        <img src="${r.photos[0].url}" loading="lazy" style="width:74px;height:74px;object-fit:cover;border-radius:10px;cursor:pointer" onclick="openPhotoViewer('${esc(r.photos[0].url)}')">
+        <div style="font-size:9px;color:var(--muted);margin-top:3px">${fmtDate(r.date)}</div>
+      </div>`).join('')}</div>`;
+  }else{
+    gallery.innerHTML='';
+  }
+
+  // History list
+  document.getElementById('body-list').innerHTML=`<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:10px 0 8px">Historial de mediciones</div>`+
+    list.slice().reverse().map(r=>{
+      const thumb=r.photos&&r.photos.length?`<img src="${r.photos[0].url}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;margin-right:8px">`:'';
+      const parts=[r.height?`${r.height} cm`:'',r.weight?`${r.weight} kg`:''].filter(Boolean).join(' · ');
+      return`<div style="display:flex;align-items:center;background:var(--card);border-radius:12px;padding:10px 12px;border:1px solid var(--border);margin-bottom:6px">
+        ${thumb}
+        <div style="flex:1;cursor:pointer" onclick="editBodyMeasurement(${r.id})">
+          <div style="font-size:13px;font-weight:600">${parts||'Medición'}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${fmtDate(r.date)}${r.notes?' · '+esc(r.notes):''}</div>
+        </div>
+        <button onclick="deleteBodyMeasurement(${r.id})" style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:11px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center">✕</button>
+      </div>`;
+    }).join('');
+}
+
+function openBodyProfileEdit(){
+  const bp=app.bodyProfile||{};
+  document.getElementById('bp-birthdate-inp').value=bp.birthDate||'';
+  document.getElementById('bp-father-inp').value=bp.fatherHeight||'';
+  document.getElementById('bp-mother-inp').value=bp.motherHeight||'';
+  bodySelectedSex=bp.sex||null;
+  document.querySelectorAll('#body-profile-overlay [data-sex]').forEach(b=>b.classList.toggle('selected',b.dataset.sex===bodySelectedSex));
+  document.getElementById('body-profile-overlay').classList.remove('hidden');
+}
+function closeBodyProfileEdit(){document.getElementById('body-profile-overlay').classList.add('hidden');}
+function selectBodySex(sex){
+  bodySelectedSex=sex;
+  document.querySelectorAll('#body-profile-overlay [data-sex]').forEach(b=>b.classList.toggle('selected',b.dataset.sex===sex));
+}
+function saveBodyProfile(){
+  if(!app.bodyProfile)app.bodyProfile={};
+  app.bodyProfile.birthDate=document.getElementById('bp-birthdate-inp').value||null;
+  app.bodyProfile.sex=bodySelectedSex;
+  const f=parseFloat(document.getElementById('bp-father-inp').value);
+  const m=parseFloat(document.getElementById('bp-mother-inp').value);
+  app.bodyProfile.fatherHeight=isNaN(f)?null:f;
+  app.bodyProfile.motherHeight=isNaN(m)?null:m;
+  saveApp();closeBodyProfileEdit();renderBodyMeasurements();
+}
+
+function openAddBodyMeasurement(){
+  editingBodyId=null;
+  currentBodyPhotoId=Date.now();
+  bodyPhotosTemp=[];
+  document.getElementById('body-form-title').textContent='Nueva Medición';
+  document.getElementById('body-date-inp').value=new Date().toISOString().split('T')[0];
+  ['body-weight-inp','body-height-inp','body-wingspan-inp','body-fat-inp','body-muscle-inp','body-arm-inp','body-thigh-inp','body-waist-inp','body-notes-inp'].forEach(id=>document.getElementById(id).value='');
+  renderPhotoGrid(bodyPhotosTemp,'body-photos-grid','deleteBodyPhotoTemp');
+  document.getElementById('add-body-overlay').classList.remove('hidden');
+}
+function editBodyMeasurement(id){
+  const r=(app.bodyMeasurements||[]).find(x=>x.id===id);
+  if(!r)return;
+  editingBodyId=id;
+  currentBodyPhotoId=id;
+  bodyPhotosTemp=(r.photos||[]).slice();
+  document.getElementById('body-form-title').textContent='Editar Medición';
+  document.getElementById('body-date-inp').value=r.date||'';
+  document.getElementById('body-weight-inp').value=r.weight||'';
+  document.getElementById('body-height-inp').value=r.height||'';
+  document.getElementById('body-wingspan-inp').value=r.wingspan||'';
+  document.getElementById('body-fat-inp').value=r.bodyFatPct||'';
+  document.getElementById('body-muscle-inp').value=r.muscleMassKg||'';
+  document.getElementById('body-arm-inp').value=r.armPerimeter||'';
+  document.getElementById('body-thigh-inp').value=r.thighPerimeter||'';
+  document.getElementById('body-waist-inp').value=r.waistPerimeter||'';
+  document.getElementById('body-notes-inp').value=r.notes||'';
+  renderPhotoGrid(bodyPhotosTemp,'body-photos-grid','deleteBodyPhotoTemp');
+  document.getElementById('add-body-overlay').classList.remove('hidden');
+}
+function closeAddBodyMeasurement(){document.getElementById('add-body-overlay').classList.add('hidden');}
+function handleBodyPhotoInput(input){
+  const files=[...input.files];
+  input.value='';
+  const id=currentBodyPhotoId||Date.now();
+  files.forEach(file=>{
+    uploadPhotoFile(file,'body-photos',id).then(p=>{
+      bodyPhotosTemp.push(p);
+      renderPhotoGrid(bodyPhotosTemp,'body-photos-grid','deleteBodyPhotoTemp');
+    }).catch(e=>console.log('photo upload error',e));
+  });
+}
+function deleteBodyPhotoTemp(i){
+  const p=bodyPhotosTemp[i];
+  bodyPhotosTemp.splice(i,1);
+  renderPhotoGrid(bodyPhotosTemp,'body-photos-grid','deleteBodyPhotoTemp');
+  if(p&&p.path)deletePhotoFile(p.path);
+}
+function saveBodyMeasurement(){
+  const date=document.getElementById('body-date-inp').value||new Date().toISOString().split('T')[0];
+  const weight=parseFloat(document.getElementById('body-weight-inp').value);
+  const height=parseFloat(document.getElementById('body-height-inp').value);
+  if(isNaN(weight)&&isNaN(height)){alert('Introduce al menos el peso o la altura');return;}
+  const num=v=>{const n=parseFloat(v);return isNaN(n)?null:n;};
+  if(!app.bodyMeasurements)app.bodyMeasurements=[];
+  if(editingBodyId){
+    const r=app.bodyMeasurements.find(x=>x.id===editingBodyId);
+    if(r){
+      r.date=date;r.weight=isNaN(weight)?null:weight;r.height=isNaN(height)?null:height;
+      r.wingspan=num(document.getElementById('body-wingspan-inp').value);
+      r.bodyFatPct=num(document.getElementById('body-fat-inp').value);
+      r.muscleMassKg=num(document.getElementById('body-muscle-inp').value);
+      r.armPerimeter=num(document.getElementById('body-arm-inp').value);
+      r.thighPerimeter=num(document.getElementById('body-thigh-inp').value);
+      r.waistPerimeter=num(document.getElementById('body-waist-inp').value);
+      r.notes=document.getElementById('body-notes-inp').value.trim();
+      r.photos=bodyPhotosTemp;
+    }
+  }else{
+    app.bodyMeasurements.push({
+      id:currentBodyPhotoId||Date.now(),
+      date,
+      weight:isNaN(weight)?null:weight,
+      height:isNaN(height)?null:height,
+      wingspan:num(document.getElementById('body-wingspan-inp').value),
+      bodyFatPct:num(document.getElementById('body-fat-inp').value),
+      muscleMassKg:num(document.getElementById('body-muscle-inp').value),
+      armPerimeter:num(document.getElementById('body-arm-inp').value),
+      thighPerimeter:num(document.getElementById('body-thigh-inp').value),
+      waistPerimeter:num(document.getElementById('body-waist-inp').value),
+      notes:document.getElementById('body-notes-inp').value.trim(),
+      photos:bodyPhotosTemp
+    });
+  }
+  saveApp();closeAddBodyMeasurement();renderBodyMeasurements();
+}
+function deleteBodyMeasurement(id){
+  if(!confirm('¿Eliminar esta medición?'))return;
+  const r=(app.bodyMeasurements||[]).find(x=>x.id===id);
+  app.bodyMeasurements=(app.bodyMeasurements||[]).filter(x=>x.id!==id);
+  saveApp();renderBodyMeasurements();
+  if(r&&r.photos)r.photos.forEach(p=>{if(p.path)deletePhotoFile(p.path);});
 }
 
 // ═══════════════════════════════════════════════════════════════
