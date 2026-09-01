@@ -2648,10 +2648,11 @@ function exportSelectedMatches(){
   const coachHtml=buildCoachInsightPartidos(data,null);
   const chartsHtml=buildMatchesChartsSection(data);
   const body=data.map((m,i)=>`<div style="${i>0?'page-break-before:always;':''}padding-top:${i>0?'14px':'0'}"><div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#0D3320;margin-bottom:10px">Partido ${i+1} de ${data.length} · ${fmtDate(m.date)}</div>${buildMatchReportBody(m)}</div>`).join('');
-  document.getElementById('pv-content').innerHTML=pdfHeader('Informe de Partidos',esc(app.playerName||data[0].myName||''),`${period} · ${data.length} partido${data.length>1?'s':''}`)+`<div style="padding:0 20px 20px">${coachHtml?`<div class="pv-section">${coachHtml}</div>`:''}${chartsHtml}${body}${pdfFooterLine()}</div>`;
+  const photosHtml=data.map((m,i)=>pdfPhotosFullPages(m.photos,`Partido ${i+1}`)).join('');
+  document.getElementById('pv-content').innerHTML=pdfHeader('Informe de Partidos',esc(app.playerName||data[0].myName||''),`${period} · ${data.length} partido${data.length>1?'s':''}`)+`<div style="padding:0 20px 20px">${coachHtml?`<div class="pv-section">${coachHtml}</div>`:''}${chartsHtml}${body}${pdfFooterLine()}</div>${photosHtml}`;
   destroyPdfCharts();
   renderMatchesCharts(data);
-  setTimeout(()=>{window.print();toggleHistorySelectMode();},250);
+  setTimeout(()=>{waitForPdfImages().then(()=>{window.print();toggleHistorySelectMode();});},250);
 }
 function renderHistory(){
   const list=document.getElementById('history-list');
@@ -2841,10 +2842,11 @@ function exportSelectedTrainings(){
   if(coachFis)coachHtml+=`<div class="pv-section-title" style="margin-top:16px">Análisis Físico</div>${coachFis}`;
   const chartsHtml=buildTrainingsChartsSection(data);
   const body=data.map((t,i)=>`<div style="${i>0?'page-break-before:always;':''}padding-top:${i>0?'14px':'0'}"><div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#0D3320;margin-bottom:10px">Entrenamiento ${i+1} de ${data.length} · ${fmtDate(t.date)}</div>${buildTrainingReportBody(t)}</div>`).join('');
-  document.getElementById('pv-content').innerHTML=pdfHeader('Informe de Entrenamientos',esc(app.playerName||'—'),`${period} · ${data.length} sesión${data.length>1?'es':''}`)+`<div style="padding:0 20px 20px">${coachHtml?`<div class="pv-section">${coachHtml}</div>`:''}${chartsHtml}${body}${pdfFooterLine()}</div>`;
+  const photosHtml=data.map((t,i)=>pdfPhotosFullPages(t.photos,`Entrenamiento ${i+1}`)).join('');
+  document.getElementById('pv-content').innerHTML=pdfHeader('Informe de Entrenamientos',esc(app.playerName||'—'),`${period} · ${data.length} sesión${data.length>1?'es':''}`)+`<div style="padding:0 20px 20px">${coachHtml?`<div class="pv-section">${coachHtml}</div>`:''}${chartsHtml}${body}${pdfFooterLine()}</div>${photosHtml}`;
   destroyPdfCharts();
   renderTrainingsCharts(data);
-  setTimeout(()=>{window.print();toggleTrainSelectMode();},250);
+  setTimeout(()=>{waitForPdfImages().then(()=>{window.print();toggleTrainSelectMode();});},250);
 }
 function renderTrainHistory(){
   const list=document.getElementById('train-history-list');
@@ -4256,10 +4258,20 @@ function pdfSetBreakdown(m){
   html+='</div>';
   return html;
 }
-function pdfPhotosSection(photos){
+function pdfPhotosFullPages(photos,label){
   if(!photos||!photos.length)return'';
-  const imgs=photos.map(p=>`<div style="break-inside:avoid;border-radius:8px;overflow:hidden;border:1px solid #e5e5e5"><img src="${esc(p.url)}" style="width:100%;height:130px;object-fit:cover;display:block" crossorigin="anonymous"></div>`).join('');
-  return`<div class="pv-section" style="page-break-inside:avoid"><div class="pv-section-title">Fotos <span style="font-weight:400;color:#999;font-size:11px">${photos.length} foto${photos.length>1?'s':''}</span></div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${imgs}</div></div>`;
+  return photos.map((p,i)=>`<div style="page-break-before:always;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:85vh;padding:20px 10px;box-sizing:border-box">
+    <div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#0D3320;margin-bottom:14px">${label?esc(label)+' · ':''}Foto ${i+1} de ${photos.length}</div>
+    <img src="${esc(p.url)}" style="max-width:100%;max-height:78vh;object-fit:contain;border-radius:8px;border:1px solid #e5e5e5">
+  </div>`).join('');
+}
+function waitForPdfImages(maxWait){
+  const imgs=[...document.querySelectorAll('#pv-content img')];
+  if(!imgs.length)return Promise.resolve();
+  return Promise.race([
+    Promise.all(imgs.map(img=>img.complete?Promise.resolve():new Promise(res=>{img.onload=img.onerror=res;}))),
+    new Promise(res=>setTimeout(res,maxWait||6000))
+  ]);
 }
 function buildMatchReportBody(m){
   const mn=[m.myName,m.myPartner].filter(Boolean).join(' / '),rn=[m.rival1,m.rival2].filter(Boolean).join(' / ');
@@ -4331,16 +4343,17 @@ function buildMatchReportBody(m){
     }
   }
 
-  return`<div class="pv-section"><div class="pv-section-title">Resultado</div><div style="display:flex;justify-content:space-between;align-items:center;background:#f8f8f8;border-radius:10px;padding:14px 18px;border:1px solid #ebebeb"><div><div style="font-weight:700;font-size:15px">${esc(mn)}</div><div style="font-size:11px;color:#999;margin-top:2px">vs ${esc(rn)}</div>${m.tournament?`<div style="font-size:10px;color:#888;margin-top:3px;font-weight:600">🏆 ${esc(m.tournament)}</div>`:''} ${m.surface?`<div style="font-size:10px;color:#888;margin-top:3px">🏟 ${esc(m.surface)}</div>`:''} ${m.puntoDeOro?`<div style="font-size:10px;color:#a07800;margin-top:3px">⚡ Punto de oro</div>`:''} ${m.starPoint?`<div style="font-size:10px;color:#a07800;margin-top:3px">⭐ Star Point</div>`:''}</div><div style="text-align:center"><div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px;color:${m.isWin?'#1a9e55':'#d94520'}">${mySets} – ${riSets}</div><div style="font-size:11px;color:#999">${score}</div></div><span class="${m.isWin?'pv-badge-w':'pv-badge-l'}" style="font-size:11px;padding:5px 14px">${m.isWin?'VICTORIA':'DERROTA'}</span></div></div>${pdfSetBreakdown(m)}${analysisHtml}${m.notes||m.tactica||m.mejora?`<div class="pv-section"><div class="pv-section-title">Reflexión del Partido</div>${m.notes?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#888;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Notas</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.notes)}</div></div>`:''} ${m.tactica?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#2563eb;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Táctica utilizada</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.tactica)}</div></div>`:''} ${m.mejora?`<div><div style="font-size:10px;font-weight:700;color:#a07800;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">¿Qué cambiaríamos?</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.mejora)}</div></div>`:''}</div>`:''}${pdfPhotosSection(m.photos)}`;
+  return`<div class="pv-section"><div class="pv-section-title">Resultado</div><div style="display:flex;justify-content:space-between;align-items:center;background:#f8f8f8;border-radius:10px;padding:14px 18px;border:1px solid #ebebeb"><div><div style="font-weight:700;font-size:15px">${esc(mn)}</div><div style="font-size:11px;color:#999;margin-top:2px">vs ${esc(rn)}</div>${m.tournament?`<div style="font-size:10px;color:#888;margin-top:3px;font-weight:600">🏆 ${esc(m.tournament)}</div>`:''} ${m.surface?`<div style="font-size:10px;color:#888;margin-top:3px">🏟 ${esc(m.surface)}</div>`:''} ${m.puntoDeOro?`<div style="font-size:10px;color:#a07800;margin-top:3px">⚡ Punto de oro</div>`:''} ${m.starPoint?`<div style="font-size:10px;color:#a07800;margin-top:3px">⭐ Star Point</div>`:''}</div><div style="text-align:center"><div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px;color:${m.isWin?'#1a9e55':'#d94520'}">${mySets} – ${riSets}</div><div style="font-size:11px;color:#999">${score}</div></div><span class="${m.isWin?'pv-badge-w':'pv-badge-l'}" style="font-size:11px;padding:5px 14px">${m.isWin?'VICTORIA':'DERROTA'}</span></div></div>${pdfSetBreakdown(m)}${analysisHtml}${m.notes||m.tactica||m.mejora?`<div class="pv-section"><div class="pv-section-title">Reflexión del Partido</div>${m.notes?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#888;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Notas</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.notes)}</div></div>`:''} ${m.tactica?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#2563eb;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Táctica utilizada</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.tactica)}</div></div>`:''} ${m.mejora?`<div><div style="font-size:10px;font-weight:700;color:#a07800;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">¿Qué cambiaríamos?</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.mejora)}</div></div>`:''}</div>`:''}`;
 }
 function printMatch(idx){
   const m=app.history[idx];if(!m)return;
   const sub=`${fmtDate(m.date)}${m.startTime?' · '+m.startTime+(m.endTime?' – '+m.endTime:''):''}`;
   const chartsHtml=buildMatchesChartsSection([m]);
-  document.getElementById('pv-content').innerHTML=pdfHeader('Informe de Partido',esc(m.myName),sub)+`<div style="padding:0 20px 20px">${buildMatchReportBody(m)}${chartsHtml}${pdfFooterLine()}</div>`;
+  const photosHtml=pdfPhotosFullPages(m.photos);
+  document.getElementById('pv-content').innerHTML=pdfHeader('Informe de Partido',esc(m.myName),sub)+`<div style="padding:0 20px 20px">${buildMatchReportBody(m)}${chartsHtml}${pdfFooterLine()}</div>${photosHtml}`;
   destroyPdfCharts();
   renderMatchesCharts([m]);
-  setTimeout(()=>window.print(),250);
+  setTimeout(()=>{waitForPdfImages().then(()=>window.print());},250);
 }
 function buildTrainingReportBody(t){
   const isTec=t.type==='tec'||t.type==='both';
@@ -4364,16 +4377,17 @@ function buildTrainingReportBody(t){
   ${allShots.length?`<div class="pv-section"><div class="pv-section-title">Golpes Técnicos <span style="font-weight:400;color:#999;font-size:11px">${allShots.length} golpes · media ${avgQ}★</span></div><table class="pv-shot-table"><thead><tr><th>Golpe</th><th></th><th style="text-align:right">Valoración</th><th style="text-align:right">Nota</th></tr></thead><tbody>${shotRows}</tbody></table></div>`:''}
   ${t.exercises&&t.exercises.length?`<div class="pv-section"><div class="pv-section-title">Ejercicios Físicos <span style="font-weight:400;color:#999;font-size:11px">${t.exercises.length} ejercicios</span></div><ol style="margin:0;padding-left:18px">${t.exercises.map(e=>`<li style="font-size:12px;color:#333;margin-bottom:6px;line-height:1.5">${esc(e)}</li>`).join('')}</ol></div>`:''}
   <div class="pv-section"><div class="pv-section-title">Estado Físico y Mental</div>${bar('⚡ Energía',t.energia,'#1a9e55')}${bar('😊 Humor',t.humor,'#7c3aed')}${bar('🔥 Intensidad',t.intensidad,'#a07800')}</div>
-  ${t.notes?`<div class="pv-section"><div class="pv-section-title">Notas del Entrenamiento</div><div style="font-size:12px;line-height:1.8;color:#333">${esc(t.notes)}</div></div>`:''}${pdfPhotosSection(t.photos)}`;
+  ${t.notes?`<div class="pv-section"><div class="pv-section-title">Notas del Entrenamiento</div><div style="font-size:12px;line-height:1.8;color:#333">${esc(t.notes)}</div></div>`:''}`;
 }
 function printTraining(id){
   const t=app.trainings.find(x=>x.id===id);if(!t)return;
   const sub=`${fmtDate(t.date)}${t.duration?' · '+t.duration+' min':''}`;
   const chartsHtml=buildTrainingsChartsSection([t]);
-  document.getElementById('pv-content').innerHTML=pdfHeader('Informe de Entrenamiento',esc(app.playerName||'—'),sub)+`<div style="padding:0 20px 20px">${buildTrainingReportBody(t)}${chartsHtml}${pdfFooterLine()}</div>`;
+  const photosHtml=pdfPhotosFullPages(t.photos);
+  document.getElementById('pv-content').innerHTML=pdfHeader('Informe de Entrenamiento',esc(app.playerName||'—'),sub)+`<div style="padding:0 20px 20px">${buildTrainingReportBody(t)}${chartsHtml}${pdfFooterLine()}</div>${photosHtml}`;
   destroyPdfCharts();
   renderTrainingsCharts([t]);
-  setTimeout(()=>window.print(),250);
+  setTimeout(()=>{waitForPdfImages().then(()=>window.print());},250);
 }
 
 let s3renderer=null, s3scene=null, s3camera=null;
