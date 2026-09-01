@@ -1556,12 +1556,19 @@ function initFirebase(){
       const fbMore = (fb.history||[]).length > (app.history||[]).length ||
                      (fb.trainings||[]).length > (app.trainings||[]).length;
       if(fbNewer || fbMore){
-        app.playerName = fb.playerName||'Lucas';
-        app.history    = fb.history||[];
-        app.trainings  = fb.trainings||[];
-        app.lastSync   = fb.lastSync||'';
+        app.playerName       = fb.playerName||'Lucas';
+        app.history          = fb.history||[];
+        app.trainings        = fb.trainings||[];
+        app.goals            = fb.goals||[];
+        app.fitnessTests     = fb.fitnessTests||[];
+        app.bodyMeasurements = fb.bodyMeasurements||[];
+        app.bodyProfile      = fb.bodyProfile||{};
+        app.lastSync         = fb.lastSync||'';
         localStorage.setItem(DB_KEY, JSON.stringify(app));
         renderHome();
+        if(document.getElementById('goals-screen')?.classList.contains('active'))renderGoals();
+        if(document.getElementById('fitness-screen')?.classList.contains('active'))renderFitness();
+        if(document.getElementById('body-screen')?.classList.contains('active'))renderBodyMeasurements();
       }
     }, e=>console.log("Firestore listener error:",e));
 
@@ -1574,10 +1581,14 @@ function syncToFirebase(){
   myLastSave=ts;
   app.lastSync=ts;
   fsDb.collection('datos').doc(FS_DOC).set({
-    playerName: app.playerName,
-    history:    app.history,
-    trainings:  app.trainings,
-    lastSync:   ts
+    playerName:       app.playerName,
+    history:          app.history,
+    trainings:        app.trainings,
+    goals:            app.goals||[],
+    fitnessTests:     app.fitnessTests||[],
+    bodyMeasurements: app.bodyMeasurements||[],
+    bodyProfile:      app.bodyProfile||{},
+    lastSync:         ts
   }).catch(e=>console.log("Firestore save error:",e));
 }
 
