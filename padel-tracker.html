@@ -3478,6 +3478,11 @@ function renderCoachView(data){
 }
 
 function _card(title,titleColor,body){return`<div style="background:var(--card);border-radius:16px;padding:18px;border:1px solid var(--border);border-left:3px solid ${titleColor||'var(--border)'};margin-bottom:14px"><div style="font-size:11px;font-weight:700;color:${titleColor||'var(--muted)'};text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px">${title}</div>${body}</div>`;}
+function _coachPhotosCard(photos){
+  if(!photos||!photos.length)return'';
+  const imgs=photos.map(p=>`<img src="${esc(p.url)}" onclick="openPhotoViewer('${esc(p.url)}')" style="width:100%;height:110px;object-fit:cover;border-radius:10px;cursor:pointer;display:block">`).join('');
+  return _card(`📷 Fotos (${photos.length})`,'var(--my)',`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${imgs}</div>`);
+}
 function _row(label,value,color){return`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05)"><span style="font-size:13px;color:var(--text)">${label}</span><span style="font-size:14px;font-weight:700;color:${color||'var(--text)'}">${value}</span></div>`;}
 function _bar(label,val,max,color){const pct=max?Math.round(val/max*100):0;return`<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:12px">${label}</span><span style="font-size:12px;font-weight:700;color:${color}">${val}</span></div><div style="height:6px;background:rgba(255,255,255,0.07);border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${color};border-radius:4px"></div></div></div>`;}
 
@@ -3654,6 +3659,8 @@ function _renderCoachMatch(m,playerName){
     html+=_card('💬 Reflexión del partido','var(--yellow)',notesBody);
   }
 
+  html+=_coachPhotosCard(m.photos);
+
   document.getElementById('cv-kpis').innerHTML=html;
   document.getElementById('cv-recent').innerHTML='';
   document.getElementById('cv-shots').innerHTML='';
@@ -3740,6 +3747,8 @@ function _renderCoachTraining(t,playerName){
       <div style="font-size:14px;line-height:1.8;color:var(--text)">${esc(t.notes)}</div>
     </div>`;
   }
+
+  html+=_coachPhotosCard(t.photos);
 
   document.getElementById('cv-kpis').innerHTML=html;
   document.getElementById('cv-recent').innerHTML='';
@@ -4247,6 +4256,11 @@ function pdfSetBreakdown(m){
   html+='</div>';
   return html;
 }
+function pdfPhotosSection(photos){
+  if(!photos||!photos.length)return'';
+  const imgs=photos.map(p=>`<div style="break-inside:avoid;border-radius:8px;overflow:hidden;border:1px solid #e5e5e5"><img src="${esc(p.url)}" style="width:100%;height:130px;object-fit:cover;display:block" crossorigin="anonymous"></div>`).join('');
+  return`<div class="pv-section" style="page-break-inside:avoid"><div class="pv-section-title">Fotos <span style="font-weight:400;color:#999;font-size:11px">${photos.length} foto${photos.length>1?'s':''}</span></div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${imgs}</div></div>`;
+}
 function buildMatchReportBody(m){
   const mn=[m.myName,m.myPartner].filter(Boolean).join(' / '),rn=[m.rival1,m.rival2].filter(Boolean).join(' / ');
   const mySets=m.sets.filter(s=>s.my>s.ri).length,riSets=m.sets.filter(s=>s.ri>s.my).length;
@@ -4317,7 +4331,7 @@ function buildMatchReportBody(m){
     }
   }
 
-  return`<div class="pv-section"><div class="pv-section-title">Resultado</div><div style="display:flex;justify-content:space-between;align-items:center;background:#f8f8f8;border-radius:10px;padding:14px 18px;border:1px solid #ebebeb"><div><div style="font-weight:700;font-size:15px">${esc(mn)}</div><div style="font-size:11px;color:#999;margin-top:2px">vs ${esc(rn)}</div>${m.tournament?`<div style="font-size:10px;color:#888;margin-top:3px;font-weight:600">🏆 ${esc(m.tournament)}</div>`:''} ${m.surface?`<div style="font-size:10px;color:#888;margin-top:3px">🏟 ${esc(m.surface)}</div>`:''} ${m.puntoDeOro?`<div style="font-size:10px;color:#a07800;margin-top:3px">⚡ Punto de oro</div>`:''} ${m.starPoint?`<div style="font-size:10px;color:#a07800;margin-top:3px">⭐ Star Point</div>`:''}</div><div style="text-align:center"><div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px;color:${m.isWin?'#1a9e55':'#d94520'}">${mySets} – ${riSets}</div><div style="font-size:11px;color:#999">${score}</div></div><span class="${m.isWin?'pv-badge-w':'pv-badge-l'}" style="font-size:11px;padding:5px 14px">${m.isWin?'VICTORIA':'DERROTA'}</span></div></div>${pdfSetBreakdown(m)}${analysisHtml}${m.notes||m.tactica||m.mejora?`<div class="pv-section"><div class="pv-section-title">Reflexión del Partido</div>${m.notes?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#888;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Notas</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.notes)}</div></div>`:''} ${m.tactica?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#2563eb;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Táctica utilizada</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.tactica)}</div></div>`:''} ${m.mejora?`<div><div style="font-size:10px;font-weight:700;color:#a07800;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">¿Qué cambiaríamos?</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.mejora)}</div></div>`:''}</div>`:''}`;
+  return`<div class="pv-section"><div class="pv-section-title">Resultado</div><div style="display:flex;justify-content:space-between;align-items:center;background:#f8f8f8;border-radius:10px;padding:14px 18px;border:1px solid #ebebeb"><div><div style="font-weight:700;font-size:15px">${esc(mn)}</div><div style="font-size:11px;color:#999;margin-top:2px">vs ${esc(rn)}</div>${m.tournament?`<div style="font-size:10px;color:#888;margin-top:3px;font-weight:600">🏆 ${esc(m.tournament)}</div>`:''} ${m.surface?`<div style="font-size:10px;color:#888;margin-top:3px">🏟 ${esc(m.surface)}</div>`:''} ${m.puntoDeOro?`<div style="font-size:10px;color:#a07800;margin-top:3px">⚡ Punto de oro</div>`:''} ${m.starPoint?`<div style="font-size:10px;color:#a07800;margin-top:3px">⭐ Star Point</div>`:''}</div><div style="text-align:center"><div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px;color:${m.isWin?'#1a9e55':'#d94520'}">${mySets} – ${riSets}</div><div style="font-size:11px;color:#999">${score}</div></div><span class="${m.isWin?'pv-badge-w':'pv-badge-l'}" style="font-size:11px;padding:5px 14px">${m.isWin?'VICTORIA':'DERROTA'}</span></div></div>${pdfSetBreakdown(m)}${analysisHtml}${m.notes||m.tactica||m.mejora?`<div class="pv-section"><div class="pv-section-title">Reflexión del Partido</div>${m.notes?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#888;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Notas</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.notes)}</div></div>`:''} ${m.tactica?`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#2563eb;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Táctica utilizada</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.tactica)}</div></div>`:''} ${m.mejora?`<div><div style="font-size:10px;font-weight:700;color:#a07800;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">¿Qué cambiaríamos?</div><div style="font-size:12px;line-height:1.7;color:#333">${esc(m.mejora)}</div></div>`:''}</div>`:''}${pdfPhotosSection(m.photos)}`;
 }
 function printMatch(idx){
   const m=app.history[idx];if(!m)return;
@@ -4350,7 +4364,7 @@ function buildTrainingReportBody(t){
   ${allShots.length?`<div class="pv-section"><div class="pv-section-title">Golpes Técnicos <span style="font-weight:400;color:#999;font-size:11px">${allShots.length} golpes · media ${avgQ}★</span></div><table class="pv-shot-table"><thead><tr><th>Golpe</th><th></th><th style="text-align:right">Valoración</th><th style="text-align:right">Nota</th></tr></thead><tbody>${shotRows}</tbody></table></div>`:''}
   ${t.exercises&&t.exercises.length?`<div class="pv-section"><div class="pv-section-title">Ejercicios Físicos <span style="font-weight:400;color:#999;font-size:11px">${t.exercises.length} ejercicios</span></div><ol style="margin:0;padding-left:18px">${t.exercises.map(e=>`<li style="font-size:12px;color:#333;margin-bottom:6px;line-height:1.5">${esc(e)}</li>`).join('')}</ol></div>`:''}
   <div class="pv-section"><div class="pv-section-title">Estado Físico y Mental</div>${bar('⚡ Energía',t.energia,'#1a9e55')}${bar('😊 Humor',t.humor,'#7c3aed')}${bar('🔥 Intensidad',t.intensidad,'#a07800')}</div>
-  ${t.notes?`<div class="pv-section"><div class="pv-section-title">Notas del Entrenamiento</div><div style="font-size:12px;line-height:1.8;color:#333">${esc(t.notes)}</div></div>`:''}`;
+  ${t.notes?`<div class="pv-section"><div class="pv-section-title">Notas del Entrenamiento</div><div style="font-size:12px;line-height:1.8;color:#333">${esc(t.notes)}</div></div>`:''}${pdfPhotosSection(t.photos)}`;
 }
 function printTraining(id){
   const t=app.trainings.find(x=>x.id===id);if(!t)return;
