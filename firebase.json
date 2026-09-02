@@ -1,4 +1,11 @@
 {
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "storage": {
+    "bucket": "padel-lucas-app.firebasestorage.app",
+    "rules": "storage.rules"
+  },
   "hosting": {
     "public": ".",
     "ignore": [

@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <!-- Firebase SDK (Compat) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <!-- DATOS GUARDADOS — no tocar esta línea -->
@@ -451,12 +452,74 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .habit-widget{background:rgba(240,220,80,0.06);border:1px solid rgba(240,220,80,0.22);border-radius:14px;padding:12px 14px;width:100%;max-width:320px;box-sizing:border-box}
 .habit-checkin-row{display:flex;align-items:center;gap:7px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
 .habit-checkin-row:last-child{border-bottom:none}
+/* ═══ AUTH / MULTI-USUARIO ═══ */
+#auth-screen{align-items:center;justify-content:flex-start;gap:18px;padding:48px 24px 32px;overflow-y:auto}
+#auth-screen .goals-body{width:100%;max-width:340px;padding:0;overflow:visible}
+#disabled-screen{align-items:center;justify-content:center;gap:16px;padding:36px 24px;text-align:center}
 </style>
 </head>
 <body>
 
+<!-- AUTH SCREEN (login / registro) -->
+<div id="auth-screen" class="screen active">
+  <div class="logo-wrap"><h1>PÁDEL<br>TRACKER</h1><p>El seguimiento de tu campeón</p></div>
+  <div class="goals-body">
+    <div id="auth-tabs" style="display:flex;gap:8px;margin-bottom:6px">
+      <button class="gf-tab active" id="auth-tab-login" style="flex:1;text-align:center;padding:10px 6px" onclick="setAuthMode('login')">Iniciar sesión</button>
+      <button class="gf-tab" id="auth-tab-register" style="flex:1;text-align:center;padding:10px 6px" onclick="setAuthMode('register')">Crear cuenta</button>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <div id="auth-form-login">
+      <div class="f-group"><label>Email</label><input id="auth-login-email" class="goal-inp" type="email" placeholder="tucorreo@ejemplo.com" autocomplete="email"></div>
+      <div class="f-group" style="margin-top:10px"><label>Contraseña</label><input id="auth-login-password" class="goal-inp" type="password" placeholder="••••••••" autocomplete="current-password"></div>
+      <button class="btn btn-primary" id="auth-login-btn" style="width:100%;margin-top:16px" onclick="doLogin()">Iniciar sesión</button>
+    </div>
+
+    <!-- REGISTER FORM -->
+    <div id="auth-form-register" style="display:none">
+      <div class="f-group"><label>Nombre</label><input id="auth-reg-name" class="goal-inp" type="text" maxlength="30" placeholder="Tu nombre" autocomplete="name"></div>
+      <div class="f-group" style="margin-top:10px"><label>Email</label><input id="auth-reg-email" class="goal-inp" type="email" placeholder="tucorreo@ejemplo.com" autocomplete="email"></div>
+      <div class="f-group" style="margin-top:10px"><label>Contraseña</label><input id="auth-reg-password" class="goal-inp" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password"></div>
+      <div style="margin-top:16px">
+        <label class="goal-lbl">¿Cuál es tu rol?</label>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button type="button" class="goal-type-btn" data-role="player" onclick="selectAuthRole('player')"><span style="font-size:22px">🎾</span><div><div style="font-weight:700;font-size:14px">Soy jugador/a</div><div class="goal-type-sub">Registra tus partidos, entrenos y evolución</div></div></button>
+          <button type="button" class="goal-type-btn" data-role="coach" onclick="selectAuthRole('coach')"><span style="font-size:22px">📋</span><div><div style="font-weight:700;font-size:14px">Soy entrenador/a</div><div class="goal-type-sub">Sigue el progreso de tus alumnos</div></div></button>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="auth-register-btn" style="width:100%;margin-top:16px" onclick="doRegister()">Crear cuenta</button>
+    </div>
+
+    <!-- COMPLETE PROFILE FORM (cuenta autenticada sin rol asignado) -->
+    <div id="auth-form-complete" style="display:none">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px">Completa tu perfil para continuar.</div>
+      <div class="f-group"><label>Nombre</label><input id="auth-complete-name" class="goal-inp" type="text" maxlength="30" placeholder="Tu nombre"></div>
+      <div style="margin-top:16px">
+        <label class="goal-lbl">¿Cuál es tu rol?</label>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button type="button" class="goal-type-btn" data-role="player" onclick="selectAuthRole('player')"><span style="font-size:22px">🎾</span><div><div style="font-weight:700;font-size:14px">Soy jugador/a</div><div class="goal-type-sub">Registra tus partidos, entrenos y evolución</div></div></button>
+          <button type="button" class="goal-type-btn" data-role="coach" onclick="selectAuthRole('coach')"><span style="font-size:22px">📋</span><div><div style="font-weight:700;font-size:14px">Soy entrenador/a</div><div class="goal-type-sub">Sigue el progreso de tus alumnos</div></div></button>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="auth-complete-btn" style="width:100%;margin-top:16px" onclick="doCompleteProfile()">Continuar</button>
+      <button class="btn btn-ghost" style="width:100%;margin-top:10px" onclick="doLogout()">Cancelar y cerrar sesión</button>
+    </div>
+
+    <div id="auth-error" style="display:none;margin-top:14px;padding:10px 14px;border-radius:10px;background:rgba(255,94,58,0.1);border:1px solid rgba(255,94,58,0.25);color:var(--rival);font-size:13px"></div>
+  </div>
+</div>
+
+<!-- DISABLED SCREEN (jugador suspendido por su entrenador) -->
+<div id="disabled-screen" class="screen">
+  <div style="font-size:44px">🚫</div>
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:2px">Acceso desactivado</div>
+  <p style="font-size:14px;color:var(--muted);max-width:320px;line-height:1.6">Tu acceso ha sido desactivado por tu entrenador. Contacta con la escuela.</p>
+  <button class="btn btn-secondary" style="max-width:260px" onclick="doLogout()">Cerrar sesión</button>
+</div>
+
 <!-- HOME -->
-<div id="home" class="screen active">
+<div id="home" class="screen">
   <div class="logo-wrap"><h1>PÁDEL<br>TRACKER</h1><p>El seguimiento de tu campeón</p></div>
   <div id="home-player-card">
     <div class="player-avatar" id="home-avatar">P</div>
@@ -485,8 +548,23 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <button class="btn btn-accent"     onclick="showScreen('stats-screen')">◈ &nbsp;Evolución y estadísticas</button>
     <button class="btn btn-save"       onclick="triggerDownload()">💾 &nbsp;Guardar app con mis datos</button>
     <button class="btn btn-ghost"      onclick="changePlayerName()">✎ &nbsp;Cambiar nombre del jugador</button>
+    <button class="btn btn-ghost"      onclick="showScreen('settings-screen')">⚙ &nbsp;Ajustes</button>
   </div>
   <p class="home-footer">Hecho con ❤️ para tu campeón</p>
+</div>
+
+<!-- SETTINGS -->
+<div id="settings-screen" class="screen">
+  <div class="screen-header">
+    <button class="back-btn" onclick="showScreen(userRole==='coach'?'coach-home':'home')">←</button>
+    <h2>Ajustes</h2>
+  </div>
+  <div class="goals-body">
+    <div id="settings-account-card"></div>
+    <div id="settings-coach-section"></div>
+    <div id="settings-coach-comments"></div>
+    <button class="btn btn-danger" style="width:100%" onclick="doLogout()">Cerrar sesión</button>
+  </div>
 </div>
 
 <!-- SETUP -->
@@ -1036,6 +1114,27 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   <div style="text-align:center;font-size:11px;color:var(--muted);margin-top:24px">Vista de solo lectura · Pádel Tracker</div>
 </div>
 
+<!-- COACH HOME (panel del entrenador) -->
+<div id="coach-home" class="screen">
+  <div class="screen-header">
+    <h2>Mis Alumnos</h2>
+    <button class="back-btn" onclick="showScreen('settings-screen')" title="Ajustes">⚙</button>
+  </div>
+  <div class="goals-body">
+    <div id="coach-invite-card"></div>
+    <div id="coach-students-list"></div>
+  </div>
+</div>
+
+<!-- COACH STUDENT DETAIL (vista de solo lectura de un alumno) -->
+<div id="coach-student-detail" class="screen">
+  <div class="screen-header">
+    <button class="back-btn" onclick="showScreen('coach-home')">←</button>
+    <h2 id="csd-name">Alumno</h2>
+  </div>
+  <div class="goals-body" id="csd-body"></div>
+</div>
+
 <!-- FITNESS TESTS -->
 <div id="fitness-screen" class="screen">
   <div class="screen-header">
@@ -1487,7 +1586,8 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 // ═══════════════════════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════════════════════
-const DB_KEY='padel_tracker_v5';
+const DB_KEY='padel_tracker_v5'; // clave fija usada SOLO para migrar datos legacy (localStorage sin cuenta) al registrarse
+let CURRENT_DB_KEY=null; // clave real por usuario logueado: 'padel_tracker_v5_'+uid — se fija en onAuthStateChanged
 const LIVE_MATCH_KEY='padel_tracker_live_match_v1';
 const SHOT_LABELS={remate:'Remate',bandeja:'Bandeja',vibora:'Víbora',volea_der:'Volea D',volea_rev:'Volea R',fondo_der:'Fondo D',fondo_rev:'Fondo R',globo:'Globo',bajada_pared:'Bajada P',saque:'Saque'};
 const SHOT_KEYS=Object.keys(SHOT_LABELS);
@@ -1519,6 +1619,18 @@ let firstTime=false;
 let recoveredMatchData=null;
 
 // ═══════════════════════════════════════════════════════════════
+// AUTH / MULTI-USUARIO — ESTADO
+// ═══════════════════════════════════════════════════════════════
+let currentUser=null;                 // objeto de Firebase Auth (firebase.auth().currentUser)
+let userRole=null;                    // 'player' | 'coach' | null
+let playerMeta={coachId:null,coachName:null,disabled:false,email:''}; // metadatos del doc players/{uid} que no viven en `app`
+let coachProfile={};                  // {uid,name,email,inviteCode} cuando userRole==='coach'
+let playerFsUnsub=null;               // función para cancelar el listener onSnapshot de players/{uid}
+let selectedRegRole=null;             // rol elegido en las tarjetas de registro/completar perfil
+let authMode='login';                 // 'login' | 'register'
+let currentCoachStudentUid=null;      // alumno abierto en #coach-student-detail
+
+// ═══════════════════════════════════════════════════════════════
 // FIREBASE SYNC
 // ═══════════════════════════════════════════════════════════════
 const firebaseConfig={
@@ -1538,49 +1650,63 @@ function initFirebase(){
     firebase.initializeApp(firebaseConfig);
     fsDb=firebase.firestore();
     syncEnabled=true;
-
-    // PASO 1: carga local inmediata para que no haya pantalla en blanco
-    loadApp();
-    renderHome();
-
-    // PASO 2: onSnapshot — escucha cambios en tiempo real (como tu otra app)
-    // Se ejecuta al arrancar (carga inicial) y cada vez que otro dispositivo guarda
-    fsDb.collection('datos').doc(FS_DOC).onSnapshot(snap=>{
-      if(!snap.exists) return;
-      const fb=snap.data();
-      if(!fb) return;
-      // Ignorar eco de nuestro propio guardado
-      if(fb.lastSync && fb.lastSync===myLastSave) return;
-      // Solo actualizar si Firestore tiene datos más nuevos o más partidos
-      const fbNewer = !app.lastSync || (fb.lastSync||'') > app.lastSync;
-      const fbMore = (fb.history||[]).length > (app.history||[]).length ||
-                     (fb.trainings||[]).length > (app.trainings||[]).length;
-      if(fbNewer || fbMore){
-        app.playerName       = fb.playerName||'Lucas';
-        app.history          = fb.history||[];
-        app.trainings        = fb.trainings||[];
-        app.goals            = fb.goals||[];
-        app.fitnessTests     = fb.fitnessTests||[];
-        app.bodyMeasurements = fb.bodyMeasurements||[];
-        app.bodyProfile      = fb.bodyProfile||{};
-        app.lastSync         = fb.lastSync||'';
-        localStorage.setItem(DB_KEY, JSON.stringify(app));
-        renderHome();
-        if(document.getElementById('goals-screen')?.classList.contains('active'))renderGoals();
-        if(document.getElementById('fitness-screen')?.classList.contains('active'))renderFitness();
-        if(document.getElementById('body-screen')?.classList.contains('active'))renderBodyMeasurements();
-      }
-    }, e=>console.log("Firestore listener error:",e));
-
   }catch(e){console.log("Firebase init error:",e);}
 }
 
+// onSnapshot sobre players/{uid} del jugador logueado — sustituye al antiguo listener fijo de datos/padel-lucas
+function subscribeToPlayerDoc(uid){
+  if(playerFsUnsub){try{playerFsUnsub();}catch(e){} playerFsUnsub=null;}
+  playerFsUnsub=fsDb.collection('players').doc(uid).onSnapshot(snap=>{
+    if(!snap.exists) return;
+    const fb=snap.data();
+    if(!fb) return;
+
+    playerMeta.coachId   = fb.coachId||null;
+    playerMeta.coachName = fb.coachName||null;
+    playerMeta.disabled  = !!fb.disabled;
+    playerMeta.email     = fb.email||playerMeta.email||'';
+
+    if(playerMeta.disabled){
+      showScreen('disabled-screen');
+      return;
+    }
+    if(document.getElementById('disabled-screen')?.classList.contains('active')){
+      showScreen('home');
+    }
+    if(document.getElementById('settings-screen')?.classList.contains('active'))renderSettingsScreen();
+
+    // Ignorar eco de nuestro propio guardado
+    if(fb.lastSync && fb.lastSync===myLastSave) return;
+    // Solo actualizar si Firestore tiene datos más nuevos o más partidos
+    const fbNewer = !app.lastSync || (fb.lastSync||'') > app.lastSync;
+    const fbMore = (fb.history||[]).length > (app.history||[]).length ||
+                   (fb.trainings||[]).length > (app.trainings||[]).length;
+    if(fbNewer || fbMore){
+      app.playerName       = fb.playerName||app.playerName||'';
+      app.history          = fb.history||[];
+      app.trainings        = fb.trainings||[];
+      app.goals            = fb.goals||[];
+      app.fitnessTests     = fb.fitnessTests||[];
+      app.bodyMeasurements = fb.bodyMeasurements||[];
+      app.bodyProfile      = fb.bodyProfile||{};
+      app.lastSync         = fb.lastSync||'';
+      localStorage.setItem(CURRENT_DB_KEY||DB_KEY, JSON.stringify(app));
+      renderHome();
+      if(document.getElementById('goals-screen')?.classList.contains('active'))renderGoals();
+      if(document.getElementById('fitness-screen')?.classList.contains('active'))renderFitness();
+      if(document.getElementById('body-screen')?.classList.contains('active'))renderBodyMeasurements();
+    }
+  }, e=>console.log("Firestore listener error:",e));
+}
+
 function syncToFirebase(){
-  if(!fsDb||!syncEnabled) return;
+  if(!fsDb||!syncEnabled||!currentUser||userRole!=='player') return;
+  if(playerMeta.disabled) return; // bloqueado: no se guarda nada
   const ts=new Date().toISOString();
   myLastSave=ts;
   app.lastSync=ts;
-  fsDb.collection('datos').doc(FS_DOC).set({
+  // merge:true — nunca pisamos disabled/coachId/coachName/email, que puede haber tocado el entrenador o el registro
+  fsDb.collection('players').doc(currentUser.uid).set({
     playerName:       app.playerName,
     history:          app.history,
     trainings:        app.trainings,
@@ -1589,7 +1715,7 @@ function syncToFirebase(){
     bodyMeasurements: app.bodyMeasurements||[],
     bodyProfile:      app.bodyProfile||{},
     lastSync:         ts
-  }).catch(e=>console.log("Firestore save error:",e));
+  },{merge:true}).catch(e=>console.log("Firestore save error:",e));
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1698,7 +1824,7 @@ function deleteTrainPhoto(i){
 function loadApp(){
   // 1. Try localStorage first (fastest)
   try{
-    const r=localStorage.getItem(DB_KEY);
+    const r=localStorage.getItem(CURRENT_DB_KEY||DB_KEY);
     if(r){
       const parsed=JSON.parse(r);
       Object.assign(app,parsed);
@@ -1732,9 +1858,531 @@ function loadApp(){
 function saveApp(){
   const data={playerName:app.playerName,history:app.history,trainings:app.trainings,goals:app.goals||[],fitnessTests:app.fitnessTests||[],bodyMeasurements:app.bodyMeasurements||[],bodyProfile:app.bodyProfile||{},lastSync:app.lastSync||''};
   const json=JSON.stringify(data);
-  try{localStorage.setItem(DB_KEY,json);}catch(e){}
+  try{localStorage.setItem(CURRENT_DB_KEY||DB_KEY,json);}catch(e){}
   try{document.getElementById('__ptd').textContent=json;}catch(e){}
   syncToFirebase();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUTH — LOGIN / REGISTRO / RESOLUCIÓN DE ROL
+// ═══════════════════════════════════════════════════════════════
+function showAuthScreen(mode){
+  showScreen('auth-screen');
+  if(mode==='completeProfile'){showCompleteProfile();}
+  else{setAuthMode('login');}
+}
+function setAuthMode(mode){
+  authMode=mode;
+  document.getElementById('auth-tabs').style.display='flex';
+  document.getElementById('auth-tab-login').classList.toggle('active',mode==='login');
+  document.getElementById('auth-tab-register').classList.toggle('active',mode==='register');
+  document.getElementById('auth-form-login').style.display=mode==='login'?'block':'none';
+  document.getElementById('auth-form-register').style.display=mode==='register'?'block':'none';
+  document.getElementById('auth-form-complete').style.display='none';
+  clearAuthError();
+}
+function showCompleteProfile(){
+  document.getElementById('auth-tabs').style.display='none';
+  document.getElementById('auth-form-login').style.display='none';
+  document.getElementById('auth-form-register').style.display='none';
+  document.getElementById('auth-form-complete').style.display='block';
+  clearAuthError();
+}
+function selectAuthRole(role){
+  selectedRegRole=role;
+  document.querySelectorAll('#auth-screen .goal-type-btn').forEach(b=>{
+    const a=b.dataset.role===role;
+    b.classList.toggle('selected',a);
+    b.style.borderColor=a?'var(--my)':'';
+    b.style.background=a?'rgba(61,219,130,0.07)':'';
+  });
+}
+function showAuthError(msg){const el=document.getElementById('auth-error');if(!el)return;el.textContent=msg;el.style.display='block';}
+function clearAuthError(){const el=document.getElementById('auth-error');if(!el)return;el.style.display='none';el.textContent='';}
+function setAuthLoading(loading){
+  ['auth-login-btn','auth-register-btn','auth-complete-btn'].forEach(id=>{
+    const b=document.getElementById(id);if(b)b.disabled=loading;
+  });
+}
+function mapAuthError(e){
+  const code=(e&&e.code)||'';
+  if(code==='auth/email-already-in-use')return'Ese email ya tiene una cuenta. Prueba a iniciar sesión.';
+  if(code==='auth/weak-password')return'La contraseña debe tener al menos 6 caracteres.';
+  if(code==='auth/invalid-email')return'El email no es válido.';
+  if(code==='auth/user-not-found'||code==='auth/wrong-password'||code==='auth/invalid-credential')return'Email o contraseña incorrectos.';
+  if(code==='auth/too-many-requests')return'Demasiados intentos. Espera un momento e inténtalo de nuevo.';
+  return'Ha ocurrido un error. Inténtalo de nuevo.';
+}
+
+function doLogin(){
+  clearAuthError();
+  const email=(document.getElementById('auth-login-email').value||'').trim();
+  const pass=document.getElementById('auth-login-password').value||'';
+  if(!email||!pass){showAuthError('Introduce tu email y contraseña.');return;}
+  setAuthLoading(true);
+  firebase.auth().signInWithEmailAndPassword(email,pass)
+    .then(()=>{setAuthLoading(false);})
+    .catch(e=>{setAuthLoading(false);showAuthError(mapAuthError(e));});
+}
+
+function doRegister(){
+  clearAuthError();
+  const name=(document.getElementById('auth-reg-name').value||'').trim();
+  const email=(document.getElementById('auth-reg-email').value||'').trim();
+  const pass=document.getElementById('auth-reg-password').value||'';
+  const role=selectedRegRole;
+  if(!role){showAuthError('Elige si eres jugador/a o entrenador/a.');return;}
+  if(!name){showAuthError('Escribe tu nombre.');return;}
+  if(!email){showAuthError('Escribe tu email.');return;}
+  if(pass.length<6){showAuthError('La contraseña debe tener al menos 6 caracteres.');return;}
+  setAuthLoading(true);
+  firebase.auth().createUserWithEmailAndPassword(email,pass).then(cred=>{
+    const uid=cred.user.uid;
+    return createProfileForRole(uid,role,name,email);
+  }).then(()=>{
+    setAuthLoading(false);
+    const u=firebase.auth().currentUser;
+    if(u)resolveUserRole(u);
+  }).catch(e=>{setAuthLoading(false);showAuthError(mapAuthError(e));});
+}
+
+function doCompleteProfile(){
+  clearAuthError();
+  const role=selectedRegRole;
+  const name=(document.getElementById('auth-complete-name').value||'').trim();
+  if(!role){showAuthError('Elige si eres jugador/a o entrenador/a.');return;}
+  if(!name){showAuthError('Escribe tu nombre.');return;}
+  const user=firebase.auth().currentUser;
+  if(!user)return;
+  setAuthLoading(true);
+  createProfileForRole(user.uid,role,name,user.email||'').then(()=>{
+    setAuthLoading(false);
+    resolveUserRole(user);
+  }).catch(e=>{setAuthLoading(false);showAuthError('Error al crear el perfil. Inténtalo de nuevo.');});
+}
+
+// Crea players/{uid} o coaches/{uid}(+inviteCodes/{code}) según el rol elegido.
+// Si es jugador y hay datos previos en localStorage (uso previo de la app sin cuenta), los migra.
+function createProfileForRole(uid,role,name,email){
+  if(role==='player'){
+    let initialData={playerName:name,history:[],trainings:[],goals:[],fitnessTests:[],bodyMeasurements:[],bodyProfile:{}};
+    try{
+      const local=localStorage.getItem(DB_KEY);
+      if(local){
+        const parsed=JSON.parse(local);
+        if(parsed&&(((parsed.history||[]).length>0)||((parsed.trainings||[]).length>0))){
+          initialData={
+            playerName:       parsed.playerName||name,
+            history:          parsed.history||[],
+            trainings:        parsed.trainings||[],
+            goals:            parsed.goals||[],
+            fitnessTests:     parsed.fitnessTests||[],
+            bodyMeasurements: parsed.bodyMeasurements||[],
+            bodyProfile:      parsed.bodyProfile||{}
+          };
+        }
+      }
+    }catch(e){}
+    return fsDb.collection('players').doc(uid).set({
+      ...initialData,
+      email,coachId:null,coachName:null,disabled:false,disabledAt:null,disabledBy:null,
+      lastSync:new Date().toISOString(),createdAt:new Date().toISOString()
+    });
+  }
+  return generateUniqueInviteCode().then(code=>
+    fsDb.collection('coaches').doc(uid).set({name,email,inviteCode:code,createdAt:new Date().toISOString()})
+      .then(()=>fsDb.collection('inviteCodes').doc(code).set({coachId:uid,coachName:name}))
+  );
+}
+
+function doLogout(){
+  if(playerFsUnsub){try{playerFsUnsub();}catch(e){} playerFsUnsub=null;}
+  firebase.auth().signOut().catch(e=>console.log('signOut error',e));
+}
+
+// Determina el rol del usuario logueado leyendo primero players/{uid} y si no existe, coaches/{uid}.
+function resolveUserRole(user){
+  fsDb.collection('players').doc(user.uid).get().then(pSnap=>{
+    if(pSnap.exists){
+      userRole='player';
+      startPlayerSession(user,pSnap.data()||{});
+      return;
+    }
+    fsDb.collection('coaches').doc(user.uid).get().then(cSnap=>{
+      if(cSnap.exists){
+        userRole='coach';
+        startCoachSession(user,cSnap.data()||{});
+        return;
+      }
+      // Ni jugador ni entrenador: completar perfil (no debería pasar tras un registro normal)
+      userRole=null;
+      showAuthScreen('completeProfile');
+    }).catch(e=>{console.log('role resolve (coach) error',e);showAuthScreen();});
+  }).catch(e=>{console.log('role resolve (player) error',e);showAuthScreen();});
+}
+
+function startPlayerSession(user,data){
+  playerMeta.coachId=data.coachId||null;
+  playerMeta.coachName=data.coachName||null;
+  playerMeta.disabled=!!data.disabled;
+  playerMeta.email=data.email||user.email||'';
+
+  // Carga local instantánea (evita pantalla en blanco) y luego se prioriza el doc de Firestore
+  loadApp();
+  app.playerName       = data.playerName||app.playerName||'';
+  app.history          = data.history||[];
+  app.trainings        = data.trainings||[];
+  app.goals            = data.goals||[];
+  app.fitnessTests     = data.fitnessTests||[];
+  app.bodyMeasurements = data.bodyMeasurements||[];
+  app.bodyProfile      = data.bodyProfile||{};
+  app.lastSync         = data.lastSync||'';
+  try{localStorage.setItem(CURRENT_DB_KEY||DB_KEY,JSON.stringify(app));}catch(e){}
+
+  if(playerMeta.disabled){
+    showScreen('disabled-screen');
+  }else{
+    showScreen('home');
+    checkLiveMatchRecovery();
+  }
+  subscribeToPlayerDoc(user.uid);
+}
+
+function startCoachSession(user,data){
+  coachProfile={uid:user.uid,name:data.name||'',email:data.email||user.email||'',inviteCode:data.inviteCode||''};
+  showScreen('coach-home');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AJUSTES — vínculo con entrenador y notas (jugador) / logout (ambos)
+// ═══════════════════════════════════════════════════════════════
+function renderSettingsScreen(){
+  const acc=document.getElementById('settings-account-card');
+  if(acc){
+    acc.innerHTML=`<div style="background:var(--card);border-radius:14px;padding:14px 16px;border:1px solid var(--border);margin-bottom:14px">
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Cuenta</div>
+      <div style="font-size:14px">${esc((currentUser&&currentUser.email)||'')}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:2px">${userRole==='coach'?'Entrenador/a':'Jugador/a'}</div>
+    </div>`;
+  }
+  const coachSection=document.getElementById('settings-coach-section');
+  const commentsSection=document.getElementById('settings-coach-comments');
+  if(userRole!=='player'){
+    if(coachSection){coachSection.style.display='none';coachSection.innerHTML='';}
+    if(commentsSection){commentsSection.style.display='none';commentsSection.innerHTML='';}
+    return;
+  }
+  if(coachSection){
+    coachSection.style.display='block';
+    if(playerMeta.coachId){
+      coachSection.innerHTML=`<div style="background:var(--card);border-radius:14px;padding:14px 16px;border:1px solid var(--border);margin-bottom:14px">
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Entrenador</div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:12px">Vinculado con: ${esc(playerMeta.coachName||'—')}</div>
+        <button class="btn btn-danger" style="width:100%" onclick="unlinkFromCoach()">Desvincular</button>
+      </div>`;
+    }else{
+      coachSection.innerHTML=`<div style="background:var(--card);border-radius:14px;padding:14px 16px;border:1px solid var(--border);margin-bottom:14px">
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Entrenador</div>
+        <div class="f-group"><label>Código de invitación</label><input id="settings-invite-code-inp" class="goal-inp" type="text" maxlength="8" style="text-transform:uppercase" placeholder="Ej: PADEL7X" oninput="this.value=this.value.toUpperCase()"></div>
+        <div id="settings-invite-error" style="display:none;font-size:12px;color:var(--rival);margin-top:6px"></div>
+        <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="linkToCoach()">Vincular</button>
+      </div>`;
+    }
+  }
+  if(commentsSection){
+    commentsSection.style.display='block';
+    commentsSection.innerHTML=`<div style="background:var(--card);border-radius:14px;padding:14px 16px;border:1px solid var(--border);margin-bottom:14px">
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Notas de tu entrenador</div>
+      <div id="settings-coach-comments-list"><div style="font-size:12px;color:var(--muted)">Cargando...</div></div>
+    </div>`;
+    loadPlayerCoachComments();
+  }
+}
+
+function linkToCoach(){
+  const inp=document.getElementById('settings-invite-code-inp');
+  const errEl=document.getElementById('settings-invite-error');
+  if(!inp)return;
+  const code=(inp.value||'').trim().toUpperCase();
+  errEl.style.display='none';
+  if(!code)return;
+  fsDb.collection('inviteCodes').doc(code).get().then(snap=>{
+    if(!snap.exists){errEl.textContent='Código no válido.';errEl.style.display='block';return;}
+    const data=snap.data()||{};
+    const coachId=data.coachId,coachName=data.coachName||'';
+    if(!coachId)return;
+    return Promise.all([
+      fsDb.collection('players').doc(currentUser.uid).set({coachId,coachName},{merge:true}),
+      fsDb.collection('coaches').doc(coachId).collection('students').doc(currentUser.uid).set({studentName:app.playerName||'',addedAt:new Date().toISOString()})
+    ]).then(()=>{
+      playerMeta.coachId=coachId;playerMeta.coachName=coachName;
+      showToast('✅ Vinculado con tu entrenador');
+      renderSettingsScreen();
+    });
+  }).catch(e=>{console.log(e);errEl.textContent='Error al vincular. Inténtalo de nuevo.';errEl.style.display='block';});
+}
+
+function unlinkFromCoach(){
+  const coachId=playerMeta.coachId;
+  if(!coachId||!currentUser)return;
+  Promise.all([
+    fsDb.collection('coaches').doc(coachId).collection('students').doc(currentUser.uid).delete(),
+    fsDb.collection('players').doc(currentUser.uid).set({coachId:null,coachName:null},{merge:true})
+  ]).then(()=>{
+    playerMeta.coachId=null;playerMeta.coachName=null;
+    showToast('Desvinculado de tu entrenador');
+    renderSettingsScreen();
+  }).catch(e=>{console.log(e);showToast('Error al desvincular');});
+}
+
+function loadPlayerCoachComments(){
+  const el=document.getElementById('settings-coach-comments-list');
+  if(!el||!currentUser)return;
+  fsDb.collection('players').doc(currentUser.uid).collection('coachComments').orderBy('createdAt','desc').get().then(snap=>{
+    if(snap.empty){el.innerHTML='<div style="font-size:12px;color:var(--muted)">Aún no tienes notas de tu entrenador.</div>';return;}
+    el.innerHTML=snap.docs.map(d=>{
+      const c=d.data();
+      return`<div style="padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+        <div style="font-size:13px;line-height:1.5">${esc(c.text||'')}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">${esc(c.authorName||'Entrenador')} · ${fmtDate((c.createdAt||'').slice(0,10))}</div>
+      </div>`;
+    }).join('');
+  }).catch(e=>{console.log(e);el.innerHTML='<div style="font-size:12px;color:var(--rival)">Error al cargar las notas.</div>';});
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PANEL DE ENTRENADOR
+// ═══════════════════════════════════════════════════════════════
+function _randomInviteCode(){
+  const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sin caracteres ambiguos
+  const len=6+Math.floor(Math.random()*3); // 6-8 caracteres
+  let s='';for(let i=0;i<len;i++)s+=chars[Math.floor(Math.random()*chars.length)];
+  return s;
+}
+function generateUniqueInviteCode(){
+  const attempt=()=>{
+    const code=_randomInviteCode();
+    return fsDb.collection('inviteCodes').doc(code).get().then(snap=>snap.exists?attempt():code);
+  };
+  return attempt();
+}
+
+function renderCoachHome(){
+  if(userRole!=='coach')return;
+  const card=document.getElementById('coach-invite-card');
+  if(card){
+    card.innerHTML=`<div style="background:var(--card);border-radius:16px;padding:18px;border:1px solid var(--border);border-left:3px solid var(--my);margin-bottom:14px">
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Tu código de invitación</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:4px;color:var(--my)">${esc(coachProfile.inviteCode||'—')}</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary" style="padding:9px 12px;font-size:12px" onclick="copyInviteCode()">📋 Copiar</button>
+          <button class="btn btn-ghost" style="padding:9px 12px;font-size:12px" onclick="regenerateInviteCode()">↻ Regenerar</button>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px">Compártelo con tus alumnos para que se vinculen contigo desde Ajustes.</div>
+    </div>`;
+  }
+  loadCoachStudents();
+}
+function copyInviteCode(){
+  const code=coachProfile.inviteCode||'';
+  if(!code)return;
+  if(navigator.clipboard){navigator.clipboard.writeText(code).then(()=>showToast('📋 Código copiado'));}
+  else{prompt('Copia tu código:',code);}
+}
+function regenerateInviteCode(){
+  const oldCode=coachProfile.inviteCode;
+  generateUniqueInviteCode().then(newCode=>{
+    const ops=[
+      fsDb.collection('coaches').doc(currentUser.uid).update({inviteCode:newCode}),
+      fsDb.collection('inviteCodes').doc(newCode).set({coachId:currentUser.uid,coachName:coachProfile.name||''})
+    ];
+    if(oldCode)ops.push(fsDb.collection('inviteCodes').doc(oldCode).delete().catch(()=>{}));
+    return Promise.all(ops).then(()=>newCode);
+  }).then(newCode=>{
+    coachProfile.inviteCode=newCode;
+    renderCoachHome();
+    showToast('✅ Código regenerado');
+  }).catch(e=>{console.log(e);showToast('Error al regenerar el código');});
+}
+
+function loadCoachStudents(){
+  const listEl=document.getElementById('coach-students-list');
+  if(!listEl)return;
+  listEl.innerHTML='<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px">Cargando alumnos...</div>';
+  fsDb.collection('coaches').doc(currentUser.uid).collection('students').get().then(snap=>{
+    if(snap.empty){
+      listEl.innerHTML=`<div class="empty-state"><div class="empty-icon">🎾</div><p>Aún no tienes alumnos vinculados.<br>Comparte tu código de invitación.</p></div>`;
+      return;
+    }
+    const students=snap.docs.map(d=>({uid:d.id,...d.data()}));
+    return Promise.all(students.map(s=>fsDb.collection('players').doc(s.uid).get().then(pd=>({...s,player:pd.exists?pd.data():null}))))
+      .then(results=>{
+        listEl.innerHTML=results.map(r=>{
+          const p=r.player||{};
+          const h=p.history||[];
+          const wins=h.filter(m=>m.isWin).length;
+          const pct=h.length?Math.round(wins/h.length*100):0;
+          const trainings=(p.trainings||[]).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
+          const lastTrain=trainings[0]?fmtDate(trainings[0].date):'—';
+          const disabledBadge=p.disabled?'<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:8px;background:rgba(255,94,58,0.15);color:#FF5E3A;margin-left:8px">Inactivo</span>':'';
+          return`<div class="goal-card" style="cursor:pointer" onclick="openCoachStudent('${r.uid}')">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+              <div>
+                <div style="font-weight:700;font-size:15px">${esc(p.playerName||r.studentName||'Alumno')}${disabledBadge}</div>
+                <div style="font-size:12px;color:var(--muted);margin-top:3px">${h.length} partidos · ${pct}% victorias · Último entreno: ${lastTrain}</div>
+              </div>
+              <span style="color:var(--muted);font-size:18px">›</span>
+            </div>
+          </div>`;
+        }).join('');
+      });
+  }).catch(e=>{console.log(e);listEl.innerHTML='<div style="color:var(--rival);font-size:13px;text-align:center;padding:20px">Error al cargar alumnos.</div>';});
+}
+
+function openCoachStudent(uid){
+  currentCoachStudentUid=uid;
+  showScreen('coach-student-detail');
+  document.getElementById('csd-body').innerHTML='<div style="text-align:center;color:var(--muted);padding:30px">Cargando...</div>';
+  fsDb.collection('players').doc(uid).get().then(snap=>{
+    if(!snap.exists){document.getElementById('csd-body').innerHTML='<div class="empty-state"><div class="empty-icon">🔍</div><p>Alumno no encontrado.</p></div>';return;}
+    renderCoachStudentDetail(uid,snap.data()||{});
+  }).catch(e=>{console.log(e);document.getElementById('csd-body').innerHTML='<div class="empty-state"><p>Error al cargar el alumno.</p></div>';});
+}
+
+function renderCoachStudentDetail(uid,p){
+  document.getElementById('csd-name').textContent=p.playerName||'Alumno';
+  const h=(p.history||[]).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const tr=(p.trainings||[]).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const gl=p.goals||[];
+  const bm=(p.bodyMeasurements||[]).slice().sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const bp=p.bodyProfile||{};
+  const wins=h.filter(m=>m.isWin).length,losses=h.length-wins,pct=h.length?Math.round(wins/h.length*100):0;
+  let streak=0;for(const m of h){if(m.isWin)streak++;else break;}
+
+  let html='';
+
+  // Perfil / suspensión
+  const age=typeof calcAgeStr==='function'?calcAgeStr(bp.birthDate):'';
+  html+=_card('👤 Perfil','var(--my)',`
+    ${p.disabled?'<div style="font-size:12px;font-weight:700;color:#FF5E3A;background:rgba(255,94,58,0.1);border:1px solid rgba(255,94,58,0.25);border-radius:8px;padding:6px 10px;margin-bottom:10px;display:inline-block">🚫 Acceso suspendido</div>':''}
+    <div style="font-size:13px">${age?`🎂 ${age}`:''}${bp.sex?` · ${bp.sex==='M'?'Chico':'Chica'}`:''}</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:4px">${esc(p.email||'')}</div>
+  `);
+
+  // KPIs
+  html+=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+    <div style="background:var(--card);border-radius:12px;padding:12px;text-align:center"><div style="font-family:'Bebas Neue',sans-serif;font-size:24px">${h.length}</div><div style="font-size:10px;color:var(--muted)">Partidos</div></div>
+    <div style="background:var(--card);border-radius:12px;padding:12px;text-align:center"><div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--yellow)">${pct}%</div><div style="font-size:10px;color:var(--muted)">Victorias</div></div>
+    <div style="background:var(--card);border-radius:12px;padding:12px;text-align:center"><div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:#3DDB82">${streak}${streak?'🔥':''}</div><div style="font-size:10px;color:var(--muted)">Racha</div></div>
+  </div>`;
+
+  // Últimos partidos
+  const recentMatches=h.slice(0,8);
+  html+=_card('🎾 Últimos partidos','var(--blue)', recentMatches.length? recentMatches.map(m=>{
+    const rival=[m.rival1,m.rival2].filter(Boolean).join(' / ');
+    const sets=(m.sets||[]).map(s=>`${s.my}-${s.ri}`).join(' ');
+    return _row(`${rival?'vs '+esc(rival):fmtDate(m.date)} <span style="color:var(--muted);font-size:11px">· ${fmtDate(m.date)}${sets?' · '+sets:''}</span>`, m.isWin?'V':'D', m.isWin?'#3DDB82':'#FF5E3A');
+  }).join('') : '<div style="font-size:12px;color:var(--muted)">Sin partidos todavía.</div>');
+
+  // Últimos entrenamientos
+  const recentTrainings=tr.slice(0,8);
+  html+=_card('💪 Últimos entrenamientos','var(--purple)', recentTrainings.length? recentTrainings.map(t=>{
+    const typeLabel=t.type==='both'?'Técnico + Físico':t.type==='fis'?'Físico':'Técnico';
+    const bits=[t.duration?`${t.duration} min`:null, t.energia?`⚡${t.energia}`:null, t.humor?`😊${t.humor}`:null, t.intensidad?`🔥${t.intensidad}`:null].filter(Boolean).join(' · ');
+    return `<div style="padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+      <div style="display:flex;justify-content:space-between"><span style="font-size:13px">${esc(typeLabel)}</span><span style="font-size:11px;color:var(--muted)">${fmtDate(t.date)}</span></div>
+      ${bits?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${bits}</div>`:''}
+    </div>`;
+  }).join('') : '<div style="font-size:12px;color:var(--muted)">Sin entrenamientos todavía.</div>');
+
+  // Objetivos
+  html+=_card('🎯 Objetivos','var(--yellow)', gl.length? gl.map(g=>
+    _row(esc(g.title||''), g.achieved?'✅':'⏳', g.achieved?'#3DDB82':'var(--muted)')
+  ).join('') : '<div style="font-size:12px;color:var(--muted)">Sin objetivos todavía.</div>');
+
+  // Evolución de peso
+  if(bm.length){
+    html+=`<div style="background:var(--card);border-radius:16px;padding:18px;border:1px solid var(--border);border-left:3px solid var(--blue);margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px">📏 Evolución de peso</div>
+      <div style="position:relative;height:180px"><canvas id="csd-weight-chart"></canvas></div>
+    </div>`;
+  }
+
+  // Comentarios
+  html+=`<div style="background:var(--card);border-radius:16px;padding:18px;border:1px solid var(--border);border-left:3px solid var(--my);margin-bottom:14px">
+    <div style="font-size:11px;font-weight:700;color:var(--my);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px">📝 Notas / comentarios</div>
+    <div id="csd-comments-list" style="margin-bottom:12px"><div style="font-size:12px;color:var(--muted)">Cargando...</div></div>
+    <textarea id="csd-comment-inp" class="goal-inp" rows="3" placeholder="Escribe una nota para este alumno..." style="resize:none"></textarea>
+    <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="addCoachComment('${uid}')">+ Añadir comentario</button>
+  </div>`;
+
+  // Acciones
+  html+=`<div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
+    <button class="btn ${p.disabled?'btn-primary':'btn-accent'}" onclick="toggleStudentDisabled('${uid}',${!!p.disabled})">${p.disabled?'✓ Reactivar acceso':'🚫 Suspender acceso'}</button>
+    <button class="btn btn-danger" onclick="unlinkStudentFromCoach('${uid}')">Quitar de mi lista</button>
+    <button class="btn btn-ghost" onclick="showScreen('coach-home')">← Volver</button>
+  </div>`;
+
+  document.getElementById('csd-body').innerHTML=html;
+
+  if(bm.length){
+    mkChart('csd-weight-chart','line',{
+      labels:bm.map(r=>fmtDate(r.date)),
+      datasets:[{label:'Peso (kg)',data:bm.map(r=>r.weight||null),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.08)',borderWidth:2.5,pointRadius:4,fill:true,tension:0.3}]
+    },{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{...CD.tooltip}},
+      scales:{y:{ticks:{color:CD.tick,font:{size:11}},grid:{color:CD.grid},border:{display:false}},x:{ticks:{color:CD.tick,font:{size:10},maxRotation:45},grid:{display:false},border:{display:false}}}
+    });
+  }
+
+  loadCoachComments(uid);
+}
+
+function loadCoachComments(uid){
+  const el=document.getElementById('csd-comments-list');
+  if(!el)return;
+  fsDb.collection('players').doc(uid).collection('coachComments').orderBy('createdAt','desc').get().then(snap=>{
+    if(snap.empty){el.innerHTML='<div style="font-size:12px;color:var(--muted)">Sin notas todavía.</div>';return;}
+    el.innerHTML=snap.docs.map(d=>{
+      const c=d.data();
+      return`<div style="padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+        <div style="font-size:13px;line-height:1.5">${esc(c.text||'')}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">${esc(c.authorName||'')} · ${fmtDate((c.createdAt||'').slice(0,10))}</div>
+      </div>`;
+    }).join('');
+  }).catch(e=>{console.log(e);el.innerHTML='<div style="font-size:12px;color:var(--rival)">Error al cargar las notas.</div>';});
+}
+
+function addCoachComment(uid){
+  const ta=document.getElementById('csd-comment-inp');
+  if(!ta)return;
+  const text=(ta.value||'').trim();
+  if(!text)return;
+  fsDb.collection('players').doc(uid).collection('coachComments').add({
+    text, authorId:currentUser.uid, authorName:coachProfile.name||'Entrenador',
+    createdAt:new Date().toISOString(), relatedType:null, relatedId:null
+  }).then(()=>{ta.value='';loadCoachComments(uid);}).catch(e=>{console.log(e);showToast('Error al guardar el comentario');});
+}
+
+function toggleStudentDisabled(uid,currentlyDisabled){
+  const msg=currentlyDisabled?'¿Reactivar el acceso de este alumno?':'¿Seguro que quieres suspender el acceso de este alumno?';
+  if(!confirm(msg))return;
+  fsDb.collection('players').doc(uid).update({
+    disabled: !currentlyDisabled,
+    disabledAt: !currentlyDisabled ? new Date().toISOString() : null,
+    disabledBy: !currentlyDisabled ? currentUser.uid : null
+  }).then(()=>openCoachStudent(uid)).catch(e=>{console.log(e);showToast('Error al actualizar el acceso');});
+}
+
+function unlinkStudentFromCoach(uid){
+  if(!confirm('¿Seguro que quieres quitar a este alumno de tu lista?'))return;
+  fsDb.collection('coaches').doc(currentUser.uid).collection('students').doc(uid).delete()
+    .then(()=>fsDb.collection('players').doc(uid).set({coachId:null,coachName:null},{merge:true}).catch(e=>console.log('No se pudo limpiar coachId en el doc del alumno (permisos):',e)))
+    .then(()=>{showToast('Alumno quitado de tu lista');showScreen('coach-home');})
+    .catch(e=>{console.log(e);showToast('Error al quitar al alumno');});
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1903,8 +2551,14 @@ function closeFirstModal(){
 // ROUTING
 // ═══════════════════════════════════════════════════════════════
 function showScreen(id){
+  // Bloqueo total de navegación si el jugador logueado ha sido desactivado por su entrenador
+  if(userRole==='player'&&playerMeta.disabled&&id!=='disabled-screen'&&id!=='auth-screen'){
+    id='disabled-screen';
+  }
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
+  const target=document.getElementById(id);
+  if(!target)return;
+  target.classList.add('active');
   if(id==='history-screen')renderHistory();
   if(id==='home')renderHome();
   if(id==='stats-screen')renderStats();
@@ -1912,6 +2566,8 @@ function showScreen(id){
   if(id==='goals-screen')renderGoals();
   if(id==='fitness-screen')renderFitness();
   if(id==='body-screen')renderBodyMeasurements();
+  if(id==='settings-screen')renderSettingsScreen();
+  if(id==='coach-home')renderCoachHome();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -3473,15 +4129,18 @@ const _coachParam=new URLSearchParams(window.location.search).get('coach');
 const IS_COACH_VIEW=_coachParam!==null;
 const COACH_TYPE=_coachParam&&_coachParam.startsWith('match_')?'match':_coachParam&&_coachParam.startsWith('train_')?'train':'summary';
 const COACH_ID=_coachParam?_coachParam.replace(/^(match_|train_)/,''):null;
+const COACH_PLAYER_ID=new URLSearchParams(window.location.search).get('p');
 
 function shareMatch(idx){
   const m=(app.history||[])[idx];if(!m)return;
-  const url=window.location.origin+window.location.pathname+'?coach=match_'+m.id;
+  const uid=currentUser?currentUser.uid:'';
+  const url=window.location.origin+window.location.pathname+'?coach=match_'+m.id+(uid?'&p='+uid:'');
   if(navigator.clipboard){navigator.clipboard.writeText(url).then(()=>showToast('🔗 Enlace del partido copiado'));}
   else{prompt('Copia este enlace:',url);}
 }
 function shareTraining(id){
-  const url=window.location.origin+window.location.pathname+'?coach=train_'+id;
+  const uid=currentUser?currentUser.uid:'';
+  const url=window.location.origin+window.location.pathname+'?coach=train_'+id+(uid?'&p='+uid:'');
   if(navigator.clipboard){navigator.clipboard.writeText(url).then(()=>showToast('🔗 Enlace del entreno copiado'));}
   else{prompt('Copia este enlace:',url);}
 }
@@ -3864,12 +4523,11 @@ function _renderCoachTraining(t,playerName){
   document.getElementById('cv-goals').innerHTML='';
 }
 
-// initFirebase ya hace loadApp+renderHome internamente
+// initFirebase inicializa Firebase App + Firestore (sin auth ni listeners todavía)
 initFirebase();
-if(!IS_COACH_VIEW)checkLiveMatchRecovery();
 
-// Si es vista coach, cargar datos de Firestore y renderizar
 if(IS_COACH_VIEW){
+  // Enlace público de "compartir partido/entreno" (?coach=match_X/train_X&p=uid) — sigue sin requerir login
   document.querySelectorAll('.screen').forEach(s=>s.style.display='none');
   document.getElementById('coach-view').style.display='block';
   document.getElementById('cv-subtitle').textContent='Cargando datos...';
@@ -3877,12 +4535,30 @@ if(IS_COACH_VIEW){
   const waitFirebase=setInterval(()=>{
     if(fsDb){
       clearInterval(waitFirebase);
-      fsDb.collection('datos').doc(FS_DOC).get().then(snap=>{
+      if(!COACH_PLAYER_ID){document.getElementById('cv-subtitle').textContent='Enlace no válido.';return;}
+      fsDb.collection('players').doc(COACH_PLAYER_ID).get().then(snap=>{
         if(snap.exists){renderCoachView(snap.data());}
         else{document.getElementById('cv-subtitle').textContent='Sin datos disponibles.';}
       }).catch(()=>{document.getElementById('cv-subtitle').textContent='Error al cargar datos.';});
     }
   },200);
+}else{
+  // App normal: requiere cuenta (jugador o entrenador). onAuthStateChanged es el punto de entrada real.
+  firebase.auth().onAuthStateChanged(user=>{
+    if(!user){
+      currentUser=null;userRole=null;
+      CURRENT_DB_KEY=null;
+      app={playerName:'',match:null,history:[],trainings:[],goals:[],fitnessTests:[],bodyMeasurements:[],bodyProfile:{}};
+      if(playerFsUnsub){try{playerFsUnsub();}catch(e){} playerFsUnsub=null;}
+      playerMeta={coachId:null,coachName:null,disabled:false,email:''};
+      coachProfile={};
+      showAuthScreen();
+      return;
+    }
+    currentUser=user;
+    CURRENT_DB_KEY='padel_tracker_v5_'+user.uid;
+    resolveUserRole(user);
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════

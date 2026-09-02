@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /players/{playerId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == playerId &&
+        (resource == null || resource.data.disabled != true);
+      allow update: if request.auth != null && resource.data.coachId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['disabled','disabledAt','disabledBy','coachId','coachName']) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['coachId']) || request.resource.data.coachId == null);
+
+      match /coachComments/{commentId} {
+        allow read: if true;
+        allow create: if request.auth != null && request.resource.data.authorId == request.auth.uid;
+        allow delete: if request.auth != null &&
+          (request.auth.uid == playerId || resource.data.authorId == request.auth.uid);
+      }
+    }
+
+    match /coaches/{coachId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == coachId;
+
+      match /students/{studentUid} {
+        allow read: if true;
+        allow create: if request.auth != null && request.auth.uid == studentUid;
+        allow delete: if request.auth != null && (request.auth.uid == coachId || request.auth.uid == studentUid);
+      }
+    }
+
+    match /inviteCodes/{code} {
+      allow read: if true;
+      allow create, update: if request.auth != null && request.resource.data.coachId == request.auth.uid;
+      allow delete: if request.auth != null && resource.data.coachId == request.auth.uid;
+    }
+
+    match /datos/{doc} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}
