@@ -935,8 +935,9 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 <!-- STATS -->
 <div id="stats-screen" class="screen">
   <div class="screen-header">
-    <button class="back-btn" onclick="showScreen('home')">←</button>
+    <button class="back-btn" onclick="closeStatsScreen()">←</button>
     <h2>Evolución · <span id="stats-player-name">—</span></h2>
+    <button id="stats-coach-comment-btn" class="back-btn" style="display:none;color:var(--my);font-size:16px" onclick="promptCoachCommentFromStats()" title="Añadir comentario">📝</button>
   </div>
   <div class="stats-tabs">
     <button class="stats-tab active" onclick="switchStatsTab('partidos',this)">Partidos</button>
@@ -1675,6 +1676,8 @@ let coachActiveMatchMonth='all';
 let coachActiveTrainMonth='all';
 let coachMatchDetailIdx=null;
 let coachTrainDetailIdx=null;
+let coachStatsMode=false;             // true mientras el entrenador está viendo #stats-screen de un alumno
+let coachStatsSavedApp=null;          // copia de `app` del propio entrenador para restaurar al salir
 
 // ═══════════════════════════════════════════════════════════════
 // FIREBASE SYNC
@@ -2367,6 +2370,7 @@ function renderCoachStudentDetail(uid,p){
 
   // Acciones
   html+=`<div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
+    <button class="btn btn-accent" onclick="openCoachStats()">◈ &nbsp;Evolución y estadísticas completas</button>
     <button class="btn btn-blue" onclick="openSimFrom('coach-student-detail')">🎮 &nbsp;Simulador Táctico</button>
     <button class="btn ${p.disabled?'btn-primary':'btn-accent'}" onclick="toggleStudentDisabled('${uid}',${!!p.disabled})">${p.disabled?'✓ Reactivar acceso':'🚫 Suspender acceso'}</button>
     <button class="btn btn-danger" onclick="unlinkStudentFromCoach('${uid}')">Quitar de mi lista</button>
@@ -2625,6 +2629,47 @@ function renderReadonlyPhotoGrid(photos,gridId){
     <div style="position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:rgba(255,255,255,0.05)">
       <img src="${p.url}" loading="lazy" style="width:100%;height:100%;object-fit:cover;cursor:pointer" onclick="openPhotoViewer('${esc(p.url)}')">
     </div>`).join('');
+}
+
+// Panel "Evolución y estadísticas" (#stats-screen) reutilizado en modo solo lectura para el entrenador.
+// Sustituye temporalmente `app` por los datos del alumno para reutilizar toda la lógica de gráficos
+// existente sin duplicarla; se restaura al salir. syncToFirebase() ya está protegido para no
+// escribir nada mientras userRole==='coach', así que este intercambio es seguro.
+function openCoachStats(){
+  if(!coachViewStudent)return;
+  coachStatsSavedApp=app;
+  const d=coachViewStudent.data;
+  app={
+    playerName:d.playerName||'Alumno', match:null,
+    history:d.history||[], trainings:d.trainings||[],
+    goals:d.goals||[], fitnessTests:d.fitnessTests||[],
+    bodyMeasurements:d.bodyMeasurements||[], bodyProfile:d.bodyProfile||{}
+  };
+  coachStatsMode=true;
+  showScreen('stats-screen');
+  const btn=document.getElementById('stats-coach-comment-btn');
+  if(btn)btn.style.display='flex';
+}
+function closeStatsScreen(){
+  const btn=document.getElementById('stats-coach-comment-btn');
+  if(btn)btn.style.display='none';
+  if(coachStatsMode){
+    coachStatsMode=false;
+    if(coachStatsSavedApp)app=coachStatsSavedApp;
+    coachStatsSavedApp=null;
+    showScreen('coach-student-detail');
+  }else{
+    showScreen('home');
+  }
+}
+function promptCoachCommentFromStats(){
+  if(!coachViewStudent)return;
+  const text=prompt('Comentario sobre la evolución de '+(coachViewStudent.data.playerName||'este alumno')+':');
+  if(!text||!text.trim())return;
+  fsDb.collection('players').doc(coachViewStudent.uid).collection('coachComments').add({
+    text:text.trim(), authorId:currentUser.uid, authorName:coachProfile.name||'Entrenador',
+    createdAt:new Date().toISOString(), relatedType:'evolution', relatedId:null
+  }).then(()=>showToast('Comentario guardado')).catch(e=>{console.log(e);showToast('Error al guardar el comentario');});
 }
 
 // ═══════════════════════════════════════════════════════════════
