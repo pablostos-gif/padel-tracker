@@ -240,6 +240,8 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .hist-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .hist-date{font-size:11px;color:var(--muted)}
 .hist-badge{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:3px 10px;border-radius:20px}
+.unread-comment-dot{position:absolute;top:-6px;right:-6px;background:var(--rival);color:#fff;font-size:11px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);animation:pulse-dot 1.6s infinite}
+@keyframes pulse-dot{0%{box-shadow:0 0 0 0 rgba(255,94,58,0.5)}70%{box-shadow:0 0 0 7px rgba(255,94,58,0)}100%{box-shadow:0 0 0 0 rgba(255,94,58,0)}}
 .badge-win{background:rgba(61,219,130,0.13);color:var(--my)}
 .badge-loss{background:rgba(255,94,58,0.13);color:var(--rival)}
 .badge-train{background:rgba(181,123,255,0.15);color:var(--purple)}
@@ -751,6 +753,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   </div>
   <div class="scrollable">
     <div class="form-body">
+      <div id="train-comments-section"></div>
       <div class="f-section">
         <div class="form-row">
           <div class="f-group"><label>Fecha</label><input id="t-date" type="date"></div>
@@ -1678,6 +1681,8 @@ let coachMatchDetailIdx=null;
 let coachTrainDetailIdx=null;
 let coachStatsMode=false;             // true mientras el entrenador está viendo #stats-screen de un alumno
 let coachStatsSavedApp=null;          // copia de `app` del propio entrenador para restaurar al salir
+let unreadCommentIds={match:new Set(),training:new Set()}; // ids de partidos/entrenos con comentarios del entrenador sin leer
+let coachCommentsUnsub=null;          // función para cancelar el listener de comentarios sin leer
 
 // ═══════════════════════════════════════════════════════════════
 // FIREBASE SYNC
@@ -1746,6 +1751,75 @@ function subscribeToPlayerDoc(uid){
       if(document.getElementById('body-screen')?.classList.contains('active'))renderBodyMeasurements();
     }
   }, e=>console.log("Firestore listener error:",e));
+}
+
+// Listener en tiempo real de comentarios del entrenador sin leer, ligados a un partido/entreno concreto.
+// Alimenta las burbujas rojas en las tarjetas de #history-screen y #train-history-screen.
+function subscribeUnreadComments(uid){
+  if(coachCommentsUnsub){try{coachCommentsUnsub();}catch(e){} coachCommentsUnsub=null;}
+  unreadCommentIds={match:new Set(),training:new Set()};
+  coachCommentsUnsub=fsDb.collection('players').doc(uid).collection('coachComments')
+    .where('readByPlayer','==',false).onSnapshot(snap=>{
+      unreadCommentIds={match:new Set(),training:new Set()};
+      snap.forEach(d=>{
+        const c=d.data();
+        if(c.relatedType==='match'&&c.relatedId!=null)unreadCommentIds.match.add(c.relatedId);
+        if(c.relatedType==='training'&&c.relatedId!=null)unreadCommentIds.training.add(c.relatedId);
+      });
+      if(document.getElementById('history-screen')?.classList.contains('active'))renderHistory();
+      if(document.getElementById('train-history-screen')?.classList.contains('active'))renderTrainHistory();
+    }, e=>console.log('unread comments listener error:',e));
+}
+// Carga y muestra el hilo de comentarios del entrenador para un partido/entreno concreto (vista del alumno).
+// Marca como leídos los que estén pendientes al mostrarlos.
+function renderPlayerRelatedComments(relatedType,relatedId,containerId){
+  const el=document.getElementById(containerId);
+  if(!el||!currentUser)return;
+  el.innerHTML='';
+  fsDb.collection('players').doc(currentUser.uid).collection('coachComments')
+    .where('relatedType','==',relatedType).where('relatedId','==',relatedId).get().then(snap=>{
+      if(snap.empty)return;
+      const docs=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+      el.innerHTML=`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);margin:0 16px 12px;border-left:3px solid var(--my)">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--my);margin-bottom:10px">🎓 Comentarios del entrenador</div>
+        ${docs.map(c=>`<div style="padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+          <div style="font-size:13px;line-height:1.5;color:var(--text)">${esc(c.text||'')}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px">${esc(c.authorName||'Entrenador')} · ${fmtDate((c.createdAt||'').slice(0,10))}</div>
+        </div>`).join('')}
+      </div>`;
+      const unread=docs.filter(c=>c.readByPlayer===false);
+      if(unread.length){
+        const batch=fsDb.batch();
+        unread.forEach(c=>batch.update(fsDb.collection('players').doc(currentUser.uid).collection('coachComments').doc(c.id),{readByPlayer:true}));
+        batch.commit().catch(e=>console.log('mark comments read error:',e));
+      }
+    }).catch(e=>console.log('load related comments error:',e));
+}
+// Panel de comentarios del entrenador ligados a un partido/entreno concreto de un alumno (vista del entrenador, con hilo + input).
+function renderCoachRelatedComments(relatedType,relatedId,listId){
+  const el=document.getElementById(listId);
+  if(!el||!coachViewStudent)return;
+  el.innerHTML='<div style="font-size:12px;color:var(--muted)">Cargando...</div>';
+  fsDb.collection('players').doc(coachViewStudent.uid).collection('coachComments')
+    .where('relatedType','==',relatedType).where('relatedId','==',relatedId).get().then(snap=>{
+      if(snap.empty){el.innerHTML='<div style="font-size:12px;color:var(--muted)">Todavía no has escrito ningún comentario aquí.</div>';return;}
+      const docs=snap.docs.map(d=>d.data()).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+      el.innerHTML=docs.map(c=>`<div style="padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+        <div style="font-size:13px;line-height:1.5">${esc(c.text||'')}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">${esc(c.authorName||'')} · ${fmtDate((c.createdAt||'').slice(0,10))}${c.readByPlayer?' · Leído':' · Sin leer'}</div>
+      </div>`).join('');
+    }).catch(e=>{console.log(e);el.innerHTML='<div style="font-size:12px;color:var(--rival)">Error al cargar los comentarios.</div>';});
+}
+function addCoachRelatedComment(relatedType,relatedId,taId,listId){
+  const ta=document.getElementById(taId);
+  if(!ta||!coachViewStudent)return;
+  const text=(ta.value||'').trim();
+  if(!text)return;
+  fsDb.collection('players').doc(coachViewStudent.uid).collection('coachComments').add({
+    text, authorId:currentUser.uid, authorName:coachProfile.name||'Entrenador',
+    createdAt:new Date().toISOString(), relatedType, relatedId, readByPlayer:false
+  }).then(()=>{ta.value='';renderCoachRelatedComments(relatedType,relatedId,listId);showToast('Comentario enviado');})
+  .catch(e=>{console.log(e);showToast('Error al guardar el comentario');});
 }
 
 function syncToFirebase(){
@@ -2095,6 +2169,7 @@ function startPlayerSession(user,data){
     checkLiveMatchRecovery();
   }
   subscribeToPlayerDoc(user.uid);
+  subscribeUnreadComments(user.uid);
 }
 
 function startCoachSession(user,data){
@@ -2511,6 +2586,12 @@ function viewCoachMatchDetail(idx){
         <div style="font-size:13px;color:var(--muted);margin-bottom:12px">vs ${esc(rn)}</div>
       </div>
     </div>
+    <div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);margin:0 16px 12px;border-left:3px solid var(--my)">
+      <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--my);margin-bottom:10px">🎓 Comentarios para el alumno</div>
+      <div id="coach-match-comments-list" style="margin-bottom:12px"><div style="font-size:12px;color:var(--muted)">Cargando...</div></div>
+      <textarea id="coach-match-comment-inp" class="goal-inp" rows="3" placeholder="Escribe un comentario sobre este partido..." style="resize:none"></textarea>
+      <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="addCoachRelatedComment('match',${m.id},'coach-match-comment-inp','coach-match-comments-list')">+ Añadir comentario</button>
+    </div>
     ${timingBlockHtml}
     ${buildSetBreakdown(m)}
     ${shotHtml}
@@ -2526,6 +2607,7 @@ function viewCoachMatchDetail(idx){
   `;
   showScreen('coach-match-detail-screen');
   if(m.photos&&m.photos.length)renderReadonlyPhotoGrid(m.photos,'coach-match-photos-grid');
+  renderCoachRelatedComments('match',m.id,'coach-match-comments-list');
   if(shots) requestAnimationFrame(()=>renderMatchCharts(shots,myLabel,riLabel,'ccd'));
 }
 
@@ -2584,6 +2666,12 @@ function viewCoachTrainingDetail(idx){
       ${t.coach?`<span>🎓 ${esc(t.coach)}</span>`:''}
     </div>
   </div>`;
+  html+=`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);margin:0 16px 12px;border-left:3px solid var(--my)">
+    <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--my);margin-bottom:10px">🎓 Comentarios para el alumno</div>
+    <div id="coach-training-comments-list" style="margin-bottom:12px"><div style="font-size:12px;color:var(--muted)">Cargando...</div></div>
+    <textarea id="coach-training-comment-inp" class="goal-inp" rows="3" placeholder="Escribe un comentario sobre este entrenamiento..." style="resize:none"></textarea>
+    <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="addCoachRelatedComment('training',${t.id},'coach-training-comment-inp','coach-training-comments-list')">+ Añadir comentario</button>
+  </div>`;
   html+=`<div style="margin:0 16px 12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
     <div style="background:var(--card);border-radius:12px;padding:10px;text-align:center"><div style="font-size:16px">⚡${'●'.repeat(t.energia||0)}${'○'.repeat(5-(t.energia||0))}</div><div style="font-size:10px;color:var(--muted);margin-top:4px">Energía</div></div>
     <div style="background:var(--card);border-radius:12px;padding:10px;text-align:center"><div style="font-size:16px">😊${'●'.repeat(t.humor||0)}${'○'.repeat(5-(t.humor||0))}</div><div style="font-size:10px;color:var(--muted);margin-top:4px">Humor</div></div>
@@ -2620,6 +2708,7 @@ function viewCoachTrainingDetail(idx){
   content.innerHTML=html;
   showScreen('coach-training-detail-screen');
   if(t.photos&&t.photos.length)renderReadonlyPhotoGrid(t.photos,'coach-training-photos-grid');
+  renderCoachRelatedComments('training',t.id,'coach-training-comments-list');
 }
 function renderReadonlyPhotoGrid(photos,gridId){
   const el=document.getElementById(gridId);
@@ -3634,6 +3723,7 @@ function viewMatchDetail(idx){
         <div style="font-size:13px;color:var(--muted);margin-bottom:12px">vs ${esc(rn)}</div>
       </div>
     </div>
+    <div id="match-comments-section"></div>
     ${timingBlockHtml}
     ${buildSetBreakdown(m)}
     ${shotHtml}
@@ -3654,6 +3744,7 @@ function viewMatchDetail(idx){
   `;
   showScreen('match-detail-screen');
   renderPhotoGrid(m.photos||[],'detail-photos-grid','deleteDetailPhoto');
+  renderPlayerRelatedComments('match',m.id,'match-comments-section');
   if(shots) requestAnimationFrame(()=>renderMatchCharts(shots,myLabel,riLabel,'hd'));
 }
 
@@ -3718,7 +3809,8 @@ function renderHistory(){
     const sel=selectedMatchIds.has(m.id);
     const cardClick=historySelectMode?`toggleMatchSelect(${m.id})`:`viewMatchDetail(${app.history.indexOf(m)})`;
     const checkbox=historySelectMode?`<div class="hist-select-box ${sel?'checked':''}">${sel?'✓':''}</div>`:'';
-    return`<div class="hist-card" onclick="${cardClick}"><div style="display:flex;gap:10px"><div style="flex:1;min-width:0"><div class="hist-top"><div><div class="hist-date">${m.tournament?esc(m.tournament)+' · ':''}${fmtDate(m.date)}</div></div><span class="hist-badge ${m.isWin?'badge-win':'badge-loss'}">${m.isWin?'VICTORIA':'DERROTA'}</span></div><div class="hist-players">${esc(mn)}<span class="vs">vs</span>${esc(rn)}</div><div class="hist-score">${sh}</div>${sb}${m.notes?`<div class="hist-notes">${esc(m.notes)}</div>`:''}</div>${checkbox}</div></div>`;
+    const unreadDot=unreadCommentIds.match.has(m.id)?'<div class="unread-comment-dot" title="Comentario nuevo del entrenador">💬</div>':'';
+    return`<div class="hist-card" onclick="${cardClick}">${unreadDot}<div style="display:flex;gap:10px"><div style="flex:1;min-width:0"><div class="hist-top"><div><div class="hist-date">${m.tournament?esc(m.tournament)+' · ':''}${fmtDate(m.date)}</div></div><span class="hist-badge ${m.isWin?'badge-win':'badge-loss'}">${m.isWin?'VICTORIA':'DERROTA'}</span></div><div class="hist-players">${esc(mn)}<span class="vs">vs</span>${esc(rn)}</div><div class="hist-score">${sh}</div>${sb}${m.notes?`<div class="hist-notes">${esc(m.notes)}</div>`:''}</div>${checkbox}</div></div>`;
   }).join('');
 }
 
@@ -3730,6 +3822,7 @@ function goToTraining(){
   editingTrainingId=null;
   currentTrainingPhotoId=Date.now();
   trainPhotos=[];
+  const tcs=document.getElementById('train-comments-section');if(tcs)tcs.innerHTML='';
   document.getElementById('t-date').value=new Date().toISOString().split('T')[0];
   document.getElementById('t-duration').value='';
   document.getElementById('t-coach').value='';
@@ -3764,6 +3857,7 @@ function editTraining(id){
   renderExerciseList();
   renderPhotoGrid(trainPhotos,'train-photos-grid','deleteTrainPhoto');
   showScreen('train-setup');
+  renderPlayerRelatedComments('training',id,'train-comments-section');
 }
 function buildRatingGrid(containerId,keys,labels){
   const el=document.getElementById(containerId);if(!el)return;
@@ -3914,7 +4008,8 @@ function renderTrainHistory(){
     const sel=selectedTrainIds.has(t.id);
     const cardClick=trainSelectMode?`toggleTrainSelect(${t.id})`:`editTraining(${t.id})`;
     const actions=trainSelectMode?`<div class="hist-select-box ${sel?'checked':''}">${sel?'✓':''}</div>`:`<div style="display:flex;align-items:center;gap:4px"><div onclick="event.stopPropagation();shareTraining(${t.id})" style="cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--blue);font-size:15px;opacity:0.8" title="Compartir">🔗</div><div onclick="event.stopPropagation();printTraining(${t.id})" style="cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--my);font-size:15px;opacity:0.7" title="PDF">📄</div><div onclick="event.stopPropagation();deleteTraining(${t.id})" style="cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--rival);font-size:18px;opacity:0.6">✕</div></div>`;
-    return`<div class="hist-card ${isTec?'train-card':'train-card fis'}" style="cursor:pointer" onclick="${cardClick}"><div class="hist-top"><div><div class="hist-date">${dur}${fmtDate(t.date)}</div>${coachStr}</div><span class="hist-badge ${isTec?'badge-train':'badge-train-fis'}">${t.type==='both'?'TÉCNICO + FÍSICO':isTec?'TÉCNICO':'FÍSICO'}</span>${actions}</div>${shots.length?`<div class="train-shots-row">${sc}${shots.length>5?`<span style="font-size:11px;color:var(--muted)">+${shots.length-5} más</span>`:''}</div>`:''}${t.exercises&&t.exercises.length?`<div style="font-size:12px;color:var(--muted);margin-top:6px">${t.exercises.slice(0,3).map(e=>esc(e)).join(' · ')}</div>`:''}${sr}${t.notes?`<div class="hist-notes">${esc(t.notes)}</div>`:''}</div>`;
+    const unreadDot=unreadCommentIds.training.has(t.id)?'<div class="unread-comment-dot" title="Comentario nuevo del entrenador">💬</div>':'';
+    return`<div class="hist-card ${isTec?'train-card':'train-card fis'}" style="cursor:pointer" onclick="${cardClick}">${unreadDot}<div class="hist-top"><div><div class="hist-date">${dur}${fmtDate(t.date)}</div>${coachStr}</div><span class="hist-badge ${isTec?'badge-train':'badge-train-fis'}">${t.type==='both'?'TÉCNICO + FÍSICO':isTec?'TÉCNICO':'FÍSICO'}</span>${actions}</div>${shots.length?`<div class="train-shots-row">${sc}${shots.length>5?`<span style="font-size:11px;color:var(--muted)">+${shots.length-5} más</span>`:''}</div>`:''}${t.exercises&&t.exercises.length?`<div style="font-size:12px;color:var(--muted);margin-top:6px">${t.exercises.slice(0,3).map(e=>esc(e)).join(' · ')}</div>`:''}${sr}${t.notes?`<div class="hist-notes">${esc(t.notes)}</div>`:''}</div>`;
   }).join('');
 }
 
