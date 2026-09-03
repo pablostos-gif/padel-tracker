@@ -1122,6 +1122,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   </div>
   <div class="goals-body">
     <div id="coach-invite-card"></div>
+    <button class="btn btn-blue" style="width:100%;margin-bottom:14px" onclick="openSimFrom('coach-home')">🎮 &nbsp;Simulador Táctico</button>
     <div id="coach-students-list"></div>
   </div>
 </div>
@@ -2366,6 +2367,7 @@ function renderCoachStudentDetail(uid,p){
 
   // Acciones
   html+=`<div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
+    <button class="btn btn-blue" onclick="openSimFrom('coach-student-detail')">🎮 &nbsp;Simulador Táctico</button>
     <button class="btn ${p.disabled?'btn-primary':'btn-accent'}" onclick="toggleStudentDisabled('${uid}',${!!p.disabled})">${p.disabled?'✓ Reactivar acceso':'🚫 Suspender acceso'}</button>
     <button class="btn btn-danger" onclick="unlinkStudentFromCoach('${uid}')">Quitar de mi lista</button>
     <button class="btn btn-ghost" onclick="showScreen('coach-home')">← Volver</button>
