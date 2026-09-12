@@ -707,6 +707,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   <div class="scrollable" style="padding-bottom:16px">
     <div id="result-card" class="result-card"></div>
     <div id="match-timing-stats" style="display:none"></div>
+    <div id="end-set-breakdown"></div>
     <div id="shot-summary" class="shot-summary" style="display:none"></div>
     <div class="notes-section" style="padding-top:0">
       <div class="notes-label">📸 Fotos del partido</div>
@@ -3399,6 +3400,7 @@ function renderEndScreen(){
   const timingHtml=buildMatchTimingStats(m);
   const timingEl=document.getElementById('match-timing-stats');
   if(timingHtml){timingEl.style.display='block';timingEl.innerHTML=timingHtml;}else{timingEl.style.display='none';timingEl.innerHTML='';}
+  document.getElementById('end-set-breakdown').innerHTML=buildSetBreakdown(m)+buildServeStats(m);
   const my=m.shots.my,ri=m.shots.ri;
   const tw=Object.values(my.winners).reduce((a,b)=>a+b,0),te=Object.values(my.enf).reduce((a,b)=>a+b,0);
   const rw=Object.values(ri.winners).reduce((a,b)=>a+b,0),re=Object.values(ri.enf).reduce((a,b)=>a+b,0);
@@ -5763,6 +5765,7 @@ function pdfSetBreakdown(m){
       const box=(val,won)=>`<span style="display:inline-block;background:${won?'#C9A227':'#f0f0f0'};color:${won?'#000':'#aaa'};font-weight:${won?800:500};font-size:10px;min-width:26px;height:22px;border-radius:4px;text-align:center;line-height:22px;margin-right:2px;padding:0 2px">${val}</span>`;
       const myBoxes=seq.map((s,i)=>box(s.my,pts[i]==='my')).join('');
       const riBoxes=seq.map((s,i)=>box(s.ri,pts[i]==='ri')).join('');
+      const serverTag=game.serverPlayer?`<div style="font-size:9px;color:#999;margin-top:3px;padding-left:26px">🎾 Sacó: ${esc(game.serverPlayer)}</div>`:'';
       html+=`<div style="margin-bottom:5px;border-left:3px solid ${isMyWin?'#1a9e55':'#d94520'};padding:6px 8px;border-radius:0 6px 6px 0;background:${isMyWin?'#f0faf5':'#fdf2f0'}">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
           <span style="font-size:9px;font-weight:700;color:#999;width:20px;text-align:right;flex-shrink:0">${lbl}</span>
@@ -5776,6 +5779,7 @@ function pdfSetBreakdown(m){
           <span>${riBoxes}</span>
           ${!isMyWin?`<span style="color:#d94520;font-size:12px;font-weight:900;margin-left:4px">✓</span>`:''}
         </div>
+        ${serverTag}
       </div>`;
     });
     html+='</div>';
