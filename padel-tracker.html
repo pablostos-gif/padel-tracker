@@ -134,7 +134,8 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .set-chip.current{border-color:rgba(255,255,255,0.15);color:var(--text)}
 .set-chip .my{color:var(--my);font-weight:700}.set-chip .ri{color:var(--rival);font-weight:700}
 .tb-badge{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;background:rgba(240,220,80,0.12);border:1px solid rgba(240,220,80,0.3);color:var(--yellow);border-radius:6px;padding:3px 8px}
-.serve-ball{font-size:22px;margin-top:2px;display:none;animation:serveBounce 0.9s ease-in-out infinite;}
+.serve-ball{font-size:22px;margin-top:2px;display:none;animation:serveBounce 0.9s ease-in-out infinite;cursor:pointer}
+.serving-name{color:var(--yellow);font-weight:700}
 @keyframes serveBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
 .match-menu-btn{background:var(--card);border:1px solid var(--border);border-radius:10px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;color:var(--muted)}
 .game-score{text-align:center;padding:6px 20px 2px}
@@ -646,7 +647,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <div class="tap-zone my-zone" id="zone-my" onclick="scorePoint('my')">
       <div class="tz-label">Mi equipo</div>
       <div id="names-my" class="tz-names">—</div>
-      <div id="serve-my" class="serve-ball">🎾</div>
+      <div id="serve-my" class="serve-ball" onclick="event.stopPropagation();showServeOverlay()">🎾</div>
       <div id="pt-my" class="tz-point">0</div>
       <div id="badges-my" class="tz-shot-badges"></div>
       <div class="tz-hint">TOCA PARA PUNTO</div>
@@ -654,7 +655,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <div class="tap-zone rival-zone" id="zone-ri" onclick="scorePoint('ri')">
       <div class="tz-label">Rivales</div>
       <div id="names-ri" class="tz-names">—</div>
-      <div id="serve-ri" class="serve-ball">🎾</div>
+      <div id="serve-ri" class="serve-ball" onclick="event.stopPropagation();showServeOverlay()">🎾</div>
       <div id="pt-ri" class="tz-point">0</div>
       <div id="badges-ri" class="tz-shot-badges"></div>
       <div class="tz-hint">TOCA PARA PUNTO</div>
@@ -1554,13 +1555,10 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 <div id="serve-overlay" class="confirm-overlay hidden">
   <div class="confirm-box">
     <div style="font-size:32px;margin-bottom:6px">🎾</div>
-    <h3 style="margin-bottom:6px">¿Quién saca primero?</h3>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:18px">Elige el equipo que tiene el saque</p>
-    <div style="display:flex;flex-direction:column;gap:10px">
-      <button class="btn btn-primary" id="serve-btn-my" onclick="setServing('my')">—</button>
-      <button class="btn" id="serve-btn-ri" onclick="setServing('ri')" style="background:rgba(239,68,68,0.1);color:var(--rival);border:1px solid rgba(239,68,68,0.2)">—</button>
-      <button class="btn btn-ghost" onclick="setServing(null)" style="font-size:12px;opacity:0.6;margin-top:4px">No sé / saltar</button>
-    </div>
+    <h3 style="margin-bottom:6px">¿Quién saca?</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:18px">Elige el jugador que tiene el saque</p>
+    <div id="serve-player-buttons" style="display:flex;flex-direction:column;gap:10px"></div>
+    <button class="btn btn-ghost" onclick="setServingPlayer(null)" style="font-size:12px;opacity:0.6;margin-top:10px">No sé / saltar</button>
   </div>
 </div>
 <div id="confirm-overlay" class="confirm-overlay hidden">
@@ -2594,6 +2592,7 @@ function viewCoachMatchDetail(idx){
     </div>
     ${timingBlockHtml}
     ${buildSetBreakdown(m)}
+    ${buildServeStats(m)}
     ${shotHtml}
     ${(m.photos&&m.photos.length)?`<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);margin:0 16px 12px">
       <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">📸 Fotos del partido</div>
@@ -3075,7 +3074,7 @@ function startMatch(){
   const startGame={my:setStartGames,ri:setStartGames};
 
   const startTime=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
-  app.match={myName,myPartner,rival1,rival2,bestOf,tournament,date,format,puntoDeOro,starPoint,setStartGames,decidingSuperTie,matchTieSet:false,serving:null,tiebreakMax:0,sets:[],currentSet:startGame,currentGame:{my:0,ri:0},tiebreak:false,winner:null,notes:'',shots:emptyShots(),startTime,endTime:null,startTs:Date.now(),endTs:null,currentGamePoints:[],currentSetGames:[],photos:[]};
+  app.match={myName,myPartner,rival1,rival2,bestOf,tournament,date,format,puntoDeOro,starPoint,setStartGames,decidingSuperTie,matchTieSet:false,serving:null,servingPlayer:null,lastServerMy:null,lastServerRi:null,tiebreakMax:0,sets:[],currentSet:startGame,currentGame:{my:0,ri:0},tiebreak:false,winner:null,notes:'',shots:emptyShots(),startTime,endTime:null,startTs:Date.now(),endTs:null,currentGamePoints:[],currentSetGames:[],photos:[]};
   stateStack=[];showScreen('match');renderMatch();showServeOverlay();
 }
 function emptyShots(){
@@ -3099,7 +3098,7 @@ function scorePoint(team){
     // Rotación de saque en el tie-break (regla FIP): el 1er punto lo saca
     // quien tocaba por turno normal, y a partir de ahí el saque cambia de
     // pareja cada 2 puntos (tras el punto 1, 3, 5, 7...).
-    if(m.serving&&m.currentGamePoints.length%2===1)m.serving=m.serving==='my'?'ri':'my';
+    if(m.serving&&m.currentGamePoints.length%2===1){m.serving=m.serving==='my'?'ri':'my';updateServingPlayer(m);}
     const tbMax=m.tiebreakMax||7;
     if((g.my>=tbMax||g.ri>=tbMax)&&Math.abs(g.my-g.ri)>=2){
       const winner=g.my>g.ri?'my':'ri';
@@ -3121,13 +3120,27 @@ function gameWinner(g){
 function winGame(w){
   const m=app.match;
   if(!m.currentSetGames)m.currentSetGames=[];
-  m.currentSetGames.push({winner:w,points:[...(m.currentGamePoints||[])],server:m.serving||null});
+  m.currentSetGames.push({winner:w,points:[...(m.currentGamePoints||[])],server:m.serving||null,serverPlayer:m.servingPlayer||null});
   m.currentGamePoints=[];
   m.currentGame={my:0,ri:0};
   m.tiebreak=false;
   if(w==='my')m.currentSet.my++;else m.currentSet.ri++;
-  if(m.serving)m.serving=m.serving==='my'?'ri':'my';
+  if(m.serving){m.serving=m.serving==='my'?'ri':'my';updateServingPlayer(m);}
   checkSetWin();
+}
+// Calcula quién debe sacar a continuación dentro de un equipo, alternando
+// entre los dos compañeros cada vez que le toca sacar a ese equipo.
+function nextServerForTeam(m,team){
+  const players=team==='my'?[m.myName,m.myPartner].filter(Boolean):[m.rival1,m.rival2].filter(Boolean);
+  if(players.length<=1)return players[0]||null;
+  const last=team==='my'?m.lastServerMy:m.lastServerRi;
+  return players.find(p=>p!==last)||players[0];
+}
+function updateServingPlayer(m){
+  if(!m.serving){m.servingPlayer=null;return;}
+  const player=nextServerForTeam(m,m.serving);
+  m.servingPlayer=player;
+  if(m.serving==='my')m.lastServerMy=player;else m.lastServerRi=player;
 }
 function checkSetWin(){
   const m=app.match,s=m.currentSet;
@@ -3181,7 +3194,7 @@ function setTiebreakType(max){
 function winTiebreak(winner){
   const m=app.match;
   if(!m.currentSetGames)m.currentSetGames=[];
-  m.currentSetGames.push({winner,points:[...(m.currentGamePoints||[])],isTiebreak:true,server:m.serving||null});
+  m.currentSetGames.push({winner,points:[...(m.currentGamePoints||[])],isTiebreak:true,server:m.serving||null,serverPlayer:m.servingPlayer||null});
   m.currentGamePoints=[];
   const wasMatchTie=!!m.matchTieSet;
   m.sets.push({...m.currentSet,games:[...m.currentSetGames],isMatchTie:wasMatchTie});
@@ -3193,11 +3206,16 @@ function winTiebreak(winner){
   else renderMatch();
 }
 function undoPoint(){if(!stateStack.length)return;closeShot();Object.assign(app.match,JSON.parse(stateStack.pop()));renderMatch();}
+function renderTeamNames(elId,players,servingPlayer){
+  const el=document.getElementById(elId);
+  if(!players.length){el.textContent='—';return;}
+  el.innerHTML=players.map(p=>p===servingPlayer?`<span class="serving-name">🎾 ${esc(p)}</span>`:esc(p)).join(' / ');
+}
 function renderMatch(){
   const m=app.match;if(!m)return;
   saveLiveMatch();
-  document.getElementById('names-my').textContent=[m.myName,m.myPartner].filter(Boolean).join(' / ');
-  document.getElementById('names-ri').textContent=[m.rival1,m.rival2].filter(Boolean).join(' / ');
+  renderTeamNames('names-my',[m.myName,m.myPartner].filter(Boolean),m.servingPlayer);
+  renderTeamNames('names-ri',[m.rival1,m.rival2].filter(Boolean),m.servingPlayer);
   const sc=document.getElementById('sets-container');sc.innerHTML='';
   m.sets.forEach(s=>{const c=document.createElement('div');c.className='set-chip';c.innerHTML=`<span class="my">${s.my}</span>–<span class="ri">${s.ri}</span>`;sc.appendChild(c);});
   if(m.sets.length<m.bestOf){const c=document.createElement('div');c.className='set-chip current';c.innerHTML=`<span class="my">${m.currentSet.my}</span>–<span class="ri">${m.currentSet.ri}</span>`;sc.appendChild(c);}
@@ -3664,6 +3682,7 @@ function buildSetBreakdown(m){
       const riBoxes=seq.map((s,i)=>box(s.ri,pts[i]==='ri')).join('');
       const winDot=`<div style="width:7px;height:7px;border-radius:50%;background:${isMyWin?'#3DDB82':'#FF5E3A'};flex-shrink:0;margin-left:4px"></div>`;
       const lbl=isTB?'TB':`J${gi+1}`;
+      const serverTag=game.serverPlayer?`<div style="font-size:9px;color:var(--muted);margin-top:4px;padding-left:26px">🎾 Sacó: ${esc(game.serverPlayer)}</div>`:'';
       html+=`<div style="margin-bottom:6px;background:rgba(255,255,255,0.03);border-radius:10px;padding:8px 10px;border-left:3px solid ${isMyWin?'#3DDB82':'#FF5E3A'}">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
           <div style="font-size:9px;font-weight:700;color:var(--muted);width:20px;flex-shrink:0;text-align:right">${lbl}</div>
@@ -3677,12 +3696,45 @@ function buildSetBreakdown(m){
           <div style="display:flex;gap:3px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;flex:1">${riBoxes}</div>
           ${!isMyWin?winDot:''}
         </div>
+        ${serverTag}
       </div>`;
     });
     html+='</div>';
   });
   html+='</div>';
   return html;
+}
+function buildServeStats(m){
+  const games=[];
+  (m.sets||[]).forEach(s=>(s.games||[]).forEach(g=>games.push(g)));
+  const stats={};
+  const teamOf=name=>{
+    if(name===m.myName||name===m.myPartner)return'my';
+    if(name===m.rival1||name===m.rival2)return'ri';
+    return null;
+  };
+  games.forEach(g=>{
+    if(!g.serverPlayer)return;
+    const t=teamOf(g.serverPlayer);
+    if(!t)return;
+    stats[g.serverPlayer]=stats[g.serverPlayer]||{played:0,won:0};
+    stats[g.serverPlayer].played++;
+    if(g.winner===t)stats[g.serverPlayer].won++;
+  });
+  const names=[m.myName,m.myPartner,m.rival1,m.rival2].filter(Boolean);
+  if(!names.some(n=>stats[n]))return'';
+  const rows=names.filter(n=>stats[n]).map(n=>{
+    const st=stats[n];
+    const pct=st.played?Math.round(st.won/st.played*100):0;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:12px;color:var(--text)">${esc(n)}</span>
+      <span style="font-size:12px;color:var(--muted)">${st.won}/${st.played} juegos (${pct}%)</span>
+    </div>`;
+  }).join('');
+  return `<div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);margin:0 16px 12px">
+    <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">🎾 Estadísticas de saque</div>
+    ${rows}
+  </div>`;
 }
 function viewMatchDetail(idx){
   currentMatchDetailIdx=idx;
@@ -3726,6 +3778,7 @@ function viewMatchDetail(idx){
     <div id="match-comments-section"></div>
     ${timingBlockHtml}
     ${buildSetBreakdown(m)}
+    ${buildServeStats(m)}
     ${shotHtml}
     <div style="background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--border);margin:0 16px 12px">
       <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">📸 Fotos del partido</div>
@@ -4482,13 +4535,33 @@ function closeMenu(){document.getElementById('menu-overlay').classList.add('hidd
 function closeMenuBg(e){if(e.target===document.getElementById('menu-overlay'))closeMenu();}
 function showServeOverlay(){
   const m=app.match;if(!m)return;
-  document.getElementById('serve-btn-my').textContent=[m.myName,m.myPartner].filter(Boolean).join(' / ')||'Mi equipo';
-  document.getElementById('serve-btn-ri').textContent=[m.rival1,m.rival2].filter(Boolean).join(' / ')||'Rivales';
+  const box=document.getElementById('serve-player-buttons');
+  box.innerHTML='';
+  const items=[];
+  if(m.myName)items.push({name:m.myName,team:'my'});
+  if(m.myPartner)items.push({name:m.myPartner,team:'my'});
+  if(m.rival1)items.push({name:m.rival1,team:'ri'});
+  if(m.rival2)items.push({name:m.rival2,team:'ri'});
+  items.forEach(it=>{
+    const b=document.createElement('button');
+    b.className='btn';
+    b.style.cssText=it.team==='my'
+      ?'background:rgba(16,185,129,0.12);color:var(--my);border:1px solid rgba(16,185,129,0.25)'
+      :'background:rgba(239,68,68,0.1);color:var(--rival);border:1px solid rgba(239,68,68,0.2)';
+    b.textContent=it.name;
+    b.onclick=()=>setServingPlayer(it.name,it.team);
+    box.appendChild(b);
+  });
   document.getElementById('serve-overlay').classList.remove('hidden');
 }
-function setServing(team){
+function setServingPlayer(name,team){
   document.getElementById('serve-overlay').classList.add('hidden');
-  if(app.match)app.match.serving=team;
+  const m=app.match;if(!m)return;
+  m.servingPlayer=name||null;
+  m.serving=name?team:null;
+  if(name){
+    if(team==='my')m.lastServerMy=name;else m.lastServerRi=name;
+  }
   renderMatch();
 }
 function askEndMatch(){document.getElementById('confirm-overlay').classList.remove('hidden');document.getElementById('conf-ok').onclick=()=>{closeConfirm();closeShot();goToEndScreen();};}
