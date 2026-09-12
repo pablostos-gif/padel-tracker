@@ -4507,6 +4507,40 @@ function renderFisStats(){
 // ═══════════════════════════════════════════════════════════════
 // CHART HELPERS
 // ═══════════════════════════════════════════════════════════════
+// Plugin que dibuja el valor numérico junto a cada barra/punto para que
+// los gráficos del informe PDF se entiendan de un vistazo, sin tener
+// que interpretar la escala del eje.
+if(typeof Chart!=='undefined'&&!Chart.registry.plugins.get('pdfValueLabels')){
+  Chart.register({
+    id:'pdfValueLabels',
+    afterDatasetsDraw(chart){
+      const opts=chart.config.options.plugins&&chart.config.options.plugins.pdfValueLabels;
+      if(!opts)return;
+      const{ctx}=chart;
+      chart.data.datasets.forEach((dataset,di)=>{
+        const meta=chart.getDatasetMeta(di);
+        if(meta.hidden)return;
+        meta.data.forEach((el,i)=>{
+          const value=dataset.data[i];
+          if(value===null||value===undefined||value===0)return;
+          const label=opts.format?opts.format(value):value;
+          ctx.save();
+          ctx.fillStyle=opts.color||'#333';
+          ctx.font=opts.font||'bold 11px sans-serif';
+          ctx.textBaseline='middle';
+          if(chart.config.options.indexAxis==='y'){
+            ctx.textAlign=value<0?'right':'left';
+            ctx.fillText(label,el.x+(value<0?-5:5),el.y);
+          }else{
+            ctx.textAlign='center';
+            ctx.fillText(label,el.x,el.y-8);
+          }
+          ctx.restore();
+        });
+      });
+    }
+  });
+}
 function mkChart(id,type,data,options){destroyChart(id);const ctx=document.getElementById(id);if(!ctx)return;charts[id]=new Chart(ctx.getContext('2d'),{type,data,options});}
 function destroyChart(id){if(charts[id]){try{charts[id].destroy();}catch(e){}charts[id]=null;}}
 
@@ -5665,7 +5699,12 @@ function buildMatchesChartsSection(data){
   if(withShots.length>=2) top+=_pdfChartBox('pdfc-efficiency','Evolución de Eficiencia');
   let html='';
   if(top) html+=`<div style="display:grid;grid-template-columns:${data.length>=2&&withShots.length>=2?'1fr 1fr':'1fr'};gap:14px;margin-bottom:14px">${top}</div>`;
-  if(withShots.length) html+=`<div style="margin-bottom:4px">${_pdfChartBox('pdfc-shots','Winners vs Errores No Forzados por Golpe',200)}</div>`;
+  if(withShots.length){
+    const winMap={},errMap={};SHOT_KEYS.forEach(k=>{winMap[k]=0;errMap[k]=0;});
+    withShots.forEach(m=>{const s=normShots(m.shots.my);SHOT_KEYS.forEach(k=>{winMap[k]+=s.winners[k]||0;errMap[k]+=s.enf[k]||0;});});
+    const nKeys=SHOT_KEYS.filter(k=>winMap[k]>0||errMap[k]>0).length;
+    html+=`<div style="margin-bottom:4px">${_pdfChartBox('pdfc-shots','Winners vs Errores No Forzados por Golpe',Math.max(200,nKeys*42))}</div>`;
+  }
   if(!html) return '';
   return `<div class="pv-section"><div class="pv-section-title">📊 Estadística Profesional</div>${html}</div>`;
 }
@@ -5683,8 +5722,8 @@ function renderMatchesCharts(data){
     const effs=withShots.map(m=>{const s=normShots(m.shots.my);const w=Object.values(s.winners).reduce((a,b)=>a+b,0),e=Object.values(s.enf).reduce((a,b)=>a+b,0);return(w+e+s.ef)?Math.round(w/(w+e+s.ef)*100):0;});
     mkChart('pdfc-efficiency','line',{
       labels:withShots.map(m=>fmtDate(m.date)),
-      datasets:[{label:'Eficiencia %',data:effs,borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,0.15)',fill:true,tension:0.3,pointRadius:3,pointBackgroundColor:'#2563eb'}]
-    },{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{y:{min:0,max:100,ticks:{color:'#888',font:{size:10},callback:v=>v+'%'},grid:{color:'#eee'}},x:axisX}});
+      datasets:[{label:'Eficiencia %',data:effs,borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,0.15)',fill:true,tension:0.3,pointRadius:4,pointBackgroundColor:'#2563eb'}]
+    },{responsive:true,maintainAspectRatio:false,animation:false,layout:{padding:{top:16}},plugins:{legend:{display:false},pdfValueLabels:{color:'#2563eb',font:'bold 10px sans-serif',format:v=>v+'%'}},scales:{y:{min:0,max:100,ticks:{color:'#888',font:{size:10},callback:v=>v+'%'},grid:{color:'#eee'}},x:axisX}});
   }
   if(document.getElementById('pdfc-shots')&&withShots.length){
     const winMap={},errMap={};SHOT_KEYS.forEach(k=>{winMap[k]=0;errMap[k]=0;});
@@ -5692,8 +5731,8 @@ function renderMatchesCharts(data){
     const keys=SHOT_KEYS.filter(k=>winMap[k]>0||errMap[k]>0);
     mkChart('pdfc-shots','bar',{
       labels:keys.map(k=>SHOT_LABELS[k]),
-      datasets:[{label:'Winners',data:keys.map(k=>winMap[k]),backgroundColor:'#1a9e55',borderRadius:3},{label:'Errores No Forz.',data:keys.map(k=>errMap[k]),backgroundColor:'#d94520',borderRadius:3}]
-    },{responsive:true,maintainAspectRatio:false,animation:false,indexAxis:'y',plugins:{legend:{position:'top',labels:{color:'#333',font:{size:10},boxWidth:12}}},scales:{x:{ticks:{color:'#888',font:{size:9}},grid:{color:'#eee'}},y:{ticks:{color:'#333',font:{size:10}},grid:{display:false}}}});
+      datasets:[{label:'Winners',data:keys.map(k=>winMap[k]),backgroundColor:'#1a9e55',borderRadius:4,barPercentage:0.8,categoryPercentage:0.75},{label:'Errores No Forz.',data:keys.map(k=>errMap[k]),backgroundColor:'#d94520',borderRadius:4,barPercentage:0.8,categoryPercentage:0.75}]
+    },{responsive:true,maintainAspectRatio:false,animation:false,indexAxis:'y',layout:{padding:{right:24}},plugins:{legend:{position:'top',labels:{color:'#333',font:{size:11,weight:'600'},boxWidth:14}},pdfValueLabels:{color:'#333',font:'bold 11px sans-serif'}},scales:{x:{ticks:{color:'#888',font:{size:10}},grid:{color:'#eee'}},y:{ticks:{color:'#333',font:{size:11,weight:'600'}},grid:{display:false}}}});
   }
 }
 function buildTrainingsChartsSection(data){
@@ -5745,17 +5784,30 @@ function renderTrainingsCharts(data){
     if(withDur.length) mkChart('pdfc-duration','bar',{labels:withDur.map(t=>fmtDate(t.date)),datasets:[{label:'Minutos',data:withDur.map(t=>t.duration),backgroundColor:'#2563eb',borderRadius:4}]},{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{y:{ticks:{color:'#888',font:{size:10}},grid:{color:'#eee'}},x:axisX}});
   }
 }
+// Paleta de colores fija por equipo/jugador para todo el informe PDF:
+// el color de cada jugador NUNCA cambia según quién gane un juego o punto,
+// así siempre se identifica igual en desglose, análisis y golpes detallados.
+function pdfPlayerColors(m){
+  const players={};
+  if(m.myName)players[m.myName]='#1a9e55';
+  if(m.myPartner)players[m.myPartner]='#0d9488';
+  if(m.rival1)players[m.rival1]='#d94520';
+  if(m.rival2)players[m.rival2]='#b8631f';
+  return{players,teamMy:'#1a9e55',teamRi:'#d94520'};
+}
 function pdfSetBreakdown(m){
   const hasGames=m.sets&&m.sets.some(s=>s.games&&s.games.length);
   if(!hasGames)return'';
+  const pc=pdfPlayerColors(m);
   const mnShort=(m.myName||'YO').split(' ')[0].toUpperCase().slice(0,8);
   const rnShort=(m.rival1||'RIV').split(' ')[0].toUpperCase().slice(0,8);
+  const teamTag=(short,color)=>`<span style="display:inline-block;min-width:54px;flex-shrink:0;font-size:9px;font-weight:800;letter-spacing:0.5px;color:#fff;background:${color};border-radius:4px;padding:3px 6px;text-align:center">${short}</span>`;
   let html=`<div class="pv-section"><div class="pv-section-title">Desglose Juego a Juego</div>`;
   m.sets.forEach((set,si)=>{
     if(!set.games||!set.games.length)return;
     const myGamesWon=set.games.filter(g=>g.winner==='my').length;
     const riGamesWon=set.games.filter(g=>g.winner==='ri').length;
-    html+=`<div style="margin-bottom:16px"><div style="font-size:10px;font-weight:700;color:#888;letter-spacing:1.5px;text-transform:uppercase;border-bottom:2px solid #e5e5e5;padding-bottom:5px;margin-bottom:8px">SET ${si+1} &nbsp;·&nbsp; ${set.my}-${set.ri} &nbsp;<span style="font-weight:400;color:#bbb">(${myGamesWon}-${riGamesWon} juegos)</span></div>`;
+    html+=`<div style="margin-bottom:16px;page-break-inside:avoid"><div style="font-size:10px;font-weight:700;color:#888;letter-spacing:1.5px;text-transform:uppercase;border-bottom:2px solid #e5e5e5;padding-bottom:5px;margin-bottom:8px">SET ${si+1} &nbsp;·&nbsp; ${set.my}-${set.ri} &nbsp;<span style="font-weight:400;color:#bbb">(${myGamesWon}-${riGamesWon} juegos)</span></div>`;
     set.games.forEach((game,gi)=>{
       const isMyWin=game.winner==='my';
       const seq=getGameScoreSeq(game.points,m.puntoDeOro,m.starPoint);
@@ -5765,19 +5817,20 @@ function pdfSetBreakdown(m){
       const box=(val,won)=>`<span style="display:inline-block;background:${won?'#C9A227':'#f0f0f0'};color:${won?'#000':'#aaa'};font-weight:${won?800:500};font-size:10px;min-width:26px;height:22px;border-radius:4px;text-align:center;line-height:22px;margin-right:2px;padding:0 2px">${val}</span>`;
       const myBoxes=seq.map((s,i)=>box(s.my,pts[i]==='my')).join('');
       const riBoxes=seq.map((s,i)=>box(s.ri,pts[i]==='ri')).join('');
-      const serverTag=game.serverPlayer?`<div style="font-size:9px;color:#999;margin-top:3px;padding-left:26px">🎾 Sacó: ${esc(game.serverPlayer)}</div>`:'';
-      html+=`<div style="margin-bottom:5px;border-left:3px solid ${isMyWin?'#1a9e55':'#d94520'};padding:6px 8px;border-radius:0 6px 6px 0;background:${isMyWin?'#f0faf5':'#fdf2f0'}">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
-          <span style="font-size:9px;font-weight:700;color:#999;width:20px;text-align:right;flex-shrink:0">${lbl}</span>
-          <span style="font-size:10px;font-weight:700;color:#333;width:50px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${mnShort}</span>
-          <span>${myBoxes}</span>
-          ${isMyWin?`<span style="color:#1a9e55;font-size:12px;font-weight:900;margin-left:4px">✓</span>`:''}
+      const serverColor=game.serverPlayer&&pc.players[game.serverPlayer]||'#666';
+      const serverTag=game.serverPlayer?`<div style="font-size:9px;color:#999;margin-top:4px;padding-left:26px">🎾 Sacó: <span style="font-weight:700;color:${serverColor}">${esc(game.serverPlayer)}</span></div>`:'';
+      html+=`<div style="margin-bottom:7px;background:#fafafa;border:1px solid #ececec;border-radius:8px;padding:7px 9px;page-break-inside:avoid">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">
+          <span style="font-size:9px;font-weight:700;color:#bbb;width:18px;text-align:right;flex-shrink:0">${lbl}</span>
+          ${teamTag(mnShort,pc.teamMy)}
+          <span style="flex:1">${myBoxes}</span>
+          ${isMyWin?`<span style="color:#1a9e55;font-size:13px;font-weight:900">✓</span>`:''}
         </div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <span style="width:20px;flex-shrink:0"></span>
-          <span style="font-size:10px;font-weight:600;color:#aaa;width:50px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${rnShort}</span>
-          <span>${riBoxes}</span>
-          ${!isMyWin?`<span style="color:#d94520;font-size:12px;font-weight:900;margin-left:4px">✓</span>`:''}
+        <div style="display:flex;align-items:center;gap:7px">
+          <span style="width:18px;flex-shrink:0"></span>
+          ${teamTag(rnShort,pc.teamRi)}
+          <span style="flex:1">${riBoxes}</span>
+          ${!isMyWin?`<span style="color:#d94520;font-size:13px;font-weight:900">✓</span>`:''}
         </div>
         ${serverTag}
       </div>`;
@@ -5831,7 +5884,7 @@ function buildMatchReportBody(m){
       const maxV=Math.max(tw,rw,te,re,my.ef,ri.ef,1);
       const barRow=(label,mv,rv)=>`<tr><td style="font-size:11px;color:#555;padding:4px 0;width:80px">${label}</td><td style="padding:4px 8px"><div style="height:9px;background:#f0f0f0;border-radius:4px;overflow:hidden"><div style="height:100%;width:${Math.round(mv/maxV*100)}%;background:#1a9e55;border-radius:4px"></div></div></td><td style="font-size:11px;font-weight:700;color:#1a9e55;text-align:right;padding:4px 4px;width:28px">${mv}</td><td style="padding:4px 8px"><div style="height:9px;background:#f0f0f0;border-radius:4px;overflow:hidden"><div style="height:100%;width:${Math.round(rv/maxV*100)}%;background:#d94520;border-radius:4px"></div></div></td><td style="font-size:11px;font-weight:700;color:#d94520;text-align:right;padding:4px 4px;width:28px">${rv}</td></tr>`;
 
-      analysisHtml+=`<div class="pv-section"><div class="pv-section-title">Análisis del Partido</div>
+      analysisHtml+=`<div class="pv-section" style="page-break-before:always"><div class="pv-section-title">Análisis del Partido</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
           <div style="background:#f0faf5;border:1px solid #b2e0cc;border-radius:12px;padding:12px;text-align:center">
             <div style="font-size:9px;font-weight:700;color:#1a9e55;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(mn)}</div>
@@ -5855,16 +5908,17 @@ function buildMatchReportBody(m){
         </div>
       </div>`;
 
-      // Per-player shot breakdown
+      // Per-player shot breakdown (colores fijos por identidad, no por resultado)
+      const pcShots=pdfPlayerColors(m);
       const myBlocks=[
-        hasShotData(m.shots.my)?pdfShotBlock(m.shots.my,m.myPartner?'Total MI EQUIPO':esc(m.myName),'#1a9e55'):'',
-        m.myPartner&&hasShotData(m.shots.player)?pdfShotBlock(m.shots.player,esc(m.myName),'#1a9e55'):'',
-        m.myPartner&&hasShotData(m.shots.partner)?pdfShotBlock(m.shots.partner,esc(m.myPartner),'#1a9e55'):'',
+        hasShotData(m.shots.my)?pdfShotBlock(m.shots.my,m.myPartner?'Total MI EQUIPO':esc(m.myName),pcShots.teamMy):'',
+        m.myPartner&&hasShotData(m.shots.player)?pdfShotBlock(m.shots.player,esc(m.myName),pcShots.players[m.myName]||pcShots.teamMy):'',
+        m.myPartner&&hasShotData(m.shots.partner)?pdfShotBlock(m.shots.partner,esc(m.myPartner),pcShots.players[m.myPartner]||pcShots.teamMy):'',
       ].filter(Boolean).join('');
       const riBlocks=[
-        hasShotData(m.shots.ri)?pdfShotBlock(m.shots.ri,m.rival2?'Total RIVALES':esc(m.rival1),'#d94520'):'',
-        m.rival2&&hasShotData(m.shots.rival1)?pdfShotBlock(m.shots.rival1,esc(m.rival1),'#d94520'):'',
-        m.rival2&&hasShotData(m.shots.rival2)?pdfShotBlock(m.shots.rival2,esc(m.rival2),'#d94520'):'',
+        hasShotData(m.shots.ri)?pdfShotBlock(m.shots.ri,m.rival2?'Total RIVALES':esc(m.rival1),pcShots.teamRi):'',
+        m.rival2&&hasShotData(m.shots.rival1)?pdfShotBlock(m.shots.rival1,esc(m.rival1),pcShots.players[m.rival1]||pcShots.teamRi):'',
+        m.rival2&&hasShotData(m.shots.rival2)?pdfShotBlock(m.shots.rival2,esc(m.rival2),pcShots.players[m.rival2]||pcShots.teamRi):'',
       ].filter(Boolean).join('');
       if(myBlocks||riBlocks){
         analysisHtml+=`<div class="pv-section"><div class="pv-section-title">Golpes Detallados</div>${myBlocks}${riBlocks?`<div style="border-top:1px solid #e5e5e5;margin:10px 0"></div>${riBlocks}`:''}</div>`;
