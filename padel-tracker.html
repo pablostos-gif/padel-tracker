@@ -3075,7 +3075,7 @@ function startMatch(){
   const startGame={my:setStartGames,ri:setStartGames};
 
   const startTime=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
-  app.match={myName,myPartner,rival1,rival2,bestOf,tournament,date,format,puntoDeOro,starPoint,setStartGames,decidingSuperTie,matchTieSet:false,serving:null,servingPlayer:null,lastServerMy:null,lastServerRi:null,tiebreakMax:0,sets:[],currentSet:startGame,currentGame:{my:0,ri:0},tiebreak:false,winner:null,notes:'',shots:emptyShots(),startTime,endTime:null,startTs:Date.now(),endTs:null,currentGamePoints:[],currentSetGames:[],photos:[]};
+  app.match={myName,myPartner,rival1,rival2,bestOf,tournament,date,format,puntoDeOro,starPoint,setStartGames,decidingSuperTie,matchTieSet:false,serving:null,servingPlayer:null,lastServerMy:null,lastServerRi:null,tiebreakMax:0,sets:[],currentSet:startGame,currentGame:{my:0,ri:0},tiebreak:false,winner:null,notes:'',shots:emptyShots(),startTime,endTime:null,startTs:Date.now(),endTs:null,currentGamePoints:[],currentSetGames:[],currentGameStartTs:Date.now(),photos:[]};
   stateStack=[];showScreen('match');renderMatch();showServeOverlay();
 }
 function emptyShots(){
@@ -3121,9 +3121,11 @@ function gameWinner(g){
 function winGame(w){
   const m=app.match;
   if(!m.currentSetGames)m.currentSetGames=[];
-  m.currentSetGames.push({winner:w,points:[...(m.currentGamePoints||[])],server:m.serving||null,serverPlayer:m.servingPlayer||null});
+  const durationMs=m.currentGameStartTs?Date.now()-m.currentGameStartTs:null;
+  m.currentSetGames.push({winner:w,points:[...(m.currentGamePoints||[])],server:m.serving||null,serverPlayer:m.servingPlayer||null,durationMs});
   m.currentGamePoints=[];
   m.currentGame={my:0,ri:0};
+  m.currentGameStartTs=Date.now();
   m.tiebreak=false;
   if(w==='my')m.currentSet.my++;else m.currentSet.ri++;
   if(m.serving){m.serving=m.serving==='my'?'ri':'my';updateServingPlayer(m);}
@@ -3195,8 +3197,10 @@ function setTiebreakType(max){
 function winTiebreak(winner){
   const m=app.match;
   if(!m.currentSetGames)m.currentSetGames=[];
-  m.currentSetGames.push({winner,points:[...(m.currentGamePoints||[])],isTiebreak:true,server:m.serving||null,serverPlayer:m.servingPlayer||null});
+  const durationMs=m.currentGameStartTs?Date.now()-m.currentGameStartTs:null;
+  m.currentSetGames.push({winner,points:[...(m.currentGamePoints||[])],isTiebreak:true,server:m.serving||null,serverPlayer:m.servingPlayer||null,durationMs});
   m.currentGamePoints=[];
+  m.currentGameStartTs=Date.now();
   const wasMatchTie=!!m.matchTieSet;
   m.sets.push({...m.currentSet,games:[...m.currentSetGames],isMatchTie:wasMatchTie});
   m.currentSetGames=[];
@@ -3313,6 +3317,7 @@ function saveShot(){
 // ═══════════════════════════════════════════════════════════════
 function goToEndScreen(){app.match.endTime=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});app.match.endTs=Date.now();saveLiveMatch();showScreen('end-screen');renderEndScreen();}
 function fmtDuration(ms){if(!ms||ms<0)return'';const totalMin=Math.round(ms/60000);const h=Math.floor(totalMin/60),mnt=totalMin%60;return h>0?`${h}h ${mnt}min`:`${mnt}min`;}
+function fmtGameDuration(ms){if(!ms||ms<0)return'';const totalSec=Math.round(ms/1000);const m=Math.floor(totalSec/60),s=totalSec%60;return m>0?`${m}min ${s}s`:`${s}s`;}
 function calcMatchStats(m){
   const allGames=[];(m.sets||[]).forEach(s=>(s.games||[]).forEach(g=>allGames.push(g)));
   let mySrvWon=0,mySrvTot=0,riSrvWon=0,riSrvTot=0;
@@ -3684,7 +3689,8 @@ function buildSetBreakdown(m){
       const riBoxes=seq.map((s,i)=>box(s.ri,pts[i]==='ri')).join('');
       const winDot=`<div style="width:7px;height:7px;border-radius:50%;background:${isMyWin?'#3DDB82':'#FF5E3A'};flex-shrink:0;margin-left:4px"></div>`;
       const lbl=isTB?'TB':`J${gi+1}`;
-      const serverTag=game.serverPlayer?`<div style="font-size:9px;color:var(--muted);margin-top:4px;padding-left:26px">🎾 Sacó: ${esc(game.serverPlayer)}</div>`:'';
+      const durTxt=fmtGameDuration(game.durationMs);
+      const serverTag=(game.serverPlayer||durTxt)?`<div style="font-size:9px;color:var(--muted);margin-top:4px;padding-left:26px">${game.serverPlayer?`🎾 Sacó: ${esc(game.serverPlayer)}`:''}${game.serverPlayer&&durTxt?' &nbsp;·&nbsp; ':''}${durTxt?`⏱️ ${durTxt}`:''}</div>`:'';
       html+=`<div style="margin-bottom:6px;background:rgba(255,255,255,0.03);border-radius:10px;padding:8px 10px;border-left:3px solid ${isMyWin?'#3DDB82':'#FF5E3A'}">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
           <div style="font-size:9px;font-weight:700;color:var(--muted);width:20px;flex-shrink:0;text-align:right">${lbl}</div>
@@ -5905,7 +5911,8 @@ function pdfSetBreakdown(m){
       const myBoxes=seq.map((s,i)=>box(s.my,pts[i]==='my')).join('');
       const riBoxes=seq.map((s,i)=>box(s.ri,pts[i]==='ri')).join('');
       const serverColor=game.serverPlayer&&pc.players[game.serverPlayer]||'#666';
-      const serverTag=game.serverPlayer?`<div style="font-size:9px;color:#999;margin-top:4px;padding-left:26px">🎾 Sacó: <span style="font-weight:700;color:${serverColor}">${esc(game.serverPlayer)}</span></div>`:'';
+      const durTxt=fmtGameDuration(game.durationMs);
+      const serverTag=(game.serverPlayer||durTxt)?`<div style="font-size:9px;color:#999;margin-top:4px;padding-left:26px">${game.serverPlayer?`🎾 Sacó: <span style="font-weight:700;color:${serverColor}">${esc(game.serverPlayer)}</span>`:''}${game.serverPlayer&&durTxt?' &nbsp;·&nbsp; ':''}${durTxt?`⏱️ ${durTxt}`:''}</div>`:'';
       html+=`<div style="margin-bottom:7px;background:#fafafa;border:1px solid #ececec;border-radius:8px;padding:7px 9px;page-break-inside:avoid">
         <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">
           <span style="font-size:9px;font-weight:700;color:#bbb;width:18px;text-align:right;flex-shrink:0">${lbl}</span>
