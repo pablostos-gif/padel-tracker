@@ -1736,6 +1736,7 @@ let coachStatsMode=false;             // true mientras el entrenador está viend
 let coachStatsSavedApp=null;          // copia de `app` del propio entrenador para restaurar al salir
 let unreadCommentIds={match:new Set(),training:new Set()}; // ids de partidos/entrenos con comentarios del entrenador sin leer
 let coachCommentsUnsub=null;          // función para cancelar el listener de comentarios sin leer
+let coachActivityUnsubs=[];           // listeners onSnapshot sobre cada alumno para avisar en tiempo real de partidos/entrenos nuevos
 
 // ═══════════════════════════════════════════════════════════════
 // FIREBASE SYNC
@@ -1834,11 +1835,12 @@ function subscribeUnreadComments(uid){
       renderHome();
     }, e=>console.log('unread comments listener error:',e));
 }
-let coachMsgToastTimer=null,coachMsgToastTarget=null;
-function showCoachMsgToast(targetScreen,text){
+let coachMsgToastTimer=null,coachMsgToastTarget=null,coachMsgToastAction=null;
+function showCoachMsgToast(targetScreen,text,action){
   const t=document.getElementById('coach-msg-toast');
   if(!t)return;
   coachMsgToastTarget=targetScreen;
+  coachMsgToastAction=action||null;
   document.getElementById('coach-msg-toast-text').textContent=text||'Tu entrenador te ha dejado un comentario';
   t.classList.add('show');
   clearTimeout(coachMsgToastTimer);
@@ -1846,7 +1848,47 @@ function showCoachMsgToast(targetScreen,text){
 }
 function handleCoachMsgToastClick(){
   document.getElementById('coach-msg-toast')?.classList.remove('show');
+  if(coachMsgToastAction){const a=coachMsgToastAction;coachMsgToastAction=null;a();return;}
   if(coachMsgToastTarget)showScreen(coachMsgToastTarget);
+}
+// Escucha en tiempo real la actividad (partidos/entrenos) de los alumnos vinculados y avisa al entrenador con un toast.
+// Se apoya en un listener sobre la lista de alumnos para (des)engancharse automáticamente cuando se vincula/desvincula alguno.
+let coachStudentListeners={}; // uid -> función para cancelar su listener individual
+function subscribeCoachStudentsActivity(){
+  coachActivityUnsubs.forEach(u=>{try{u();}catch(e){}});
+  coachActivityUnsubs=[];
+  Object.values(coachStudentListeners).forEach(u=>{try{u();}catch(e){}});
+  coachStudentListeners={};
+  const listUnsub=fsDb.collection('coaches').doc(currentUser.uid).collection('students').onSnapshot(snap=>{
+    const currentUids=new Set(snap.docs.map(d=>d.id));
+    // deja de escuchar a alumnos ya no vinculados
+    Object.keys(coachStudentListeners).forEach(uid=>{
+      if(!currentUids.has(uid)){try{coachStudentListeners[uid]();}catch(e){} delete coachStudentListeners[uid];}
+    });
+    // engancha listeners nuevos
+    currentUids.forEach(uid=>{
+      if(coachStudentListeners[uid])return;
+      let baseline=null;
+      coachStudentListeners[uid]=fsDb.collection('players').doc(uid).onSnapshot(psnap=>{
+        if(!psnap.exists)return;
+        const data=psnap.data()||{};
+        const counts={m:(data.history||[]).length,t:(data.trainings||[]).length};
+        const name=data.playerName||'Un alumno';
+        if(baseline===null){ baseline=counts; return; } // no avisar en la carga inicial del listener
+        if(counts.m>baseline.m){
+          showCoachMsgToast('coach-home',`🎾 ${name} ha jugado un partido`,()=>openCoachStudent(uid));
+        }else if(counts.t>baseline.t){
+          showCoachMsgToast('coach-home',`💪 ${name} ha registrado un entrenamiento`,()=>openCoachStudent(uid));
+        }
+        baseline=counts;
+        if(document.getElementById('coach-home')?.classList.contains('active'))loadCoachStudents();
+        if(coachViewStudent&&coachViewStudent.uid===uid&&document.getElementById('coach-student-detail')?.classList.contains('active')){
+          renderCoachStudentDetail(uid,data);
+        }
+      }, e=>console.log('coach student activity listener error:',e));
+    });
+  }, e=>console.log('coach students list listener error:',e));
+  coachActivityUnsubs.push(listUnsub, ()=>{Object.values(coachStudentListeners).forEach(u=>{try{u();}catch(e){}});coachStudentListeners={};});
 }
 // Carga y muestra el hilo de comentarios del entrenador para un partido/entreno concreto (vista del alumno).
 // Marca como leídos los que estén pendientes al mostrarlos.
@@ -2198,6 +2240,9 @@ function createProfileForRole(uid,role,name,email){
 
 function doLogout(){
   if(playerFsUnsub){try{playerFsUnsub();}catch(e){} playerFsUnsub=null;}
+  if(coachCommentsUnsub){try{coachCommentsUnsub();}catch(e){} coachCommentsUnsub=null;}
+  coachActivityUnsubs.forEach(u=>{try{u();}catch(e){}});
+  coachActivityUnsubs=[];
   firebase.auth().signOut().catch(e=>console.log('signOut error',e));
 }
 
@@ -2253,6 +2298,7 @@ function startPlayerSession(user,data){
 function startCoachSession(user,data){
   coachProfile={uid:user.uid,name:data.name||'',email:data.email||user.email||'',inviteCode:data.inviteCode||''};
   showScreen('coach-home');
+  subscribeCoachStudentsActivity();
 }
 
 // ═══════════════════════════════════════════════════════════════
