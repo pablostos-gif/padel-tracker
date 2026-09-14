@@ -1187,6 +1187,46 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   <div class="scrollable" id="coach-training-detail-content" style="padding-bottom:20px"></div>
 </div>
 
+<!-- COACH FITNESS HISTORY (historial completo de tests físicos del alumno) -->
+<div id="coach-fitness-history-screen" class="screen">
+  <div class="screen-header">
+    <button class="back-btn" onclick="showScreen('coach-student-detail')">←</button>
+    <h2>Tests Físicos</h2>
+    <div id="coach-fitness-hist-count" style="font-size:13px;color:var(--muted)"></div>
+  </div>
+  <div id="coach-fitness-history-list" class="history-list"></div>
+</div>
+
+<!-- COACH GOAL DETAIL (comentarios del entrenador sobre un objetivo) -->
+<div id="coach-goal-detail-overlay" class="confirm-overlay hidden">
+  <div class="confirm-box" style="max-width:400px;width:94%;max-height:92vh;overflow-y:auto;padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div id="cgd-title" style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px"></div>
+      <button onclick="closeCoachGoalDetail()" style="background:transparent;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1;padding:0">✕</button>
+    </div>
+    <div id="cgd-info" style="margin-bottom:14px"></div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--my);margin-bottom:10px">🎓 Comentarios para el alumno</div>
+    <div id="coach-goal-comments-list" style="margin-bottom:12px"></div>
+    <textarea id="coach-goal-comment-inp" class="goal-inp" rows="3" style="resize:none" placeholder="Escribe un comentario sobre este objetivo..."></textarea>
+    <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="addCoachRelatedComment('goal',coachGoalDetailId,'coach-goal-comment-inp','coach-goal-comments-list')">+ Añadir comentario</button>
+  </div>
+</div>
+
+<!-- COACH FITNESS TEST DETAIL (comentarios del entrenador sobre un test físico) -->
+<div id="coach-fitness-detail-overlay" class="confirm-overlay hidden">
+  <div class="confirm-box" style="max-width:400px;width:94%;max-height:92vh;overflow-y:auto;padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div id="cfd-title" style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px"></div>
+      <button onclick="closeCoachFitnessDetail()" style="background:transparent;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1;padding:0">✕</button>
+    </div>
+    <div id="cfd-info" style="margin-bottom:14px"></div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--my);margin-bottom:10px">🎓 Comentarios para el alumno</div>
+    <div id="coach-fitness-comments-list" style="margin-bottom:12px"></div>
+    <textarea id="coach-fitness-comment-inp" class="goal-inp" rows="3" style="resize:none" placeholder="Escribe un comentario sobre este test..."></textarea>
+    <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="addCoachRelatedComment('fitness',coachFitnessDetailId,'coach-fitness-comment-inp','coach-fitness-comments-list')">+ Añadir comentario</button>
+  </div>
+</div>
+
 <!-- FITNESS TESTS -->
 <div id="fitness-screen" class="screen">
   <div class="screen-header">
@@ -2469,14 +2509,34 @@ function renderCoachStudentDetail(uid,p){
 
   // Objetivos
   html+=_card('🎯 Objetivos','var(--yellow)', gl.length? gl.map(g=>
-    _row(esc(g.title||''), g.achieved?'✅':'⏳', g.achieved?'#3DDB82':'var(--muted)')
+    `<div onclick="viewCoachGoal(${g.id})" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+      <span style="font-size:13px;color:var(--text)">${esc(g.title||'')}</span>
+      <span style="font-size:14px;font-weight:700;color:${g.achieved?'#3DDB82':'var(--muted)'}">${g.achieved?'✅':'⏳'}</span>
+    </div>`
   ).join('') : '<div style="font-size:12px;color:var(--muted)">Sin objetivos todavía.</div>');
 
-  // Evolución de peso
+  // Tests físicos
+  const ftAll=(p.fitnessTests||[]).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const ftRecent=ftAll.slice(0,8);
+  html+=_card('🏃 Tests físicos','var(--blue)', (ftRecent.length? ftRecent.map(t=>{
+    const cfg=t.testType==='custom'?{label:t.customLabel||'Test',icon:'✏️',unit:t.customUnit||''}:(FT_CFG[t.testType]||{label:t.testType,icon:'📊',unit:''});
+    return `<div onclick="viewCoachFitnessTest(${t.id})" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+      <span style="font-size:13px;color:var(--text)">${cfg.icon} ${esc(cfg.label)}</span>
+      <span style="font-size:12px;color:var(--muted)">${t.value}${cfg.unit} · ${fmtDate(t.date)}</span>
+    </div>`;
+  }).join('') : '<div style="font-size:12px;color:var(--muted)">Sin tests todavía.</div>') + (ftAll.length>8?`<button class="btn btn-ghost" style="width:100%;margin-top:10px;font-size:12px" onclick="openCoachFitnessHistory()">Ver historial completo (${ftAll.length}) →</button>`:''));
+
+  // Evolución de peso y altura
   if(bm.length){
     html+=`<div style="background:var(--card);border-radius:16px;padding:18px;border:1px solid var(--border);border-left:3px solid var(--blue);margin-bottom:14px">
-      <div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px">📏 Evolución de peso</div>
+      <div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px">📏 Evolución de peso y altura</div>
       <div style="position:relative;height:180px"><canvas id="csd-weight-chart"></canvas></div>
+      <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--my);margin-bottom:10px">🎓 Comentarios para el alumno</div>
+        <div id="csd-evolution-comments-list" style="margin-bottom:12px"><div style="font-size:12px;color:var(--muted)">Cargando...</div></div>
+        <textarea id="csd-evolution-comment-inp" class="goal-inp" rows="3" style="resize:none" placeholder="Escribe un comentario sobre su evolución física..."></textarea>
+        <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="addCoachRelatedComment('evolution',null,'csd-evolution-comment-inp','csd-evolution-comments-list')">+ Añadir comentario</button>
+      </div>
     </div>`;
   }
 
@@ -2502,12 +2562,20 @@ function renderCoachStudentDetail(uid,p){
   if(bm.length){
     mkChart('csd-weight-chart','line',{
       labels:bm.map(r=>fmtDate(r.date)),
-      datasets:[{label:'Peso (kg)',data:bm.map(r=>r.weight||null),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.08)',borderWidth:2.5,pointRadius:4,fill:true,tension:0.3}]
+      datasets:[
+        {label:'Altura (cm)',data:bm.map(r=>r.height||null),borderColor:'#3DDB82',backgroundColor:'rgba(61,219,130,0.08)',borderWidth:2.5,pointRadius:4,fill:false,tension:0.3,yAxisID:'y'},
+        {label:'Peso (kg)',data:bm.map(r=>r.weight||null),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.08)',borderWidth:2.5,pointRadius:4,fill:false,tension:0.3,yAxisID:'y1'}
+      ]
     },{
       responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{...CD.tooltip}},
-      scales:{y:{ticks:{color:CD.tick,font:{size:11}},grid:{color:CD.grid},border:{display:false}},x:{ticks:{color:CD.tick,font:{size:10},maxRotation:45},grid:{display:false},border:{display:false}}}
+      plugins:{legend:{display:true,labels:{color:CD.tick,font:{size:10},boxWidth:10}},tooltip:{...CD.tooltip}},
+      scales:{
+        y:{position:'left',ticks:{color:'#3DDB82',font:{size:10}},grid:{color:CD.grid},border:{display:false}},
+        y1:{position:'right',ticks:{color:'#3b82f6',font:{size:10}},grid:{display:false},border:{display:false}},
+        x:{ticks:{color:CD.tick,font:{size:10},maxRotation:45},grid:{display:false},border:{display:false}}
+      }
     });
+    renderCoachRelatedComments('evolution',null,'csd-evolution-comments-list');
   }
 
   loadCoachComments(uid);
@@ -2538,6 +2606,60 @@ function addCoachComment(uid){
     createdAt:new Date().toISOString(), relatedType:null, relatedId:null
   }).then(()=>{ta.value='';loadCoachComments(uid);}).catch(e=>{console.log(e);showToast('Error al guardar el comentario');});
 }
+
+// Comentarios del entrenador sobre un objetivo concreto del alumno
+let coachGoalDetailId=null;
+function viewCoachGoal(id){
+  if(!coachViewStudent)return;
+  const g=(coachViewStudent.data.goals||[]).find(x=>x.id===id);
+  if(!g)return;
+  coachGoalDetailId=id;
+  document.getElementById('cgd-title').textContent=g.title||'Objetivo';
+  const typeLabel=g.type==='habito'?'🔁 Hábito':g.type==='mejora'?'📈 Mejora':'🎯 Hito';
+  document.getElementById('cgd-info').innerHTML=`
+    <div style="font-size:12px;color:var(--muted);margin-bottom:6px">${typeLabel}${g.deadline?` · Fecha límite: ${fmtDate(g.deadline)}`:''}</div>
+    <div style="font-size:13px;font-weight:700;color:${g.achieved?'#3DDB82':'var(--muted)'};margin-bottom:8px">${g.achieved?'✅ Conseguido':'⏳ En progreso'}</div>
+    ${g.notes?`<div style="font-size:13px;color:var(--text);line-height:1.5">${esc(g.notes)}</div>`:''}
+  `;
+  document.getElementById('coach-goal-detail-overlay').classList.remove('hidden');
+  renderCoachRelatedComments('goal',id,'coach-goal-comments-list');
+}
+function closeCoachGoalDetail(){document.getElementById('coach-goal-detail-overlay').classList.add('hidden');coachGoalDetailId=null;}
+
+// Historial y comentarios del entrenador sobre los tests físicos del alumno
+function openCoachFitnessHistory(){
+  if(!coachViewStudent)return;
+  renderCoachFitnessHistory();
+  showScreen('coach-fitness-history-screen');
+}
+function renderCoachFitnessHistory(){
+  if(!coachViewStudent)return;
+  const list=document.getElementById('coach-fitness-history-list');
+  const tests=(coachViewStudent.data.fitnessTests||[]).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
+  document.getElementById('coach-fitness-hist-count').textContent=tests.length?`${tests.length} tests`:'';
+  if(!tests.length){list.innerHTML=`<div class="empty-state"><div class="empty-icon">🏃</div><p>Sin tests físicos todavía.</p></div>`;return;}
+  list.innerHTML=tests.map(t=>{
+    const cfg=t.testType==='custom'?{label:t.customLabel||'Test',icon:'✏️',unit:t.customUnit||''}:(FT_CFG[t.testType]||{label:t.testType,icon:'📊',unit:''});
+    return `<div class="hist-card" style="cursor:pointer" onclick="viewCoachFitnessTest(${t.id})"><div class="hist-top"><div><div class="hist-date">${fmtDate(t.date)}</div><span style="font-size:12px;color:var(--muted)">${cfg.icon} ${esc(cfg.label)}</span></div><span class="hist-badge badge-train">${t.value}${cfg.unit}</span></div>${t.notes?`<div class="hist-notes">${esc(t.notes)}</div>`:''}</div>`;
+  }).join('');
+}
+let coachFitnessDetailId=null;
+function viewCoachFitnessTest(id){
+  if(!coachViewStudent)return;
+  const t=(coachViewStudent.data.fitnessTests||[]).find(x=>x.id===id);
+  if(!t)return;
+  coachFitnessDetailId=id;
+  const cfg=t.testType==='custom'?{label:t.customLabel||'Test',icon:'✏️',unit:t.customUnit||''}:(FT_CFG[t.testType]||{label:t.testType,icon:'📊',unit:''});
+  document.getElementById('cfd-title').textContent=`${cfg.icon} ${cfg.label}`;
+  document.getElementById('cfd-info').innerHTML=`
+    <div style="font-size:22px;font-weight:700;color:var(--blue)">${t.value}${cfg.unit?' '+cfg.unit:''}</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:4px">${fmtDate(t.date)}</div>
+    ${t.notes?`<div style="font-size:13px;color:var(--text);margin-top:10px;line-height:1.5">${esc(t.notes)}</div>`:''}
+  `;
+  document.getElementById('coach-fitness-detail-overlay').classList.remove('hidden');
+  renderCoachRelatedComments('fitness',id,'coach-fitness-comments-list');
+}
+function closeCoachFitnessDetail(){document.getElementById('coach-fitness-detail-overlay').classList.add('hidden');coachFitnessDetailId=null;}
 
 function toggleStudentDisabled(uid,currentlyDisabled){
   const msg=currentlyDisabled?'¿Reactivar el acceso de este alumno?':'¿Seguro que quieres suspender el acceso de este alumno?';
