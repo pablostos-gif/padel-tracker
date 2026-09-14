@@ -1872,13 +1872,25 @@ function subscribeCoachStudentsActivity(){
       coachStudentListeners[uid]=fsDb.collection('players').doc(uid).onSnapshot(psnap=>{
         if(!psnap.exists)return;
         const data=psnap.data()||{};
-        const counts={m:(data.history||[]).length,t:(data.trainings||[]).length};
+        const counts={
+          m:(data.history||[]).length,
+          t:(data.trainings||[]).length,
+          bm:(data.bodyMeasurements||[]).length,
+          ft:(data.fitnessTests||[]).length,
+          g:(data.goals||[]).length
+        };
         const name=data.playerName||'Un alumno';
         if(baseline===null){ baseline=counts; return; } // no avisar en la carga inicial del listener
         if(counts.m>baseline.m){
           showCoachMsgToast('coach-home',`🎾 ${name} ha jugado un partido`,()=>openCoachStudent(uid));
         }else if(counts.t>baseline.t){
           showCoachMsgToast('coach-home',`💪 ${name} ha registrado un entrenamiento`,()=>openCoachStudent(uid));
+        }else if(counts.bm>baseline.bm){
+          showCoachMsgToast('coach-home',`⚖️ ${name} ha añadido una nueva medición`,()=>openCoachStudent(uid));
+        }else if(counts.ft>baseline.ft){
+          showCoachMsgToast('coach-home',`🏃 ${name} ha registrado un test físico`,()=>openCoachStudent(uid));
+        }else if(counts.g>baseline.g){
+          showCoachMsgToast('coach-home',`🎯 ${name} ha añadido un nuevo objetivo`,()=>openCoachStudent(uid));
         }
         baseline=counts;
         if(document.getElementById('coach-home')?.classList.contains('active'))loadCoachStudents();
