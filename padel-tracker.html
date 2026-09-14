@@ -2487,16 +2487,21 @@ function loadCoachStudents(){
           const trainings=(p.trainings||[]).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
           const lastTrain=trainings[0]?fmtDate(trainings[0].date):'—';
           const disabledBadge=p.disabled?'<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:8px;background:rgba(255,94,58,0.15);color:#FF5E3A;margin-left:8px">Inactivo</span>':'';
-          // Detecta si el alumno ha jugado un partido o hecho un entreno nuevo desde la última vez que el entrenador abrió su ficha
-          const lastActivityId=Math.max(0,...h.map(m=>m.id||0),...(p.trainings||[]).map(t=>t.id||0));
-          const hasNewActivity=lastActivityId>(r.lastSeenAt||0);
-          const newDot=hasNewActivity?'<div class="unread-comment-dot" title="Nueva actividad del alumno sin revisar">🎾</div>':'';
+          // Detecta si el alumno tiene actividad nueva (partido, entreno, medición, test u objetivo) desde la última vez que el entrenador abrió su ficha
+          const newItems=[
+            ...h.map(m=>({id:m.id||0,label:'🎾 Nuevo partido'})),
+            ...(p.trainings||[]).map(t=>({id:t.id||0,label:'💪 Nuevo entreno'})),
+            ...(p.bodyMeasurements||[]).map(b=>({id:b.id||0,label:'⚖️ Nueva medición'})),
+            ...(p.fitnessTests||[]).map(t=>({id:t.id||0,label:'🏃 Nuevo test físico'})),
+            ...(p.goals||[]).map(g=>({id:g.id||0,label:'🎯 Nuevo objetivo'}))
+          ].filter(it=>it.id>(r.lastSeenAt||0)).sort((a,b)=>b.id-a.id);
+          const newDot=newItems.length?`<div style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;background:rgba(255,94,58,0.15);color:var(--rival);font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;animation:pulse-dot 1.6s infinite">${newItems[0].label}${newItems.length>1?` +${newItems.length-1} más`:''}</div>`:'';
           return`<div class="goal-card" style="cursor:pointer;position:relative" onclick="openCoachStudent('${r.uid}')">
-            ${newDot}
             <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
               <div>
                 <div style="font-weight:700;font-size:15px">${esc(p.playerName||r.studentName||'Alumno')}${disabledBadge}</div>
                 <div style="font-size:12px;color:var(--muted);margin-top:3px">${h.length} partidos · ${pct}% victorias · Último entreno: ${lastTrain}</div>
+                ${newDot}
               </div>
               <span style="color:var(--muted);font-size:18px">›</span>
             </div>
