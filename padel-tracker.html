@@ -243,6 +243,11 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .hist-badge{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:3px 10px;border-radius:20px}
 .unread-comment-dot{position:absolute;top:-6px;right:-6px;background:var(--rival);color:#fff;font-size:11px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);animation:pulse-dot 1.6s infinite}
 @keyframes pulse-dot{0%{box-shadow:0 0 0 0 rgba(255,94,58,0.5)}70%{box-shadow:0 0 0 7px rgba(255,94,58,0)}100%{box-shadow:0 0 0 0 rgba(255,94,58,0)}}
+#coach-msg-toast{position:fixed;top:calc(14px + env(safe-area-inset-top));left:16px;right:16px;z-index:400;background:linear-gradient(135deg,rgba(16,185,129,0.97),rgba(6,182,212,0.97));border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 8px 24px rgba(0,0,0,0.4);transform:translateY(-130%);transition:transform 0.4s cubic-bezier(0.34,1.56,0.64,1);cursor:pointer}
+#coach-msg-toast.show{transform:translateY(0)}
+#coach-msg-toast .cmt-icon{font-size:20px;flex-shrink:0}
+#coach-msg-toast .cmt-text{font-size:14px;font-weight:600;color:#fff;flex:1;line-height:1.35}
+#coach-msg-toast .cmt-sub{font-size:11px;font-weight:500;color:rgba(255,255,255,0.85);margin-top:2px}
 .badge-win{background:rgba(61,219,130,0.13);color:var(--my)}
 .badge-loss{background:rgba(255,94,58,0.13);color:var(--rival)}
 .badge-train{background:rgba(181,123,255,0.15);color:var(--purple)}
@@ -537,10 +542,10 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   <div class="home-buttons">
     <div class="home-section-label">Partidos</div>
     <button class="btn btn-primary"    onclick="goToSetup()">⊕ &nbsp;Nuevo Partido</button>
-    <button class="btn btn-secondary"  onclick="showScreen('history-screen')">⊞ &nbsp;Historial de partidos</button>
+    <button class="btn btn-secondary"  style="position:relative" onclick="showScreen('history-screen')">⊞ &nbsp;Historial de partidos<span id="home-match-dot" class="unread-comment-dot" style="display:none">💬</span></button>
     <div class="home-section-label">Entrenamientos</div>
     <button class="btn btn-purple"     onclick="goToTraining()">⊕ &nbsp;Nuevo Entrenamiento</button>
-    <button class="btn btn-secondary"  onclick="showScreen('train-history-screen')">⊞ &nbsp;Historial de entrenos</button>
+    <button class="btn btn-secondary"  style="position:relative" onclick="showScreen('train-history-screen')">⊞ &nbsp;Historial de entrenos<span id="home-train-dot" class="unread-comment-dot" style="display:none">💬</span></button>
     <button class="btn btn-blue"       onclick="openSimFrom('home')">🎮 &nbsp;Simulador Táctico</button>
     <button class="btn btn-secondary"  onclick="window.open('https://padelcv.com/menores/','_blank')">🏆 &nbsp;Próximos Torneos</button>
     <div class="home-section-label">Desarrollo</div>
@@ -1598,6 +1603,15 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   </div>
 </div>
 
+<!-- COACH MESSAGE TOAST -->
+<div id="coach-msg-toast" onclick="handleCoachMsgToastClick()">
+  <span class="cmt-icon">💬</span>
+  <div>
+    <div class="cmt-text" id="coach-msg-toast-text">Tu entrenador te ha dejado un comentario</div>
+    <div class="cmt-sub">Toca para verlo →</div>
+  </div>
+</div>
+
 <!-- SAVE TOAST -->
 <div id="save-toast">
   <div class="st-title">✓ Datos guardados</div>
@@ -1757,17 +1771,42 @@ function subscribeToPlayerDoc(uid){
 function subscribeUnreadComments(uid){
   if(coachCommentsUnsub){try{coachCommentsUnsub();}catch(e){} coachCommentsUnsub=null;}
   unreadCommentIds={match:new Set(),training:new Set()};
+  let firstUnreadSnap=true;
   coachCommentsUnsub=fsDb.collection('players').doc(uid).collection('coachComments')
     .where('readByPlayer','==',false).onSnapshot(snap=>{
+      const prevMatch=unreadCommentIds.match,prevTraining=unreadCommentIds.training;
       unreadCommentIds={match:new Set(),training:new Set()};
       snap.forEach(d=>{
         const c=d.data();
         if(c.relatedType==='match'&&c.relatedId!=null)unreadCommentIds.match.add(c.relatedId);
         if(c.relatedType==='training'&&c.relatedId!=null)unreadCommentIds.training.add(c.relatedId);
       });
+      // Popup solo para comentarios realmente nuevos (no en la carga inicial del listener)
+      if(!firstUnreadSnap){
+        const newMatch=[...unreadCommentIds.match].some(id=>!prevMatch.has(id));
+        const newTraining=[...unreadCommentIds.training].some(id=>!prevTraining.has(id));
+        if(newMatch)showCoachMsgToast('history-screen','Tu entrenador ha comentado uno de tus partidos');
+        else if(newTraining)showCoachMsgToast('train-history-screen','Tu entrenador ha comentado uno de tus entrenos');
+      }
+      firstUnreadSnap=false;
       if(document.getElementById('history-screen')?.classList.contains('active'))renderHistory();
       if(document.getElementById('train-history-screen')?.classList.contains('active'))renderTrainHistory();
+      renderHome();
     }, e=>console.log('unread comments listener error:',e));
+}
+let coachMsgToastTimer=null,coachMsgToastTarget=null;
+function showCoachMsgToast(targetScreen,text){
+  const t=document.getElementById('coach-msg-toast');
+  if(!t)return;
+  coachMsgToastTarget=targetScreen;
+  document.getElementById('coach-msg-toast-text').textContent=text||'Tu entrenador te ha dejado un comentario';
+  t.classList.add('show');
+  clearTimeout(coachMsgToastTimer);
+  coachMsgToastTimer=setTimeout(()=>t.classList.remove('show'),6000);
+}
+function handleCoachMsgToastClick(){
+  document.getElementById('coach-msg-toast')?.classList.remove('show');
+  if(coachMsgToastTarget)showScreen(coachMsgToastTarget);
 }
 // Carga y muestra el hilo de comentarios del entrenador para un partido/entreno concreto (vista del alumno).
 // Marca como leídos los que estén pendientes al mostrarlos.
@@ -2350,7 +2389,12 @@ function loadCoachStudents(){
           const trainings=(p.trainings||[]).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
           const lastTrain=trainings[0]?fmtDate(trainings[0].date):'—';
           const disabledBadge=p.disabled?'<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:8px;background:rgba(255,94,58,0.15);color:#FF5E3A;margin-left:8px">Inactivo</span>':'';
-          return`<div class="goal-card" style="cursor:pointer" onclick="openCoachStudent('${r.uid}')">
+          // Detecta si el alumno ha jugado un partido o hecho un entreno nuevo desde la última vez que el entrenador abrió su ficha
+          const lastActivityId=Math.max(0,...h.map(m=>m.id||0),...(p.trainings||[]).map(t=>t.id||0));
+          const hasNewActivity=lastActivityId>(r.lastSeenAt||0);
+          const newDot=hasNewActivity?'<div class="unread-comment-dot" title="Nueva actividad del alumno sin revisar">🎾</div>':'';
+          return`<div class="goal-card" style="cursor:pointer;position:relative" onclick="openCoachStudent('${r.uid}')">
+            ${newDot}
             <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
               <div>
                 <div style="font-weight:700;font-size:15px">${esc(p.playerName||r.studentName||'Alumno')}${disabledBadge}</div>
@@ -2372,6 +2416,8 @@ function openCoachStudent(uid){
     if(!snap.exists){document.getElementById('csd-body').innerHTML='<div class="empty-state"><div class="empty-icon">🔍</div><p>Alumno no encontrado.</p></div>';return;}
     renderCoachStudentDetail(uid,snap.data()||{});
   }).catch(e=>{console.log(e);document.getElementById('csd-body').innerHTML='<div class="empty-state"><p>Error al cargar el alumno.</p></div>';});
+  // Marca la actividad del alumno (partidos/entrenos) como revisada por el entrenador
+  fsDb.collection('coaches').doc(currentUser.uid).collection('students').doc(uid).set({lastSeenAt:Date.now()},{merge:true}).catch(e=>console.log(e));
 }
 
 function renderCoachStudentDetail(uid,p){
@@ -3038,6 +3084,10 @@ function renderHome(){
   const goals=app.goals||[],done=goals.filter(g=>g.achieved||(g.type==='mejora'&&autoCheckMejora(g)===true)).length;
   const badge=document.getElementById('home-goals-badge');
   if(badge)badge.textContent=goals.length?`${done}/${goals.length} conseguidos`:'Sin objetivos';
+  const matchDot=document.getElementById('home-match-dot');
+  if(matchDot)matchDot.style.display=unreadCommentIds.match.size?'flex':'none';
+  const trainDot=document.getElementById('home-train-dot');
+  if(trainDot)trainDot.style.display=unreadCommentIds.training.size?'flex':'none';
   renderHomeHabitWidget();
 }
 function changePlayerName(){const n=prompt('Nombre del jugador:',app.playerName||'');if(n!==null&&n.trim()){app.playerName=n.trim();saveApp();renderHome();}}
