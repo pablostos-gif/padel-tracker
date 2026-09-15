@@ -2519,13 +2519,17 @@ function openCoachStudent(uid){
   showScreen('coach-student-detail');
   document.getElementById('csd-body').innerHTML='<div style="text-align:center;color:var(--muted);padding:30px">Cargando...</div>';
   const studentRef=fsDb.collection('coaches').doc(currentUser.uid).collection('students').doc(uid);
-  Promise.all([fsDb.collection('players').doc(uid).get(), studentRef.get()]).then(([snap,stuSnap])=>{
-    if(!snap.exists){document.getElementById('csd-body').innerHTML='<div class="empty-state"><div class="empty-icon">🔍</div><p>Alumno no encontrado.</p></div>';return;}
+  // Primero leemos lastSeenAt y SOLO DESPUÉS lo actualizamos, para evitar una condición de
+  // carrera en la que la escritura llegue al servidor antes que la lectura y el entrenador
+  // termine leyendo su propio valor recién escrito (con lo que nada parecería "nuevo").
+  studentRef.get().then(stuSnap=>{
     const prevLastSeenAt=(stuSnap.exists&&stuSnap.data().lastSeenAt)||0;
-    renderCoachStudentDetail(uid,snap.data()||{},prevLastSeenAt,true);
+    studentRef.set({lastSeenAt:Date.now()},{merge:true}).catch(e=>console.log(e));
+    return fsDb.collection('players').doc(uid).get().then(snap=>{
+      if(!snap.exists){document.getElementById('csd-body').innerHTML='<div class="empty-state"><div class="empty-icon">🔍</div><p>Alumno no encontrado.</p></div>';return;}
+      renderCoachStudentDetail(uid,snap.data()||{},prevLastSeenAt,true);
+    });
   }).catch(e=>{console.log(e);document.getElementById('csd-body').innerHTML='<div class="empty-state"><p>Error al cargar el alumno.</p></div>';});
-  // Marca la actividad del alumno (partidos/entrenos) como revisada por el entrenador
-  studentRef.set({lastSeenAt:Date.now()},{merge:true}).catch(e=>console.log(e));
 }
 
 function renderCoachStudentDetail(uid,p,prevLastSeenAt,scrollToNew){
