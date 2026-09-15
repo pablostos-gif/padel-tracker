@@ -27,6 +27,8 @@ service cloud.firestore {
       match /students/{studentUid} {
         allow read: if true;
         allow create: if request.auth != null && request.auth.uid == studentUid;
+        allow update: if request.auth != null && request.auth.uid == coachId &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastSeenAt']);
         allow delete: if request.auth != null && (request.auth.uid == coachId || request.auth.uid == studentUid);
       }
     }

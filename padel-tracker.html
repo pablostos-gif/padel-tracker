@@ -1895,7 +1895,7 @@ function subscribeCoachStudentsActivity(){
         baseline=counts;
         if(document.getElementById('coach-home')?.classList.contains('active'))loadCoachStudents();
         if(coachViewStudent&&coachViewStudent.uid===uid&&document.getElementById('coach-student-detail')?.classList.contains('active')){
-          renderCoachStudentDetail(uid,data);
+          renderCoachStudentDetail(uid,data,coachViewStudent.prevLastSeenAt);
         }
       }, e=>console.log('coach student activity listener error:',e));
     });
@@ -2515,16 +2515,20 @@ function openCoachStudent(uid){
   currentCoachStudentUid=uid;
   showScreen('coach-student-detail');
   document.getElementById('csd-body').innerHTML='<div style="text-align:center;color:var(--muted);padding:30px">Cargando...</div>';
-  fsDb.collection('players').doc(uid).get().then(snap=>{
+  const studentRef=fsDb.collection('coaches').doc(currentUser.uid).collection('students').doc(uid);
+  Promise.all([fsDb.collection('players').doc(uid).get(), studentRef.get()]).then(([snap,stuSnap])=>{
     if(!snap.exists){document.getElementById('csd-body').innerHTML='<div class="empty-state"><div class="empty-icon">🔍</div><p>Alumno no encontrado.</p></div>';return;}
-    renderCoachStudentDetail(uid,snap.data()||{});
+    const prevLastSeenAt=(stuSnap.exists&&stuSnap.data().lastSeenAt)||0;
+    renderCoachStudentDetail(uid,snap.data()||{},prevLastSeenAt);
   }).catch(e=>{console.log(e);document.getElementById('csd-body').innerHTML='<div class="empty-state"><p>Error al cargar el alumno.</p></div>';});
   // Marca la actividad del alumno (partidos/entrenos) como revisada por el entrenador
-  fsDb.collection('coaches').doc(currentUser.uid).collection('students').doc(uid).set({lastSeenAt:Date.now()},{merge:true}).catch(e=>console.log(e));
+  studentRef.set({lastSeenAt:Date.now()},{merge:true}).catch(e=>console.log(e));
 }
 
-function renderCoachStudentDetail(uid,p){
-  coachViewStudent={uid,data:p};
+function renderCoachStudentDetail(uid,p,prevLastSeenAt){
+  coachViewStudent={uid,data:p,prevLastSeenAt};
+  const isNew=id=>(id||0)>(prevLastSeenAt||0);
+  const newTag='<span style="background:rgba(255,94,58,0.15);color:var(--rival);font-size:9px;font-weight:700;letter-spacing:0.5px;padding:2px 7px;border-radius:8px;margin-left:6px;vertical-align:middle">NUEVO</span>';
   document.getElementById('csd-name').textContent=p.playerName||'Alumno';
   const h=(p.history||[]).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
   const tr=(p.trainings||[]).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
@@ -2556,7 +2560,7 @@ function renderCoachStudentDetail(uid,p){
   html+=_card('🎾 Últimos partidos','var(--blue)', (recentMatches.length? recentMatches.map(m=>{
     const rival=[m.rival1,m.rival2].filter(Boolean).join(' / ');
     const sets=(m.sets||[]).map(s=>`${s.my}-${s.ri}`).join(' ');
-    return _row(`${rival?'vs '+esc(rival):fmtDate(m.date)} <span style="color:var(--muted);font-size:11px">· ${fmtDate(m.date)}${sets?' · '+sets:''}</span>`, m.isWin?'V':'D', m.isWin?'#3DDB82':'#FF5E3A');
+    return _row(`${rival?'vs '+esc(rival):fmtDate(m.date)} <span style="color:var(--muted);font-size:11px">· ${fmtDate(m.date)}${sets?' · '+sets:''}</span>${isNew(m.id)?newTag:''}`, m.isWin?'V':'D', m.isWin?'#3DDB82':'#FF5E3A');
   }).join('') : '<div style="font-size:12px;color:var(--muted)">Sin partidos todavía.</div>') + (h.length?`<button class="btn btn-ghost" style="width:100%;margin-top:10px;font-size:12px" onclick="openCoachMatchHistory()">Ver historial completo (${h.length}) →</button>`:''));
 
   // Últimos entrenamientos
@@ -2565,7 +2569,7 @@ function renderCoachStudentDetail(uid,p){
     const typeLabel=t.type==='both'?'Técnico + Físico':t.type==='fis'?'Físico':'Técnico';
     const bits=[t.duration?`${t.duration} min`:null, t.energia?`⚡${t.energia}`:null, t.humor?`😊${t.humor}`:null, t.intensidad?`🔥${t.intensidad}`:null].filter(Boolean).join(' · ');
     return `<div style="padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-      <div style="display:flex;justify-content:space-between"><span style="font-size:13px">${esc(typeLabel)}</span><span style="font-size:11px;color:var(--muted)">${fmtDate(t.date)}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="font-size:13px">${esc(typeLabel)}${isNew(t.id)?newTag:''}</span><span style="font-size:11px;color:var(--muted)">${fmtDate(t.date)}</span></div>
       ${bits?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${bits}</div>`:''}
     </div>`;
   }).join('') : '<div style="font-size:12px;color:var(--muted)">Sin entrenamientos todavía.</div>') + (tr.length?`<button class="btn btn-ghost" style="width:100%;margin-top:10px;font-size:12px" onclick="openCoachTrainHistory()">Ver historial completo (${tr.length}) →</button>`:''));
@@ -2573,7 +2577,7 @@ function renderCoachStudentDetail(uid,p){
   // Objetivos
   html+=_card('🎯 Objetivos','var(--yellow)', gl.length? gl.map(g=>
     `<div onclick="viewCoachGoal(${g.id})" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-      <span style="font-size:13px;color:var(--text)">${esc(g.title||'')}</span>
+      <span style="font-size:13px;color:var(--text)">${esc(g.title||'')}${isNew(g.id)?newTag:''}</span>
       <span style="font-size:14px;font-weight:700;color:${g.achieved?'#3DDB82':'var(--muted)'}">${g.achieved?'✅':'⏳'}</span>
     </div>`
   ).join('') : '<div style="font-size:12px;color:var(--muted)">Sin objetivos todavía.</div>');
@@ -2584,7 +2588,7 @@ function renderCoachStudentDetail(uid,p){
   html+=_card('🏃 Tests físicos','var(--blue)', (ftRecent.length? ftRecent.map(t=>{
     const cfg=t.testType==='custom'?{label:t.customLabel||'Test',icon:'✏️',unit:t.customUnit||''}:(FT_CFG[t.testType]||{label:t.testType,icon:'📊',unit:''});
     return `<div onclick="viewCoachFitnessTest(${t.id})" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-      <span style="font-size:13px;color:var(--text)">${cfg.icon} ${esc(cfg.label)}</span>
+      <span style="font-size:13px;color:var(--text)">${cfg.icon} ${esc(cfg.label)}${isNew(t.id)?newTag:''}</span>
       <span style="font-size:12px;color:var(--muted)">${t.value}${cfg.unit} · ${fmtDate(t.date)}</span>
     </div>`;
   }).join('') : '<div style="font-size:12px;color:var(--muted)">Sin tests todavía.</div>') + (ftAll.length>8?`<button class="btn btn-ghost" style="width:100%;margin-top:10px;font-size:12px" onclick="openCoachFitnessHistory()">Ver historial completo (${ftAll.length}) →</button>`:''));
