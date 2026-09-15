@@ -2742,10 +2742,16 @@ function renderCoachFitnessHistory(){
   const tests=(coachViewStudent.data.fitnessTests||[]).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
   document.getElementById('coach-fitness-hist-count').textContent=tests.length?`${tests.length} tests`:'';
   if(!tests.length){list.innerHTML=`<div class="empty-state"><div class="empty-icon">🏃</div><p>Sin tests físicos todavía.</p></div>`;return;}
+  const prevLastSeenAt=coachViewStudent.prevLastSeenAt||0;
+  const isNew=id=>(id||0)>prevLastSeenAt;
+  const newTag='<span class="csd-new-bubble">🆕 NUEVO</span>';
   list.innerHTML=tests.map(t=>{
     const cfg=t.testType==='custom'?{label:t.customLabel||'Test',icon:'✏️',unit:t.customUnit||''}:(FT_CFG[t.testType]||{label:t.testType,icon:'📊',unit:''});
-    return `<div class="hist-card" style="cursor:pointer" onclick="viewCoachFitnessTest(${t.id})"><div class="hist-top"><div><div class="hist-date">${fmtDate(t.date)}</div><span style="font-size:12px;color:var(--muted)">${cfg.icon} ${esc(cfg.label)}</span></div><span class="hist-badge badge-train">${t.value}${cfg.unit}</span></div>${t.notes?`<div class="hist-notes">${esc(t.notes)}</div>`:''}</div>`;
+    const nw=isNew(t.id);
+    return `<div class="hist-card${nw?' csd-flash':''}"${nw?' id="csd-hist-first-new"':''} style="cursor:pointer" onclick="viewCoachFitnessTest(${t.id})"><div class="hist-top"><div><div class="hist-date">${fmtDate(t.date)}</div><span style="font-size:12px;color:var(--muted)">${cfg.icon} ${esc(cfg.label)}</span></div><div style="display:flex;align-items:center;gap:6px">${nw?newTag:''}<span class="hist-badge badge-train">${t.value}${cfg.unit}</span></div></div>${t.notes?`<div class="hist-notes">${esc(t.notes)}</div>`:''}</div>`;
   }).join('');
+  const firstNew=document.getElementById('csd-hist-first-new');
+  if(firstNew)setTimeout(()=>firstNew.scrollIntoView({behavior:'smooth',block:'center'}),150);
 }
 let coachFitnessDetailId=null;
 function viewCoachFitnessTest(id){
@@ -2812,11 +2818,17 @@ function renderCoachMatchHistory(){
   const filtered=coachActiveMatchMonth==='all'?sorted:sorted.filter(m=>(m.date||'').startsWith(coachActiveMatchMonth));
   document.getElementById('coach-match-hist-count').textContent=h.length?`${h.length} partidos`:'';
   if(!filtered.length){list.innerHTML=`<div class="empty-state"><div class="empty-icon">🎾</div><p>${coachActiveMatchMonth==='all'?'Sin partidos todavía.':'No hay partidos este mes.'}</p></div>`;return;}
+  const prevLastSeenAt=coachViewStudent.prevLastSeenAt||0;
+  const isNew=id=>(id||0)>prevLastSeenAt;
+  const newTag='<span class="csd-new-bubble">🆕 NUEVO</span>';
   list.innerHTML=filtered.map(m=>{
     const mn=[m.myName,m.myPartner].filter(Boolean).join(' / '),rn=[m.rival1,m.rival2].filter(Boolean).join(' / ');
     const sh=(m.sets||[]).map((s,i)=>{const w=s.my>s.ri,sep=i<m.sets.length-1?'<span class="set-dot">·</span>':'';return`<span class="set-score"><span class="${w?'w':'l'}">${s.my}</span>-<span class="${w?'l':'w'}">${s.ri}</span></span>${sep}`;}).join('');
-    return`<div class="hist-card" onclick="viewCoachMatchDetail(${h.indexOf(m)})"><div style="display:flex;gap:10px"><div style="flex:1;min-width:0"><div class="hist-top"><div><div class="hist-date">${m.tournament?esc(m.tournament)+' · ':''}${fmtDate(m.date)}</div></div><span class="hist-badge ${m.isWin?'badge-win':'badge-loss'}">${m.isWin?'VICTORIA':'DERROTA'}</span></div><div class="hist-players">${esc(mn)}<span class="vs">vs</span>${esc(rn)}</div><div class="hist-score">${sh}</div>${m.notes?`<div class="hist-notes">${esc(m.notes)}</div>`:''}</div></div></div>`;
+    const nw=isNew(m.id);
+    return`<div class="hist-card${nw?' csd-flash':''}"${nw?' id="csd-hist-first-new"':''} onclick="viewCoachMatchDetail(${h.indexOf(m)})"><div style="display:flex;gap:10px"><div style="flex:1;min-width:0"><div class="hist-top"><div><div class="hist-date">${m.tournament?esc(m.tournament)+' · ':''}${fmtDate(m.date)}</div></div><div style="display:flex;align-items:center;gap:6px">${nw?newTag:''}<span class="hist-badge ${m.isWin?'badge-win':'badge-loss'}">${m.isWin?'VICTORIA':'DERROTA'}</span></div></div><div class="hist-players">${esc(mn)}<span class="vs">vs</span>${esc(rn)}</div><div class="hist-score">${sh}</div>${m.notes?`<div class="hist-notes">${esc(m.notes)}</div>`:''}</div></div></div>`;
   }).join('');
+  const firstNew=document.getElementById('csd-hist-first-new');
+  if(firstNew)setTimeout(()=>firstNew.scrollIntoView({behavior:'smooth',block:'center'}),150);
 }
 function viewCoachMatchDetail(idx){
   if(!coachViewStudent)return;
@@ -2909,6 +2921,9 @@ function renderCoachTrainHistory(){
   const filtered=coachActiveTrainMonth==='all'?sorted:sorted.filter(t=>(t.date||'').startsWith(coachActiveTrainMonth));
   document.getElementById('coach-train-hist-count').textContent=tr.length?`${tr.length} sesiones`:'';
   if(!filtered.length){list.innerHTML=`<div class="empty-state"><div class="empty-icon">💪</div><p>${coachActiveTrainMonth==='all'?'Sin entrenamientos todavía.':'No hay entrenamientos este mes.'}</p></div>`;return;}
+  const prevLastSeenAt=coachViewStudent.prevLastSeenAt||0;
+  const isNew=id=>(id||0)>prevLastSeenAt;
+  const newTag='<span class="csd-new-bubble">🆕 NUEVO</span>';
   list.innerHTML=filtered.map(t=>{
     const isTec=t.type==='tec'||t.type==='both';
     const shots=t.shotQuality?Object.entries(t.shotQuality).filter(([,v])=>v>0):[];
@@ -2916,8 +2931,11 @@ function renderCoachTrainHistory(){
     const dur=t.duration?`${t.duration}min · `:'';
     const coachStr=t.coach?`<span style="font-size:11px;color:var(--muted)">🎓 ${esc(t.coach)}</span>`:'';
     const sr=`<div class="train-state-row"><div>⚡${'●'.repeat(t.energia||0)}</div><div>😊${'●'.repeat(t.humor||0)}</div><div>🔥${'●'.repeat(t.intensidad||0)}</div></div>`;
-    return`<div class="hist-card ${isTec?'train-card':'train-card fis'}" style="cursor:pointer" onclick="viewCoachTrainingDetail(${tr.indexOf(t)})"><div class="hist-top"><div><div class="hist-date">${dur}${fmtDate(t.date)}</div>${coachStr}</div><span class="hist-badge ${isTec?'badge-train':'badge-train-fis'}">${t.type==='both'?'TÉCNICO + FÍSICO':isTec?'TÉCNICO':'FÍSICO'}</span></div>${shots.length?`<div class="train-shots-row">${sc}${shots.length>5?`<span style="font-size:11px;color:var(--muted)">+${shots.length-5} más</span>`:''}</div>`:''}${t.exercises&&t.exercises.length?`<div style="font-size:12px;color:var(--muted);margin-top:6px">${t.exercises.slice(0,3).map(e=>esc(e)).join(' · ')}</div>`:''}${sr}${t.notes?`<div class="hist-notes">${esc(t.notes)}</div>`:''}</div>`;
+    const nw=isNew(t.id);
+    return`<div class="hist-card ${isTec?'train-card':'train-card fis'}${nw?' csd-flash':''}"${nw?' id="csd-hist-first-new"':''} style="cursor:pointer" onclick="viewCoachTrainingDetail(${tr.indexOf(t)})"><div class="hist-top"><div><div class="hist-date">${dur}${fmtDate(t.date)}</div>${coachStr}</div><div style="display:flex;align-items:center;gap:6px">${nw?newTag:''}<span class="hist-badge ${isTec?'badge-train':'badge-train-fis'}">${t.type==='both'?'TÉCNICO + FÍSICO':isTec?'TÉCNICO':'FÍSICO'}</span></div></div>${shots.length?`<div class="train-shots-row">${sc}${shots.length>5?`<span style="font-size:11px;color:var(--muted)">+${shots.length-5} más</span>`:''}</div>`:''}${t.exercises&&t.exercises.length?`<div style="font-size:12px;color:var(--muted);margin-top:6px">${t.exercises.slice(0,3).map(e=>esc(e)).join(' · ')}</div>`:''}${sr}${t.notes?`<div class="hist-notes">${esc(t.notes)}</div>`:''}</div>`;
   }).join('');
+  const firstNew=document.getElementById('csd-hist-first-new');
+  if(firstNew)setTimeout(()=>firstNew.scrollIntoView({behavior:'smooth',block:'center'}),150);
 }
 function _coachRatingRow(label,val){return`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)"><span style="font-size:13px">${esc(label)}</span><span style="color:#C9A227;font-size:13px">${'★'.repeat(val)}${'☆'.repeat(5-val)}</span></div>`;}
 function viewCoachTrainingDetail(idx){
