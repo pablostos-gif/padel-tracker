@@ -1938,11 +1938,8 @@ function renderCoachRelatedComments(relatedType,relatedId,listId){
   fsDb.collection('players').doc(coachViewStudent.uid).collection('coachComments')
     .where('relatedType','==',relatedType).where('relatedId','==',relatedId).get().then(snap=>{
       if(snap.empty){el.innerHTML='<div style="font-size:12px;color:var(--muted)">Todavía no has escrito ningún comentario aquí.</div>';return;}
-      const docs=snap.docs.map(d=>d.data()).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
-      el.innerHTML=docs.map(c=>`<div style="padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-        <div style="font-size:13px;line-height:1.5">${esc(c.text||'')}</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:4px">${esc(c.authorName||'')} · ${fmtDate((c.createdAt||'').slice(0,10))}${c.readByPlayer?' · Leído':' · Sin leer'}</div>
-      </div>`).join('');
+      const docs=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+      el.innerHTML=docs.map(c=>_renderCoachCommentRow(c,relatedType,relatedId,listId)).join('');
     }).catch(e=>{console.log(e);el.innerHTML='<div style="font-size:12px;color:var(--rival)">Error al cargar los comentarios.</div>';});
 }
 function addCoachRelatedComment(relatedType,relatedId,taId,listId){
@@ -1955,6 +1952,66 @@ function addCoachRelatedComment(relatedType,relatedId,taId,listId){
     createdAt:new Date().toISOString(), relatedType, relatedId, readByPlayer:false
   }).then(()=>{ta.value='';renderCoachRelatedComments(relatedType,relatedId,listId);showToast('Comentario enviado');})
   .catch(e=>{console.log(e);showToast('Error al guardar el comentario');});
+}
+// Genera un literal JS seguro para embeber en un atributo onclick (null / número / string entre comillas simples)
+function _jsv(v){ return (v===null||v===undefined) ? 'null' : (typeof v==='number' ? v : `'${String(v).replace(/'/g,"\\'")}'`); }
+// Pinta una fila de comentario del entrenador con opciones de editar/eliminar si el comentario es suyo.
+// Se usa tanto en los hilos de comentarios por partido/entreno/objetivo/test/evolución como en el feed general de notas.
+let coachCommentEditId=null;
+function _renderCoachCommentRow(c,relatedType,relatedId,listId){
+  const isMine=c.authorId===currentUser.uid;
+  if(coachCommentEditId===c.id){
+    return `<div style="padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+      <textarea id="cc-edit-${c.id}" class="goal-inp" rows="3" style="resize:none;margin-bottom:8px">${esc(c.text||'')}</textarea>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary" style="flex:1;padding:8px;font-size:12px" onclick="saveEditCoachComment(${_jsv(c.id)},${_jsv(relatedType)},${_jsv(relatedId)},${_jsv(listId)})">Guardar</button>
+        <button class="btn btn-ghost" style="flex:1;padding:8px;font-size:12px" onclick="cancelEditCoachComment(${_jsv(relatedType)},${_jsv(relatedId)},${_jsv(listId)})">Cancelar</button>
+      </div>
+    </div>`;
+  }
+  return `<div style="padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+    <div style="font-size:13px;line-height:1.5">${esc(c.text||'')}</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;gap:8px">
+      <div style="font-size:10px;color:var(--muted)">${esc(c.authorName||'')} · ${fmtDate((c.createdAt||'').slice(0,10))}${c.editedAt?' · editado':''}${c.readByPlayer!==undefined?(c.readByPlayer?' · Leído':' · Sin leer'):''}</div>
+      ${isMine?`<div style="display:flex;gap:12px;flex-shrink:0">
+        <span style="cursor:pointer;font-size:13px" onclick="startEditCoachComment(${_jsv(c.id)},${_jsv(relatedType)},${_jsv(relatedId)},${_jsv(listId)})" title="Editar">✏️</span>
+        <span style="cursor:pointer;font-size:13px" onclick="deleteCoachComment(${_jsv(c.id)},${_jsv(relatedType)},${_jsv(relatedId)},${_jsv(listId)})" title="Eliminar">🗑️</span>
+      </div>`:''}
+    </div>
+  </div>`;
+}
+function _refreshCoachComments(relatedType,relatedId,listId){
+  if(listId==='csd-comments-list')loadCoachComments(coachViewStudent.uid);
+  else renderCoachRelatedComments(relatedType,relatedId,listId);
+}
+function startEditCoachComment(id,relatedType,relatedId,listId){
+  coachCommentEditId=id;
+  _refreshCoachComments(relatedType,relatedId,listId);
+}
+function cancelEditCoachComment(relatedType,relatedId,listId){
+  coachCommentEditId=null;
+  _refreshCoachComments(relatedType,relatedId,listId);
+}
+function saveEditCoachComment(id,relatedType,relatedId,listId){
+  const ta=document.getElementById('cc-edit-'+id);
+  if(!ta||!coachViewStudent)return;
+  const text=(ta.value||'').trim();
+  if(!text)return;
+  fsDb.collection('players').doc(coachViewStudent.uid).collection('coachComments').doc(id).update({
+    text, editedAt:new Date().toISOString()
+  }).then(()=>{
+    coachCommentEditId=null;
+    _refreshCoachComments(relatedType,relatedId,listId);
+    showToast('Comentario actualizado');
+  }).catch(e=>{console.log(e);showToast('Error al actualizar el comentario');});
+}
+function deleteCoachComment(id,relatedType,relatedId,listId){
+  if(!coachViewStudent)return;
+  if(!confirm('¿Eliminar este comentario?'))return;
+  fsDb.collection('players').doc(coachViewStudent.uid).collection('coachComments').doc(id).delete().then(()=>{
+    _refreshCoachComments(relatedType,relatedId,listId);
+    showToast('Comentario eliminado');
+  }).catch(e=>{console.log(e);showToast('Error al eliminar el comentario');});
 }
 
 function syncToFirebase(){
@@ -2690,13 +2747,8 @@ function loadCoachComments(uid){
   if(!el)return;
   fsDb.collection('players').doc(uid).collection('coachComments').orderBy('createdAt','desc').get().then(snap=>{
     if(snap.empty){el.innerHTML='<div style="font-size:12px;color:var(--muted)">Sin notas todavía.</div>';return;}
-    el.innerHTML=snap.docs.map(d=>{
-      const c=d.data();
-      return`<div style="padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-        <div style="font-size:13px;line-height:1.5">${esc(c.text||'')}</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:4px">${esc(c.authorName||'')} · ${fmtDate((c.createdAt||'').slice(0,10))}</div>
-      </div>`;
-    }).join('');
+    const docs=snap.docs.map(d=>({id:d.id,...d.data()}));
+    el.innerHTML=docs.map(c=>_renderCoachCommentRow(c,null,null,'csd-comments-list')).join('');
   }).catch(e=>{console.log(e);el.innerHTML='<div style="font-size:12px;color:var(--rival)">Error al cargar las notas.</div>';});
 }
 
