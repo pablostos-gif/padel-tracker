@@ -2624,8 +2624,11 @@ function renderCoachStudentDetail(uid,p,prevLastSeenAt,scrollToNew){
 
   // Evolución de peso y altura
   if(bm.length){
-    html+=`<div style="background:var(--card);border-radius:16px;padding:18px;border:1px solid var(--border);border-left:3px solid var(--blue);margin-bottom:14px">
-      <div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px">📏 Evolución de peso y altura</div>
+    const newestBm=bm[bm.length-1];
+    const bmIsNew=isNew(newestBm.id);
+    html+=`<div${bmIsNew?' class="csd-flash" id="csd-first-new"':''} style="background:var(--card);border-radius:16px;padding:18px;border:1px solid var(--border);border-left:3px solid var(--blue);margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px">📏 Evolución de peso y altura${bmIsNew?newTag:''}</div>
+      ${bmIsNew?`<div style="font-size:12px;color:var(--rival);font-weight:600;margin-bottom:10px">📅 Nueva medición del ${fmtDate(newestBm.date)}${newestBm.weight?` · ${newestBm.weight} kg`:''}${newestBm.height?` · ${newestBm.height} cm`:''}</div>`:''}
       <div style="position:relative;height:180px"><canvas id="csd-weight-chart"></canvas></div>
       <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px">
         <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--my);margin-bottom:10px">🎓 Comentarios para el alumno</div>
